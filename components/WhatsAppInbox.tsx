@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Search, Send, Paperclip, Smile, CheckCheck, 
@@ -82,9 +81,6 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
     setProvisioningLogs(prev => [...prev.slice(-12), `[${new Date().toLocaleTimeString()}] ${msg}`]);
   };
 
-  /**
-   * PASSO 1: CREATE INSTANCE REAL
-   */
   const handleActivateAccount = async () => {
     if (instanceName.length < 3) {
       setErrorInfo("O nome da instância deve ter pelo menos 3 caracteres.");
@@ -97,7 +93,6 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
     addLog(`INITIALIZING: Handshake Multi-Channel para "${instanceName}"`);
     
     try {
-      // Mapeamento de engine para o padrão Evolution
       const integrationName = channelType === 'BAILEYS' ? 'baileys' : 'whatsapp_business';
       addLog(`CONFIG: Engine "${integrationName}" requisitada.`);
 
@@ -118,7 +113,6 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
       const data = await response.json();
 
       if (!response.ok) {
-        // Log do erro específico retornado pela API
         const apiError = data.message || data.error || `Status ${response.status}`;
         addLog(`ERROR: ${apiError}`);
         
@@ -142,9 +136,6 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
     }
   };
 
-  /**
-   * PASSO 2: GET REAL QR CODE FROM API
-   */
   const handleGetQRCode = async () => {
     setIsConnecting(true);
     addLog(`SYNC: Solicitando Buffer de Pareamento via Socket...`);
@@ -158,7 +149,7 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
       const data = await response.json();
 
       if (data.base64) {
-        setQrCode(data.base64); // injeta o base64 real retornado pela api
+        setQrCode(data.base64);
         addLog(`DONE: QR Code Handshake recebido (Base64).`);
         setShowQrModal(true);
       } else if (data.instance?.state === 'open' || data.status === 'CONNECTED') {
@@ -243,7 +234,6 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
   return (
     <div className="h-full flex flex-col bg-white dark:bg-slate-955 overflow-hidden relative">
       
-      {/* MODAL QR CODE REAL EVOLUTION */}
       {showQrModal && qrCode && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
           <div className="bg-white w-full max-w-[500px] rounded-[3.5rem] shadow-2xl p-12 relative border border-slate-100 flex flex-col items-center">
@@ -267,7 +257,6 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                className="bg-white p-6 rounded-[2.5rem] shadow-2xl border border-slate-100 relative group cursor-pointer overflow-hidden" 
                onClick={handleConfirmConnection}
             >
-              {/* O SRC aqui recebe diretamente o base64 da API */}
               <img src={qrCode} alt="WhatsApp QR" className="w-[300px] h-[300px] object-contain select-none" />
               
               <div className="absolute inset-0 bg-white/80 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-all duration-300">
@@ -286,7 +275,7 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                   </div>
                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
                </div>
-               <p className="text-[9px] text-center text-slate-400 font-bold uppercase tracking-widest">Abra o WhatsApp > Configurações > Aparelhos Conectados</p>
+               <p className="text-[9px] text-center text-slate-400 font-bold uppercase tracking-widest">Abra o WhatsApp &gt; Configurações &gt; Aparelhos Conectados</p>
             </div>
           </div>
         </div>
@@ -295,8 +284,6 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
       {connStatus !== 'CONNECTED' && (
         <div className="absolute inset-0 z-[100] bg-slate-950/95 backdrop-blur-3xl flex items-center justify-center p-6 md:p-12 animate-in fade-in">
            <div className="max-w-7xl w-full bg-white dark:bg-slate-900 rounded-[4rem] shadow-2xl border border-white/10 overflow-hidden flex flex-col md:flex-row">
-              
-              {/* SIDEBAR TÉCNICA: EVOLUTION HUB */}
               <div className="w-full md:w-5/12 p-12 space-y-10 border-r border-slate-100 dark:border-slate-800 bg-slate-50/20 dark:bg-slate-900/20">
                  <div className="flex items-center gap-5">
                     <div className="w-16 h-16 bg-indigo-600 rounded-[1.8rem] flex items-center justify-center text-white shadow-2xl">
@@ -308,7 +295,6 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                     </div>
                  </div>
 
-                 {/* CONSOLE DE PROVISIONAMENTO */}
                  <div className="bg-slate-950 rounded-[2.5rem] p-10 font-mono text-[10px] text-emerald-400 h-[320px] shadow-inner border border-white/5 overflow-y-auto no-scrollbar relative group">
                     <div className="flex items-center justify-between mb-8 border-b border-white/10 pb-4">
                        <div className="flex items-center gap-3">
@@ -346,7 +332,6 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                  </div>
               </div>
 
-              {/* ÁREA DE CONFIGURAÇÃO DE INSTÂNCIA */}
               <div className="flex-1 p-12 bg-slate-50 dark:bg-slate-800/30 flex flex-col items-center justify-center text-center relative overflow-hidden">
                  <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-600/5 blur-[120px]"></div>
                  
@@ -458,7 +443,6 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
         </div>
       )}
 
-      {/* WHATSAPP HUB INTERFACE PRINCIPAL */}
       <div className="flex flex-1 overflow-hidden">
         <div className="w-96 flex flex-col border-r border-slate-200 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30">
           <div className="p-10">
