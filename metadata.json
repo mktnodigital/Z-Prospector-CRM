@@ -1,0 +1,8 @@
+{
+  "name": "Z-Prospector Multi",
+  "description": "A high-performance Multi-tenant SaaS platform for WhatsApp-driven sales, CRM Kanban, AI-lead qualification, and automated service scheduling.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
