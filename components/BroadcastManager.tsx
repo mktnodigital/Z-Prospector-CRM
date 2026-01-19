@@ -5,13 +5,16 @@ import {
   Pause, CheckCircle2, Loader2, Sparkles, Filter, 
   Target, MessageSquare, Package, Zap, X, Share2, 
   ArrowRight, Users, Clock, Flame, Info, Search,
-  Calendar, Check, AlertCircle, Bot
+  Calendar, Check, AlertCircle, Bot, ShieldAlert,
+  Link2
 } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
-import { Lead, LeadStatus, Campaign } from '../types';
+import { Lead, LeadStatus, Campaign, AppModule } from '../types';
 
 interface BroadcastManagerProps {
   leads: Lead[];
+  isWhatsAppConnected: boolean;
+  onNavigate: (module: AppModule) => void;
   notify: (msg: string) => void;
 }
 
@@ -44,7 +47,7 @@ const MOCK_CAMPAIGNS: Campaign[] = [
   }
 ];
 
-export const BroadcastManager: React.FC<BroadcastManagerProps> = ({ leads, notify }) => {
+export const BroadcastManager: React.FC<BroadcastManagerProps> = ({ leads, isWhatsAppConnected, onNavigate, notify }) => {
   const [campaigns, setCampaigns] = useState<Campaign[]>(MOCK_CAMPAIGNS);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isGeneratingIA, setIsGeneratingIA] = useState(false);
@@ -121,6 +124,10 @@ export const BroadcastManager: React.FC<BroadcastManagerProps> = ({ leads, notif
   };
 
   const handleStartCampaign = (id: string) => {
+    if (!isWhatsAppConnected) {
+      notify('ERRO: WhatsApp desconectado. Pareie no Inbox antes de disparar.');
+      return;
+    }
     setCampaigns(prev => prev.map(c => c.id === id ? { ...c, status: 'SENDING' } : c));
     notify('Disparos Master iniciados via Evolution Socket!');
     
@@ -168,8 +175,29 @@ export const BroadcastManager: React.FC<BroadcastManagerProps> = ({ leads, notif
   };
 
   return (
-    <div className="p-8 space-y-10 animate-in fade-in pb-40">
+    <div className="p-8 space-y-10 animate-in fade-in pb-40 relative">
       
+      {/* BANNER DE AVISO CONEXÃO */}
+      {!isWhatsAppConnected && (
+        <div className="bg-rose-500 text-white p-6 rounded-[2.5rem] shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6 animate-in slide-in-from-top-10 border-4 border-rose-600/30">
+           <div className="flex items-center gap-6">
+              <div className="p-4 bg-white/20 rounded-2xl backdrop-blur-md">
+                 <ShieldAlert size={32} className="animate-pulse" />
+              </div>
+              <div>
+                 <h4 className="text-xl font-black italic uppercase tracking-tight">Protocolo de Segurança Ativo</h4>
+                 <p className="text-[10px] font-black uppercase tracking-widest opacity-80 italic">O motor de disparos está bloqueado: WhatsApp Offline no Inbox.</p>
+              </div>
+           </div>
+           <button 
+             onClick={() => onNavigate('inbox')}
+             className="px-8 py-4 bg-white text-rose-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-xl flex items-center gap-3"
+           >
+              <Link2 size={16} /> Ir para Chat Inbox & Conectar
+           </button>
+        </div>
+      )}
+
       {/* MODAL CRIAR/EDITAR CAMPANHA */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-6 bg-slate-955/80 backdrop-blur-md animate-in fade-in">
@@ -346,11 +374,15 @@ export const BroadcastManager: React.FC<BroadcastManagerProps> = ({ leads, notif
                 {c.status !== 'COMPLETED' && (
                   <button 
                     onClick={() => handleStartCampaign(c.id)}
-                    disabled={c.status === 'SENDING'}
-                    className={`flex items-center gap-3 px-8 py-4 ${c.status === 'SENDING' ? 'bg-slate-100 text-slate-400' : 'bg-rose-600 text-white shadow-xl hover:bg-rose-700'} rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all transform hover:scale-105 active:scale-95`}
+                    disabled={c.status === 'SENDING' || !isWhatsAppConnected}
+                    className={`flex items-center gap-3 px-8 py-4 ${
+                      c.status === 'SENDING' ? 'bg-slate-100 text-slate-400' : 
+                      !isWhatsAppConnected ? 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-50' : 
+                      'bg-rose-600 text-white shadow-xl hover:bg-rose-700'
+                    } rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all transform ${!isWhatsAppConnected ? '' : 'hover:scale-105 active:scale-95'}`}
                   >
                     {c.status === 'SENDING' ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
-                    {c.status === 'SENDING' ? 'Disparando...' : 'Iniciar Fluxo'}
+                    {c.status === 'SENDING' ? 'Disparando...' : !isWhatsAppConnected ? 'Bloqueado (Offline)' : 'Iniciar Fluxo'}
                   </button>
                 )}
                 {c.status === 'COMPLETED' && (

@@ -28,6 +28,7 @@ interface WhatsAppInboxProps {
   tenant: Tenant;
   evolutionConfig: EvolutionConfig;
   notify: (msg: string) => void;
+  onConnectionChange?: (status: boolean) => void;
 }
 
 const PAYMENT_SUGGESTIONS = [
@@ -36,84 +37,80 @@ const PAYMENT_SUGGESTIONS = [
   { id: 'pay_3', label: 'QR Code Pix', icon: QrCode },
 ];
 
-export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads, onSchedule, tenant, evolutionConfig, notify }) => {
+export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads, onSchedule, tenant, evolutionConfig, notify, onConnectionChange }) => {
   const [activeChat, setActiveChat] = useState<Lead | null>(activeLeads[0] || null);
   const [messageInput, setMessageInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   
   // Estados de Conexão e Instância
-  const [connStatus, setConnStatus] = useState(tenant.instanceStatus || 'DISCONNECTED');
-  const [instanceName, setInstanceName] = useState('');
+  const [connStatus, setConnStatus] = useState<'DISCONNECTED' | 'CONNECTING' | 'CONNECTED'>(
+    tenant.instanceStatus === 'CONNECTED' ? 'CONNECTED' : 'DISCONNECTED'
+  );
+  const [instanceName, setInstanceName] = useState(`${tenant.name.toLowerCase().replace(/\s+/g, '_')}_${tenant.id}`);
   const [isConnecting, setIsConnecting] = useState(false);
   const [provisioningLogs, setProvisioningLogs] = useState<string[]>([]);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isInstanceCreated, setIsInstanceCreated] = useState(false);
-  const [errorInfo, setErrorInfo] = useState<string | null>(null);
+  const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [chatHistories, setChatHistories] = useState<Record<string, Message[]>>({});
   const [showPaymentShortcuts, setShowPaymentShortcuts] = useState(false);
 
-  // Inicializa o nome da instância sugerido se estiver vazio
+  // LOGIC: Polling de Status da Conexão
   useEffect(() => {
-    if (!instanceName) {
-      setInstanceName(`${tenant.name.toLowerCase().replace(/\s+/g, '_')}_${tenant.id}`);
+    let interval: any;
+    if (isInstanceCreated && connStatus !== 'CONNECTED') {
+      interval = setInterval(async () => {
+        try {
+          const res = await fetch(`${evolutionConfig.baseUrl}/instance/connectionState/${instanceName}`, {
+            headers: { 'apikey': evolutionConfig.apiKey }
+          });
+          const data = await res.json();
+          
+          if (data.instance?.state === 'open') {
+            clearInterval(interval);
+            handleConnectionSuccess();
+          }
+        } catch (e) {
+          console.debug("Polling connection...");
+        }
+      }, 3000);
     }
-  }, [tenant]);
+    return () => clearInterval(interval);
+  }, [isInstanceCreated, connStatus, instanceName]);
 
-  useEffect(() => {
-    if (activeChat && !chatHistories[activeChat.id]) {
-      const initialMessage: Message = {
-        id: 'init-' + activeChat.id,
-        sender: 'lead',
-        text: activeChat.lastInteraction || 'Olá!',
-        time: 'Agora'
-      };
-      setChatHistories(prev => ({ ...prev, [activeChat.id]: [initialMessage] }));
-    }
-  }, [activeChat]);
-
-  useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [chatHistories, activeChat]);
-
-  const addLog = (msg: string) => {
-    setProvisioningLogs(prev => [...prev.slice(-12), `[${new Date().toLocaleTimeString()}] ${msg}`]);
+  const handleConnectionSuccess = () => {
+    setConnStatus('CONNECTED');
+    setShowSuccessOverlay(true);
+    if (onConnectionChange) onConnectionChange(true);
+    notify('WhatsApp Conectado! Sincronizando chats...');
+    setTimeout(() => setShowSuccessOverlay(false), 3000);
   };
 
-  const handleActivateAccount = async () => {
-    if (!instanceName.trim()) {
-      notify('Digite um nome para a instância.');
-      return;
-    }
+  const addLog = (msg: string) => {
+    setProvisioningLogs(prev => [...prev.slice(-8), `[${new Date().toLocaleTimeString()}] ${msg}`]);
+  };
 
+  const handleStartConnection = async () => {
     setIsConnecting(true);
-    setErrorInfo(null);
     setProvisioningLogs([]);
-    addLog(`START: Provisionando nó para "${instanceName}"...`);
+    addLog(`INIT: Iniciando Protocolo de Conexão clikai.com.br...`);
     
     try {
-      // 1. Criar a instância
+      // 1. Tentar criar ou buscar instância
+      addLog(`NODE: Provisionando nó "${instanceName}"...`);
       const createRes = await fetch(`${evolutionConfig.baseUrl}/instance/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'apikey': evolutionConfig.apiKey },
-        body: JSON.stringify({ 
-          instanceName: instanceName, 
-          token: 'tk_' + Math.random().toString(36).substring(2, 10), 
-          qrcode: true 
-        })
+        body: JSON.stringify({ instanceName, qrcode: true })
       });
+      
       const createData = await createRes.json();
-      
-      if (!createRes.ok) throw new Error(createData.message || "Erro ao criar instância.");
-      
-      addLog(`SUCCESS: Instância "${instanceName}" injetada no cluster.`);
       setIsInstanceCreated(true);
       
-      // 2. Aguardar brevemente o nó estabilizar e buscar o QR Code
-      addLog(`FETCH: Solicitando par de chaves de pareamento (QR)...`);
-      await new Promise(r => setTimeout(r, 1500));
-      
+      // 2. Buscar o QR Code Base64
+      addLog(`CRYPTO: Gerando par de chaves RSA para pareamento...`);
       const connectRes = await fetch(`${evolutionConfig.baseUrl}/instance/connect/${instanceName}`, { 
         method: 'GET', 
         headers: { 'apikey': evolutionConfig.apiKey } 
@@ -122,39 +119,14 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
       
       if (connectData.base64) {
         setQrCode(connectData.base64);
-        addLog(`READY: QR Code gerado. Aguardando leitura...`);
+        addLog(`READY: QR Code gerado. Aguardando leitura do dispositivo...`);
       } else if (connectData.instance?.state === 'open') {
-        setConnStatus('CONNECTED');
-        notify('WhatsApp já estava conectado!');
-      } else {
-        addLog(`RETRY: API ocupada, tente gerar QR novamente.`);
+        handleConnectionSuccess();
       }
 
     } catch (err: any) {
-      setErrorInfo(`Erro: ${err.message}`);
-      addLog(`ERROR: ${err.message}`);
-    } finally {
-      setIsConnecting(false);
-    }
-  };
-
-  const handleManualGetQR = async () => {
-    setIsConnecting(true);
-    try {
-      const response = await fetch(`${evolutionConfig.baseUrl}/instance/connect/${instanceName}`, { 
-        method: 'GET', 
-        headers: { 'apikey': evolutionConfig.apiKey } 
-      });
-      const data = await response.json();
-      if (data.base64) {
-        setQrCode(data.base64);
-        notify('QR Code Atualizado!');
-      } else if (data.instance?.state === 'open' || data.status === 'CONNECTED') {
-        setConnStatus('CONNECTED');
-        notify('WhatsApp Conectado com Sucesso!');
-      }
-    } catch (err: any) {
-      notify('Erro ao buscar QR. Tente novamente.');
+      addLog(`ERROR: Falha na comunicação com o Core.`);
+      notify('Erro ao conectar. Verifique sua rede.');
     } finally {
       setIsConnecting(false);
     }
@@ -179,133 +151,132 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
   };
 
   const sendPaymentLink = (label: string) => {
-    const link = label.includes('Pix') ? 'PIX-00020126330014BR.GOV.BCB.PIX011152912423000...' : 'https://zprospector.com.br/pay/checkout-master';
+    const link = label.includes('Pix') ? 'PIX-KEY-MASTER-0001' : 'https://clikai.com.br/checkout/premium';
     handleSendMessage(`Segue o link para o pagamento via ${label}: ${link}`);
     setShowPaymentShortcuts(false);
-    notify('Link de Pagamento enviado!');
+    notify('Link enviado com sucesso!');
   };
 
   return (
     <div className="h-full flex flex-col bg-white dark:bg-slate-955 overflow-hidden relative">
       
-      {/* OVERLAY DE CONEXÃO MULTI-TENANT */}
+      {/* OVERLAY DE SUCESSO PÓS-SCAN */}
+      {showSuccessOverlay && (
+        <div className="absolute inset-0 z-[200] bg-emerald-600 flex flex-col items-center justify-center text-white animate-in fade-in duration-700">
+           <div className="p-10 bg-white/20 rounded-full animate-bounce mb-8">
+              <CheckCircle2 size={120} />
+           </div>
+           <h2 className="text-6xl font-black italic uppercase tracking-tighter">Conectado!</h2>
+           <p className="text-xl font-bold uppercase tracking-[0.4em] opacity-80 mt-4">Sincronizando Mensagens Neural...</p>
+        </div>
+      )}
+
+      {/* TELA DE CONEXÃO AUTOMÁTICA */}
       {connStatus !== 'CONNECTED' && (
-        <div className="absolute inset-0 z-[100] bg-slate-950/98 backdrop-blur-3xl flex items-center justify-center p-6 md:p-12 animate-in fade-in">
-           <div className="max-w-6xl w-full bg-white dark:bg-slate-900 rounded-[4rem] shadow-2xl border border-white/10 overflow-hidden flex flex-col md:flex-row">
+        <div className="absolute inset-0 z-[100] bg-slate-950/98 backdrop-blur-3xl flex items-center justify-center p-8 animate-in fade-in">
+           <div className="max-w-5xl w-full bg-white dark:bg-slate-900 rounded-[4rem] shadow-2xl border border-white/10 overflow-hidden flex flex-col md:flex-row">
               
-              {/* Painel Esquerdo: Logs e Status do Node */}
-              <div className="w-full md:w-5/12 p-12 space-y-10 border-r border-slate-100 dark:border-slate-800 bg-slate-50/20 dark:bg-slate-900/20 flex flex-col">
-                 <div className="flex items-center gap-5">
-                    <div className="w-16 h-16 bg-indigo-600 rounded-[1.8rem] flex items-center justify-center text-white shadow-2xl shadow-indigo-500/20"><Server size={32} /></div>
-                    <div>
-                       <h2 className="text-2xl font-black italic uppercase tracking-tight">Provisioning Hub</h2>
-                       <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Gateway Evolution API v2.0</p>
-                    </div>
-                 </div>
-
-                 <div className="flex-1 bg-slate-950 rounded-[2.5rem] p-10 font-mono text-[10px] text-emerald-400 shadow-inner overflow-y-auto no-scrollbar min-h-[300px]">
-                    <div className="flex items-center gap-2 mb-4 text-emerald-500/50">
-                       <Terminal size={14}/>
-                       <span className="uppercase tracking-widest font-black">System Output</span>
-                    </div>
-                    {provisioningLogs.length === 0 && <p className="opacity-40 italic">Aguardando definição da instância...</p>}
-                    {provisioningLogs.map((log, i) => <p key={i} className="animate-in slide-in-from-left-2 mb-1 opacity-80">{log}</p>)}
-                    {isConnecting && <p className="animate-pulse">_</p>}
-                 </div>
-
-                 <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center gap-4 text-slate-400">
-                       <Fingerprint size={20} />
-                       <div className="space-y-0.5">
-                          <p className="text-[8px] font-black uppercase tracking-widest">Empresa Ativa</p>
-                          <p className="text-[11px] font-black uppercase italic text-slate-800 dark:text-white">{tenant.name}</p>
+              {/* LADO ESQUERDO: STATUS DO CORE */}
+              <div className="w-full md:w-5/12 p-12 bg-slate-50/50 dark:bg-slate-900/50 border-r border-slate-100 dark:border-slate-800 flex flex-col justify-between">
+                 <div className="space-y-8">
+                    <div className="flex items-center gap-4">
+                       <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg"><Cpu size={24}/></div>
+                       <div>
+                          <h3 className="text-xl font-black italic uppercase tracking-tight">Core Engine</h3>
+                          <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">api.clikai.com.br</p>
                        </div>
+                    </div>
+
+                    <div className="bg-slate-950 rounded-[2rem] p-8 font-mono text-[10px] text-emerald-400 shadow-inner h-64 overflow-y-auto no-scrollbar">
+                       <p className="text-emerald-500/40 mb-4 flex items-center gap-2 font-black uppercase"><Terminal size={12}/> System Terminal</p>
+                       {provisioningLogs.map((log, i) => (
+                         <p key={i} className="mb-1 animate-in slide-in-from-left-2">{log}</p>
+                       ))}
+                       {isConnecting && <p className="animate-pulse">_</p>}
+                    </div>
+                 </div>
+
+                 <div className="flex items-center gap-4 p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm mt-8">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600"><SmartphoneIcon size={20}/></div>
+                    <div>
+                       <p className="text-[8px] font-black text-slate-400 uppercase">Dispositivo Master</p>
+                       <p className="text-[11px] font-black uppercase italic truncate max-w-[150px]">{tenant.name}</p>
                     </div>
                  </div>
               </div>
 
-              {/* Painel Direito: Ações e QR Code */}
-              <div className="flex-1 p-12 bg-slate-50 dark:bg-slate-800/30 flex flex-col items-center justify-center text-center relative">
-                 <button onClick={() => setConnStatus('CONNECTED')} className="absolute top-8 right-8 p-3 text-slate-300 hover:text-indigo-600 transition-all" title="Bypass para demo">
-                    <CheckCircle2 size={24} />
-                 </button>
-
+              {/* LADO DIREITO: INTERAÇÃO (BOTAO OU QR) */}
+              <div className="flex-1 p-16 flex flex-col items-center justify-center text-center relative">
                  {!isInstanceCreated ? (
-                   <div className="space-y-10 w-full max-w-md animate-in slide-in-from-right-4">
-                      <div className="space-y-4">
-                        <h3 className="text-4xl font-black italic uppercase tracking-tighter text-slate-800 dark:text-white">Conectar <br/><span className="text-indigo-600">WhatsApp</span></h3>
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest leading-relaxed italic">Cada unidade de negócio precisa de uma instância exclusiva para atendimento neural.</p>
-                      </div>
+                    <div className="space-y-10 animate-in slide-in-from-right-4">
+                       <div className="space-y-4">
+                          <h2 className="text-5xl font-black italic uppercase tracking-tighter text-slate-800 dark:text-white leading-none">Vincular <br/><span className="text-indigo-600">WhatsApp</span></h2>
+                          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest leading-relaxed italic max-w-sm mx-auto">Sua unidade de vendas precisa de uma conexão ativa para a IA começar a prospectar.</p>
+                       </div>
 
-                      <div className="space-y-2 text-left">
-                        <label className="text-[10px] font-black uppercase text-slate-400 px-6">Nome da Instância (Identificador)</label>
-                        <input 
-                          value={instanceName} 
-                          onChange={(e) => setInstanceName(e.target.value)}
-                          placeholder="Ex: barbearia_matriz_01"
-                          className="w-full px-10 py-6 bg-white dark:bg-slate-900 border-none rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-xl outline-none focus:ring-4 ring-indigo-500/10 transition-all"
-                        />
-                      </div>
+                       <button 
+                         onClick={handleStartConnection}
+                         disabled={isConnecting}
+                         className="w-full py-10 bg-indigo-600 text-white font-black rounded-[2.5rem] shadow-[0_30px_60px_-15px_rgba(79,70,229,0.5)] hover:bg-indigo-700 hover:scale-105 active:scale-95 transition-all uppercase text-xs tracking-[0.4em] flex items-center justify-center gap-4 group"
+                       >
+                          {isConnecting ? <Loader2 className="animate-spin" size={32} /> : <Zap size={28} className="group-hover:rotate-12 transition-transform" />}
+                          {isConnecting ? 'Injetando Nó...' : 'Gerar QR Code Master'}
+                       </button>
 
-                      <button 
-                        onClick={handleActivateAccount} 
-                        disabled={isConnecting || !instanceName} 
-                        className="w-full py-8 bg-indigo-600 text-white font-black rounded-[2.5rem] shadow-2xl hover:bg-indigo-700 transition-all uppercase text-xs tracking-[0.3em] flex items-center justify-center gap-4 group"
-                      >
-                         {isConnecting ? <Loader2 className="animate-spin" size={24} /> : <Zap size={24} className="group-hover:rotate-12 transition-transform" />}
-                         {isConnecting ? 'Provisionando...' : 'Criar Instância Master'}
-                      </button>
-                   </div>
+                       <div className="flex items-center justify-center gap-2 opacity-50">
+                          <ShieldCheck size={14} className="text-emerald-500" />
+                          <span className="text-[9px] font-black uppercase tracking-widest">Criptografia Evolution Ativa</span>
+                       </div>
+                    </div>
                  ) : (
-                   <div className="space-y-10 w-full max-w-md flex flex-col items-center animate-in zoom-in-95">
-                      <div className="text-center space-y-2">
-                        <h3 className="text-2xl font-black italic uppercase tracking-tight text-slate-800 dark:text-white">Escaneie o QR Code</h3>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">Abra o WhatsApp no celular > Aparelhos Conectados</p>
-                      </div>
+                    <div className="space-y-10 animate-in zoom-in-95">
+                       <div className="space-y-2">
+                          <h3 className="text-3xl font-black italic uppercase tracking-tight text-slate-800 dark:text-white">Aguardando Scan</h3>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Abra o WhatsApp > Aparelhos Conectados > Conectar</p>
+                       </div>
 
-                      <div className="relative group">
-                         <div className="absolute -inset-4 bg-indigo-600/20 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                         <div className="w-64 h-64 bg-white rounded-[3.5rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] flex items-center justify-center border-8 border-slate-50 relative z-10 overflow-hidden">
-                            {qrCode ? (
-                              <img src={qrCode} alt="WhatsApp QR" className="w-52 h-52 object-contain" />
-                            ) : (
-                              <div className="flex flex-col items-center gap-4 text-slate-300">
-                                 <Loader2 className="animate-spin" size={40} />
-                                 <span className="text-[8px] font-black uppercase">Gerando Par de Chaves...</span>
-                              </div>
-                            )}
-                         </div>
-                      </div>
+                       <div className="relative group">
+                          <div className="absolute -inset-6 bg-indigo-600/20 blur-3xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                          <div className="w-80 h-80 bg-white rounded-[4rem] shadow-2xl flex items-center justify-center border-[12px] border-slate-50 relative z-10 overflow-hidden">
+                             {qrCode ? (
+                               <img src={qrCode} alt="Scan QR" className="w-64 h-64 object-contain animate-in fade-in duration-1000" />
+                             ) : (
+                               <div className="flex flex-col items-center gap-4 text-slate-300">
+                                  <Loader2 className="animate-spin" size={48} />
+                                  <span className="text-[9px] font-black uppercase tracking-widest">Sincronizando Hub...</span>
+                               </div>
+                             )}
+                          </div>
+                       </div>
 
-                      <div className="flex gap-3 w-full">
-                         <button onClick={handleManualGetQR} className="flex-1 py-5 bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-300 rounded-[1.8rem] font-black uppercase text-[9px] tracking-widest hover:border-indigo-600 transition-all flex items-center justify-center gap-2">
-                            <RefreshCcw size={14}/> Atualizar QR
-                         </button>
-                         <button onClick={() => { setIsInstanceCreated(false); setQrCode(null); }} className="flex-1 py-5 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-[1.8rem] font-black uppercase text-[9px] tracking-widest hover:text-rose-500 transition-all">
-                            Trocar Instância
-                         </button>
-                      </div>
+                       <div className="flex gap-4">
+                          <button onClick={handleStartConnection} className="flex-1 py-5 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 text-slate-600 dark:text-white rounded-[1.8rem] font-black uppercase text-[10px] tracking-widest hover:border-indigo-600 transition-all shadow-sm flex items-center justify-center gap-3">
+                             <RefreshCcw size={16} /> Atualizar QR
+                          </button>
+                          <button onClick={() => { setIsInstanceCreated(false); setQrCode(null); }} className="px-8 py-5 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-[1.8rem] font-black uppercase text-[10px] tracking-widest hover:text-rose-500 transition-all">Cancelar</button>
+                       </div>
 
-                      <div className="flex items-center gap-2 px-6 py-2 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100 text-[8px] font-black uppercase tracking-widest animate-pulse">
-                         <Wifi size={10}/> Node ativo: api.clikai.com.br
-                      </div>
-                   </div>
+                       <div className="flex items-center justify-center gap-2 px-6 py-2 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100 text-[8px] font-black uppercase tracking-[0.2em] animate-pulse">
+                          <Wifi size={10}/> Node Status: Aguardando Handshake...
+                       </div>
+                    </div>
                  )}
               </div>
            </div>
         </div>
       )}
 
-      {/* INTERFACE PRINCIPAL DO INBOX (SOMENTE SE CONECTADO) */}
+      {/* INTERFACE PRINCIPAL DO INBOX */}
       <div className="flex flex-1 overflow-hidden">
+        {/* LISTA DE CONVERSAS */}
         <div className="w-96 flex flex-col border-r border-slate-200 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30">
           <div className="p-10">
-            <h2 className="text-2xl font-black tracking-tight italic uppercase mb-10 flex items-center gap-4 leading-none">
+            <h2 className="text-2xl font-black tracking-tight italic uppercase mb-10 flex items-center gap-4">
                <MessageSquare className="text-indigo-600" /> Inbox IA
             </h2>
             <div className="relative">
               <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-              <input type="text" placeholder="Filtrar conversas..." className="w-full pl-16 pr-6 py-5 bg-white dark:bg-slate-800 border-none rounded-[2rem] text-xs font-black uppercase tracking-widest outline-none shadow-sm focus:ring-4 ring-indigo-500/5 transition-all" />
+              <input type="text" placeholder="Filtrar..." className="w-full pl-16 pr-6 py-5 bg-white dark:bg-slate-800 border-none rounded-[2rem] text-xs font-black uppercase tracking-widest outline-none shadow-sm focus:ring-4 ring-indigo-500/5 transition-all" />
             </div>
           </div>
 
@@ -322,6 +293,7 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
           </div>
         </div>
 
+        {/* ÁREA DE MENSAGENS */}
         <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-955 relative">
           {activeChat ? (
             <>

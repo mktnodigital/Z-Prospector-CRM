@@ -56,6 +56,8 @@ const App: React.FC = () => {
   const [branding, setBranding] = useState<BrandingConfig>(DEFAULT_BRANDING);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [isWhatsAppConnected, setIsWhatsAppConnected] = useState(false);
+  
   const [notifications, setNotifications] = useState<AppNotification[]>([
     { id: '1', type: 'SYSTEM', title: 'Boas-vindas Master', description: 'O Core Engine v3.0 está pronto para operar.', time: 'Agora', read: false },
   ]);
@@ -259,10 +261,20 @@ const App: React.FC = () => {
           {activeModule === 'admin' && <AdminModule branding={branding} onBrandingChange={setBranding} onNicheChange={() => {}} evolutionConfig={MASTER_EVOLUTION_CONFIG} onEvolutionConfigChange={() => {}} notify={notify} />}
           {activeModule === 'capture' && <CaptureManagement onAddLead={(l) => setLeads([l, ...leads])} notify={notify} />}
           {activeModule === 'prospecting' && <CRMKanban leads={leads} onLeadsChange={setLeads} notify={notify} onNavigate={setActiveModule} />}
-          {activeModule === 'inbox' && <WhatsAppInbox niche="Vendas Master" activeLeads={leads} onSchedule={() => {}} tenant={{id: '1', name: 'Master', niche: 'SaaS', healthScore: 100, revenue: 0, activeLeads: leads.length, status: 'ONLINE'}} evolutionConfig={MASTER_EVOLUTION_CONFIG} notify={(msg) => { notify(msg); addNotification({ type: 'INBOX', title: 'Mensagem Recebida', description: msg }); }} />}
+          {activeModule === 'inbox' && (
+            <WhatsAppInbox 
+              niche="Vendas Master" 
+              activeLeads={leads} 
+              onSchedule={() => {}} 
+              tenant={{id: '1', name: 'Master', niche: 'SaaS', healthScore: 100, revenue: 0, activeLeads: leads.length, status: 'ONLINE', instanceStatus: isWhatsAppConnected ? 'CONNECTED' : 'DISCONNECTED'}} 
+              evolutionConfig={MASTER_EVOLUTION_CONFIG} 
+              onConnectionChange={setIsWhatsAppConnected}
+              notify={(msg) => { notify(msg); addNotification({ type: 'INBOX', title: 'Mensagem Recebida', description: msg }); }} 
+            />
+          )}
           {activeModule === 'products' && <ProductManager notify={notify} />}
           {activeModule === 'scheduling' && <ScheduleManager appointments={appointments} onAddAppointment={(a) => { setAppointments([...appointments, a]); addNotification({ type: 'APPOINTMENT', title: 'Novo Agendamento', description: `${a.lead} agendou ${a.service}` }); }} onUpdateAppointment={(a) => setAppointments(appointments.map(i => i.id === a.id ? a : i))} onDeleteAppointment={(id) => setAppointments(appointments.filter(i => i.id !== id))} />}
-          {activeModule === 'broadcast' && <BroadcastManager leads={leads} notify={(msg) => { notify(msg); addNotification({ type: 'BROADCAST', title: 'Status de Envio', description: msg }); }} />}
+          {activeModule === 'broadcast' && <BroadcastManager leads={leads} isWhatsAppConnected={isWhatsAppConnected} onNavigate={setActiveModule} notify={(msg) => { notify(msg); addNotification({ type: 'BROADCAST', title: 'Status de Envio', description: msg }); }} />}
           {activeModule === 'payments' && <PaymentManager totalVolume={leads.reduce((a,b) => a + (b.value || 0), 0)} pipelineVolume={leads.length * 500} />}
           {activeModule === 'profile' && <UserProfile user={currentUser} onUpdate={(d) => setCurrentUser({...currentUser, ...d})} onLogout={handleLogout} notify={notify} />}
         </div>

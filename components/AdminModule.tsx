@@ -8,7 +8,7 @@ import {
   Download, FileJson, Sparkles, MessageSquare, 
   ArrowRight, CheckCircle2, ShoppingCart, CreditCard, Landmark, Globe, Palette, Building2,
   Image as ImageIcon, Type, Layout, Save, X, Ban, Edit3, Smartphone, Globe2,
-  Lock, ShieldAlert, Fingerprint, History, Monitor, Shield
+  Lock, ShieldAlert, Fingerprint, History, Monitor, Shield, UploadCloud, ImagePlus
 } from 'lucide-react';
 import { BrandingConfig, EvolutionConfig, Tenant } from '../types';
 import { IntegrationSettings } from './IntegrationSettings';
@@ -25,10 +25,14 @@ interface AdminModuleProps {
 type AdminSubTab = 'infra' | 'branding' | 'tenants' | 'payments' | 'security';
 
 export const AdminModule: React.FC<AdminModuleProps> = ({ branding, onBrandingChange, evolutionConfig, notify }) => {
-  const [activeTab, setActiveTab] = useState<AdminSubTab>('tenants');
+  const [activeTab, setActiveTab] = useState<AdminSubTab>('branding'); // Iniciando em branding para facilitar o ajuste
   const [isSyncing, setIsSyncing] = useState(false);
   
-  // Mock de Tenants para Demonstração
+  // Refs para Inputs de Arquivo
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const iconInputRef = useRef<HTMLInputElement>(null);
+  const faviconInputRef = useRef<HTMLInputElement>(null);
+
   const [tenants, setTenants] = useState<Tenant[]>([
     { id: '1', name: 'Barbearia Matriz', niche: 'Barbearia', healthScore: 98, revenue: 12450, activeLeads: 450, status: 'ONLINE', instanceStatus: 'CONNECTED' },
     { id: '2', name: 'Estética VIP', niche: 'Estética', healthScore: 85, revenue: 8200, activeLeads: 210, status: 'WARNING', instanceStatus: 'DISCONNECTED' },
@@ -42,6 +46,22 @@ export const AdminModule: React.FC<AdminModuleProps> = ({ branding, onBrandingCh
     { id: 'infra' as const, label: 'Infra', icon: Server },
     { id: 'security' as const, label: 'Segurança', icon: ShieldCheck },
   ];
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, field: keyof BrandingConfig) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        notify('Erro: Imagem muito pesada (máx 2MB)');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        onBrandingChange({ ...branding, [field]: reader.result as string });
+        notify('Asset carregado com sucesso!');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSaveBranding = (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,7 +109,6 @@ export const AdminModule: React.FC<AdminModuleProps> = ({ branding, onBrandingCh
       <div className="bg-white dark:bg-slate-900 p-12 rounded-[4.5rem] border-2 border-slate-50 dark:border-slate-800 shadow-sm relative overflow-hidden min-h-[600px]">
          <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-b from-orange-500/5 to-transparent blur-[120px] pointer-events-none"></div>
          
-         {/* ABA: UNIDADES */}
          {activeTab === 'tenants' && (
            <div className="space-y-10 animate-in slide-in-from-bottom-4">
               <div className="flex justify-between items-center">
@@ -141,52 +160,165 @@ export const AdminModule: React.FC<AdminModuleProps> = ({ branding, onBrandingCh
            </div>
          )}
 
-         {/* ABA: FINANCEIRO MASTER */}
-         {activeTab === 'payments' && <IntegrationSettings />}
-
-         {/* ABA: MARCA (WHITE-LABEL) */}
+         {/* ABA: MARCA (WHITE-LABEL AVANÇADO) */}
          {activeTab === 'branding' && (
-           <div className="space-y-12 animate-in slide-in-from-bottom-4 max-w-4xl">
+           <div className="space-y-12 animate-in slide-in-from-bottom-4">
               <div className="flex items-center gap-6">
                  <div className="p-5 bg-orange-50 text-orange-600 rounded-[2rem]"><Palette size={32} /></div>
                  <div>
-                    <h3 className="text-2xl font-black italic uppercase tracking-tight text-slate-800 dark:text-slate-200">White-label Engine</h3>
-                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Customização Total da Identidade do SaaS</p>
+                    <h3 className="text-2xl font-black italic uppercase tracking-tight text-slate-800 dark:text-slate-200">Identidade Master</h3>
+                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Personalização de Assets Visuais para Revenda</p>
                  </div>
               </div>
+
               <form onSubmit={handleSaveBranding} className="space-y-10">
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                    <div className="space-y-6">
-                       <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase text-slate-400 px-4">Nome da Plataforma</label>
+                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                    
+                    {/* COLUNA ESQUERDA: INPUTS DE UPLOAD */}
+                    <div className="space-y-8">
+                       <div className="space-y-4">
+                          <label className="text-[10px] font-black uppercase text-slate-400 px-4 flex items-center gap-2"><Type size={14}/> Nome do SaaS</label>
                           <input 
                              value={branding.appName} 
                              onChange={(e) => onBrandingChange({...branding, appName: e.target.value})}
                              className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-black italic border-none shadow-inner outline-none focus:ring-4 ring-orange-500/10" 
                           />
                        </div>
-                       <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase text-slate-400 px-4">Logo Principal (URL)</label>
-                          <input 
-                             value={branding.fullLogo} 
-                             onChange={(e) => onBrandingChange({...branding, fullLogo: e.target.value})}
-                             className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold border-none shadow-inner outline-none" 
-                          />
+
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* UPLOAD LOGO */}
+                          <div className="space-y-3">
+                             <label className="text-[10px] font-black uppercase text-slate-400 px-4">Logotipo Principal</label>
+                             <div 
+                                onClick={() => logoInputRef.current?.click()}
+                                className="h-40 bg-slate-50 dark:bg-slate-800 rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center cursor-pointer hover:border-orange-500 hover:bg-orange-50/10 transition-all group overflow-hidden relative"
+                             >
+                                {branding.fullLogo ? (
+                                   <img src={branding.fullLogo} className="max-h-16 w-auto object-contain transition-transform group-hover:scale-110" />
+                                ) : (
+                                   <div className="text-center">
+                                      <UploadCloud className="mx-auto text-slate-300 group-hover:text-orange-500" size={32} />
+                                      <span className="text-[8px] font-black uppercase text-slate-400 mt-2 block">Upload PNG/SVG</span>
+                                   </div>
+                                )}
+                                <input type="file" ref={logoInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'fullLogo')} />
+                             </div>
+                          </div>
+
+                          {/* UPLOAD ÍCONE */}
+                          <div className="space-y-3">
+                             <label className="text-[10px] font-black uppercase text-slate-400 px-4">Ícone Sidebar (1:1)</label>
+                             <div 
+                                onClick={() => iconInputRef.current?.click()}
+                                className="h-40 bg-slate-50 dark:bg-slate-800 rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center cursor-pointer hover:border-orange-500 hover:bg-orange-50/10 transition-all group overflow-hidden relative"
+                             >
+                                {branding.iconLogo ? (
+                                   <img src={branding.iconLogo} className="w-16 h-16 object-contain transition-transform group-hover:scale-110" />
+                                ) : (
+                                   <div className="text-center">
+                                      <ImagePlus className="mx-auto text-slate-300 group-hover:text-orange-500" size={32} />
+                                      <span className="text-[8px] font-black uppercase text-slate-400 mt-2 block">Upload Quadrado</span>
+                                   </div>
+                                )}
+                                <input type="file" ref={iconInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'iconLogo')} />
+                             </div>
+                          </div>
+                       </div>
+
+                       {/* UPLOAD FAVICON */}
+                       <div className="space-y-4">
+                          <label className="text-[10px] font-black uppercase text-slate-400 px-4">Favicon do Navegador</label>
+                          <div className="flex items-center gap-6 p-6 bg-slate-50 dark:bg-slate-800 rounded-[2.5rem] border border-slate-100 dark:border-slate-700">
+                             <div 
+                                onClick={() => faviconInputRef.current?.click()}
+                                className="w-16 h-16 bg-white dark:bg-slate-900 rounded-2xl flex items-center justify-center border-2 border-dashed border-slate-200 cursor-pointer hover:border-orange-500 transition-all"
+                             >
+                                {branding.favicon ? (
+                                   <img src={branding.favicon} className="w-8 h-8 object-contain" />
+                                ) : (
+                                   <Globe className="text-slate-200" size={24} />
+                                )}
+                             </div>
+                             <div className="flex-1">
+                                <p className="text-[11px] font-black italic uppercase text-slate-800 dark:text-white mb-1">Favicon (.ico ou .png)</p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase">Resolução recomendada: 32x32 ou 64x64 pixels.</p>
+                             </div>
+                             <button type="button" onClick={() => faviconInputRef.current?.click()} className="px-6 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-500 rounded-xl text-[9px] font-black uppercase hover:bg-orange-600 hover:text-white transition-all shadow-sm">Escolher</button>
+                             <input type="file" ref={faviconInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'favicon')} />
+                          </div>
                        </div>
                     </div>
-                    <div className="bg-slate-950 p-10 rounded-[3.5rem] border-4 border-slate-900 shadow-2xl flex flex-col items-center gap-4">
-                       <img src={branding.fullLogo} alt="Preview" className="h-10 object-contain" />
-                       <p className="text-[8px] font-black text-white/40 uppercase tracking-[0.4em]">Visualização em Tempo Real</p>
+
+                    {/* COLUNA DIREITA: PREVIEW MASTER */}
+                    <div className="space-y-8">
+                       <label className="text-[10px] font-black uppercase text-slate-400 px-4 flex items-center gap-2"><Monitor size={14}/> Simulador de Interface</label>
+                       
+                       <div className="space-y-6">
+                          {/* Simulador de Aba do Navegador */}
+                          <div className="bg-slate-200 dark:bg-slate-800 rounded-t-2xl p-3 flex items-center gap-3 shadow-inner">
+                             <div className="flex gap-1.5 px-2">
+                                <div className="w-2.5 h-2.5 rounded-full bg-rose-400"></div>
+                                <div className="w-2.5 h-2.5 rounded-full bg-amber-400"></div>
+                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-400"></div>
+                             </div>
+                             <div className="bg-white dark:bg-slate-900 rounded-lg px-4 py-1.5 flex items-center gap-2 shadow-sm animate-in slide-in-from-left-2">
+                                <img src={branding.favicon} className="w-3.5 h-3.5 object-contain" />
+                                <span className="text-[9px] font-bold text-slate-500 dark:text-slate-300 truncate max-w-[120px]">{branding.appName} - Dashboard</span>
+                                <X size={10} className="text-slate-300 ml-2" />
+                             </div>
+                             <Plus size={14} className="text-slate-400" />
+                          </div>
+
+                          {/* Simulador de Dashboard Sidebar */}
+                          <div className="bg-slate-950 p-8 rounded-[3.5rem] border-4 border-slate-900 shadow-2xl flex flex-col gap-10">
+                             <div className="flex flex-col items-center gap-6">
+                                <div className="p-4 bg-white/5 rounded-2xl border border-white/10 w-full flex flex-col items-center gap-4 group cursor-default">
+                                   <img src={branding.fullLogo} className="h-8 w-auto object-contain transition-all" />
+                                   <p className="text-[7px] font-black text-white/30 uppercase tracking-[0.4em]">Logotipo Principal</p>
+                                </div>
+                                <div className="flex gap-4 w-full">
+                                   <div className="p-4 bg-white/5 rounded-2xl border border-white/10 flex-1 flex flex-col items-center gap-2">
+                                      <img src={branding.iconLogo} className="w-10 h-10 object-contain" />
+                                      <p className="text-[7px] font-black text-white/30 uppercase">Ícone</p>
+                                   </div>
+                                   <div className="p-4 bg-white/5 rounded-2xl border border-white/10 flex-1 flex flex-col items-center justify-center gap-1">
+                                      <h4 className="text-white font-black italic uppercase text-xs truncate max-w-full">{branding.appName}</h4>
+                                      <p className="text-[7px] font-black text-white/30 uppercase">Texto</p>
+                                   </div>
+                                </div>
+                             </div>
+                             
+                             <div className="space-y-2 opacity-20">
+                                <div className="h-2 w-full bg-white/10 rounded-full"></div>
+                                <div className="h-2 w-2/3 bg-white/10 rounded-full"></div>
+                             </div>
+                          </div>
+                       </div>
                     </div>
                  </div>
-                 <div className="pt-8 flex justify-end">
-                    <button type="submit" className="px-12 py-6 bg-orange-600 text-white font-black rounded-3xl shadow-xl uppercase text-[10px] tracking-widest">Salvar Branding</button>
+
+                 <div className="pt-10 border-t border-slate-50 dark:border-slate-800 flex justify-end gap-4">
+                    <button type="button" onClick={() => onBrandingChange({
+                      fullLogo: "Logotipo%20Z_Prospector.png",
+                      fullLogoDark: "Logotipo%20Z_Prospector.png",
+                      iconLogo: "Logotipo%20Z_Prospector_Icon.png",
+                      iconLogoDark: "Logotipo%20Z_Prospector_Icon.png",
+                      favicon: "Logotipo%20Z_Prospector_Icon.png",
+                      salesPageLogo: "Logotipo%20Z_Prospector.png",
+                      appName: "Z-Prospector"
+                    })} className="px-10 py-5 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-3xl font-black uppercase text-[10px] tracking-widest hover:text-rose-500 transition-all">Resetar Originais</button>
+                    
+                    <button type="submit" disabled={isSyncing} className="flex items-center gap-4 px-12 py-6 bg-orange-600 text-white font-black rounded-3xl shadow-xl hover:bg-orange-700 transition-all uppercase text-[10px] tracking-widest">
+                       {isSyncing ? <Loader2 className="animate-spin" /> : <Save size={18} />}
+                       Aplicar Identidade Visual
+                    </button>
                  </div>
               </form>
            </div>
          )}
 
-         {/* ABA: INFRA MASTER */}
+         {activeTab === 'payments' && <IntegrationSettings />}
+
          {activeTab === 'infra' && (
             <div className="space-y-12 animate-in slide-in-from-bottom-4">
                <div className="flex items-center gap-6">
@@ -212,7 +344,6 @@ export const AdminModule: React.FC<AdminModuleProps> = ({ branding, onBrandingCh
             </div>
          )}
 
-         {/* ABA: SEGURANÇA MASTER (NOVA IMPLEMENTAÇÃO) */}
          {activeTab === 'security' && (
            <div className="space-y-12 animate-in slide-in-from-bottom-4">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
