@@ -46,7 +46,8 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
   const [connStatus, setConnStatus] = useState<'DISCONNECTED' | 'CONNECTING' | 'CONNECTED'>(
     tenant.instanceStatus === 'CONNECTED' ? 'CONNECTED' : 'DISCONNECTED'
   );
-  const [instanceName, setInstanceName] = useState(`${tenant.name.toLowerCase().replace(/\s+/g, '_')}_${tenant.id}`);
+  // Normalizando nome da instância para evitar caracteres especiais
+  const [instanceName] = useState(`master_${tenant.id}`);
   const [isConnecting, setIsConnecting] = useState(false);
   const [provisioningLogs, setProvisioningLogs] = useState<string[]>([]);
   const [qrCode, setQrCode] = useState<string | null>(null);
@@ -68,7 +69,7 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
           });
           const data = await res.json();
           
-          if (data.instance?.state === 'open') {
+          if (data.instance?.state === 'open' || data.state === 'open') {
             clearInterval(interval);
             handleConnectionSuccess();
           }
@@ -78,55 +79,86 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
       }, 3000);
     }
     return () => clearInterval(interval);
-  }, [isInstanceCreated, connStatus, instanceName]);
+  }, [isInstanceCreated, connStatus, instanceName, evolutionConfig]);
 
   const handleConnectionSuccess = () => {
     setConnStatus('CONNECTED');
     setShowSuccessOverlay(true);
     if (onConnectionChange) onConnectionChange(true);
-    notify('WhatsApp Conectado! Sincronizando chats...');
+    notify('WhatsApp Conectado com Sucesso!');
     setTimeout(() => setShowSuccessOverlay(false), 3000);
   };
 
   const addLog = (msg: string) => {
-    setProvisioningLogs(prev => [...prev.slice(-8), `[${new Date().toLocaleTimeString()}] ${msg}`]);
+    setProvisioningLogs(prev => [...prev.slice(-12), `[${new Date().toLocaleTimeString()}] ${msg}`]);
   };
 
   const handleStartConnection = async () => {
     setIsConnecting(true);
     setProvisioningLogs([]);
-    addLog(`INIT: Iniciando Protocolo de Conexão clikai.com.br...`);
+    setQrCode(null);
+    setIsInstanceCreated(false);
+
+    addLog(`INIT: Acessando Core api.clikai.com.br...`);
     
     try {
-      // 1. Tentar criar ou buscar instância
-      addLog(`NODE: Provisionando nó "${instanceName}"...`);
-      const createRes = await fetch(`${evolutionConfig.baseUrl}/instance/create`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'apikey': evolutionConfig.apiKey },
-        body: JSON.stringify({ instanceName, qrcode: true })
+      // 1. Verificar se instância já existe (Pre-flight)
+      addLog(`CHECK: Validando existência da instância "${instanceName}"...`);
+      const checkRes = await fetch(`${evolutionConfig.baseUrl}/instance/fetchInstances?instanceName=${instanceName}`, {
+        headers: { 'apikey': evolutionConfig.apiKey }
       });
-      
-      const createData = await createRes.json();
+      const instances = await checkRes.json();
+      const exists = Array.isArray(instances) && instances.some((i: any) => i.instanceName === instanceName);
+
+      if (!exists) {
+        addLog(`NODE: Provisionando nova instância no cluster...`);
+        const createRes = await fetch(`${evolutionConfig.baseUrl}/instance/create`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': evolutionConfig.apiKey },
+          body: JSON.stringify({ instanceName, qrcode: true, token: "clikai_master_token" })
+        });
+        
+        if (!createRes.ok) {
+          const errData = await createRes.json();
+          addLog(`WARN: Resposta da criação: ${errData.message || 'Instância já pode existir.'}`);
+        } else {
+          addLog(`SUCCESS: Instância criada com sucesso.`);
+        }
+      } else {
+        addLog(`INFO: Instância detectada. Pulando criação.`);
+      }
+
       setIsInstanceCreated(true);
       
-      // 2. Buscar o QR Code Base64
-      addLog(`CRYPTO: Gerando par de chaves RSA para pareamento...`);
+      // 2. Solicitar o QR Code ou verificar se já está aberto
+      addLog(`CRYPTO: Solicitando Handshake de conexão...`);
       const connectRes = await fetch(`${evolutionConfig.baseUrl}/instance/connect/${instanceName}`, { 
         method: 'GET', 
         headers: { 'apikey': evolutionConfig.apiKey } 
       });
+      
       const connectData = await connectRes.json();
       
-      if (connectData.base64) {
-        setQrCode(connectData.base64);
-        addLog(`READY: QR Code gerado. Aguardando leitura do dispositivo...`);
-      } else if (connectData.instance?.state === 'open') {
+      // Tratamento para múltiplos formatos de retorno da Evolution
+      const base64Data = connectData.base64 || connectData.qrcode?.base64 || (connectData.code ? `data:image/png;base64,${connectData.code}` : null);
+
+      if (base64Data) {
+        // Garantir que o prefixo base64 esteja presente para a tag img
+        const finalQr = base64Data.startsWith('data:image') ? base64Data : `data:image/png;base64,${base64Data}`;
+        setQrCode(finalQr);
+        addLog(`READY: QR Code gerado. Aguardando leitura...`);
+      } else if (connectData.instance?.state === 'open' || connectData.state === 'open') {
+        addLog(`INFO: Sessão já ativa no servidor. Redirecionando...`);
         handleConnectionSuccess();
+      } else {
+        addLog(`ERROR: Resposta inesperada do servidor. Tente atualizar.`);
+        console.error("Erro Connect:", connectData);
       }
 
     } catch (err: any) {
-      addLog(`ERROR: Falha na comunicação com o Core.`);
-      notify('Erro ao conectar. Verifique sua rede.');
+      addLog(`FATAL: Erro na comunicação com o Core Socket.`);
+      addLog(`DETAIL: ${err.message}`);
+      notify('Erro de rede. Verifique o console para detalhes.');
     } finally {
       setIsConnecting(false);
     }
@@ -154,13 +186,12 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
     const link = label.includes('Pix') ? 'PIX-KEY-MASTER-0001' : 'https://clikai.com.br/checkout/premium';
     handleSendMessage(`Segue o link para o pagamento via ${label}: ${link}`);
     setShowPaymentShortcuts(false);
-    notify('Link enviado com sucesso!');
+    notify('Link enviado!');
   };
 
   return (
     <div className="h-full flex flex-col bg-white dark:bg-slate-955 overflow-hidden relative">
       
-      {/* OVERLAY DE SUCESSO PÓS-SCAN */}
       {showSuccessOverlay && (
         <div className="absolute inset-0 z-[200] bg-emerald-600 flex flex-col items-center justify-center text-white animate-in fade-in duration-700">
            <div className="p-10 bg-white/20 rounded-full animate-bounce mb-8">
@@ -171,12 +202,10 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
         </div>
       )}
 
-      {/* TELA DE CONEXÃO AUTOMÁTICA */}
       {connStatus !== 'CONNECTED' && (
         <div className="absolute inset-0 z-[100] bg-slate-950/98 backdrop-blur-3xl flex items-center justify-center p-8 animate-in fade-in">
-           <div className="max-w-5xl w-full bg-white dark:bg-slate-900 rounded-[4rem] shadow-2xl border border-white/10 overflow-hidden flex flex-col md:flex-row">
+           <div className="max-w-5xl w-full bg-white dark:bg-slate-900 rounded-[4rem] shadow-2xl border border-white/10 overflow-hidden flex flex-col md:flex-row min-h-[600px]">
               
-              {/* LADO ESQUERDO: STATUS DO CORE */}
               <div className="w-full md:w-5/12 p-12 bg-slate-50/50 dark:bg-slate-900/50 border-r border-slate-100 dark:border-slate-800 flex flex-col justify-between">
                  <div className="space-y-8">
                     <div className="flex items-center gap-4">
@@ -187,27 +216,28 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                        </div>
                     </div>
 
-                    <div className="bg-slate-950 rounded-[2rem] p-8 font-mono text-[10px] text-emerald-400 shadow-inner h-64 overflow-y-auto no-scrollbar">
+                    <div className="bg-slate-950 rounded-[2rem] p-8 font-mono text-[10px] text-emerald-400 shadow-inner h-72 overflow-y-auto no-scrollbar border border-white/5">
                        <p className="text-emerald-500/40 mb-4 flex items-center gap-2 font-black uppercase"><Terminal size={12}/> System Terminal</p>
-                       {provisioningLogs.map((log, i) => (
+                       {provisioningLogs.length === 0 ? (
+                         <p className="text-slate-600 italic">Aguardando comando de inicialização...</p>
+                       ) : provisioningLogs.map((log, i) => (
                          <p key={i} className="mb-1 animate-in slide-in-from-left-2">{log}</p>
                        ))}
-                       {isConnecting && <p className="animate-pulse">_</p>}
+                       {isConnecting && <p className="animate-pulse text-emerald-500">_</p>}
                     </div>
                  </div>
 
-                 <div className="flex items-center gap-4 p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm mt-8">
+                 <div className="flex items-center gap-4 p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm">
                     <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600"><SmartphoneIcon size={20}/></div>
                     <div>
-                       <p className="text-[8px] font-black text-slate-400 uppercase">Dispositivo Master</p>
-                       <p className="text-[11px] font-black uppercase italic truncate max-w-[150px]">{tenant.name}</p>
+                       <p className="text-[8px] font-black text-slate-400 uppercase">Instância Master</p>
+                       <p className="text-[11px] font-black uppercase italic truncate max-w-[150px]">{instanceName}</p>
                     </div>
                  </div>
               </div>
 
-              {/* LADO DIREITO: INTERAÇÃO (BOTAO OU QR) */}
-              <div className="flex-1 p-16 flex flex-col items-center justify-center text-center relative">
-                 {!isInstanceCreated ? (
+              <div className="flex-1 p-16 flex flex-col items-center justify-center text-center relative bg-white dark:bg-slate-900">
+                 {!isInstanceCreated || !qrCode ? (
                     <div className="space-y-10 animate-in slide-in-from-right-4">
                        <div className="space-y-4">
                           <h2 className="text-5xl font-black italic uppercase tracking-tighter text-slate-800 dark:text-white leading-none">Vincular <br/><span className="text-indigo-600">WhatsApp</span></h2>
@@ -217,15 +247,15 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                        <button 
                          onClick={handleStartConnection}
                          disabled={isConnecting}
-                         className="w-full py-10 bg-indigo-600 text-white font-black rounded-[2.5rem] shadow-[0_30px_60px_-15px_rgba(79,70,229,0.5)] hover:bg-indigo-700 hover:scale-105 active:scale-95 transition-all uppercase text-xs tracking-[0.4em] flex items-center justify-center gap-4 group"
+                         className="w-full py-10 bg-indigo-600 text-white font-black rounded-[2.5rem] shadow-[0_30px_60px_-15px_rgba(79,70,229,0.5)] hover:bg-indigo-700 hover:scale-105 active:scale-95 transition-all uppercase text-xs tracking-[0.4em] flex items-center justify-center gap-4 group disabled:opacity-50"
                        >
                           {isConnecting ? <Loader2 className="animate-spin" size={32} /> : <Zap size={28} className="group-hover:rotate-12 transition-transform" />}
-                          {isConnecting ? 'Injetando Nó...' : 'Gerar QR Code Master'}
+                          {isConnecting ? 'Provisionando...' : 'Gerar QR Code Master'}
                        </button>
 
                        <div className="flex items-center justify-center gap-2 opacity-50">
                           <ShieldCheck size={14} className="text-emerald-500" />
-                          <span className="text-[9px] font-black uppercase tracking-widest">Criptografia Evolution Ativa</span>
+                          <span className="text-[9px] font-black uppercase tracking-widest">Protocolo Evolution v2 Ativo</span>
                        </div>
                     </div>
                  ) : (
@@ -237,13 +267,13 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
 
                        <div className="relative group">
                           <div className="absolute -inset-6 bg-indigo-600/20 blur-3xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                          <div className="w-80 h-80 bg-white rounded-[4rem] shadow-2xl flex items-center justify-center border-[12px] border-slate-50 relative z-10 overflow-hidden">
+                          <div className="w-80 h-80 bg-white rounded-[4rem] shadow-2xl flex items-center justify-center border-[12px] border-slate-50 dark:border-slate-800 relative z-10 overflow-hidden">
                              {qrCode ? (
-                               <img src={qrCode} alt="Scan QR" className="w-64 h-64 object-contain animate-in fade-in duration-1000" />
+                               <img src={qrCode} alt="Scan QR" className="w-64 h-64 object-contain animate-in fade-in duration-700" />
                              ) : (
                                <div className="flex flex-col items-center gap-4 text-slate-300">
                                   <Loader2 className="animate-spin" size={48} />
-                                  <span className="text-[9px] font-black uppercase tracking-widest">Sincronizando Hub...</span>
+                                  <span className="text-[9px] font-black uppercase tracking-widest">Injetando Sockets...</span>
                                </div>
                              )}
                           </div>
@@ -251,13 +281,13 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
 
                        <div className="flex gap-4">
                           <button onClick={handleStartConnection} className="flex-1 py-5 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 text-slate-600 dark:text-white rounded-[1.8rem] font-black uppercase text-[10px] tracking-widest hover:border-indigo-600 transition-all shadow-sm flex items-center justify-center gap-3">
-                             <RefreshCcw size={16} /> Atualizar QR
+                             <RefreshCcw size={16} /> Novo QR
                           </button>
-                          <button onClick={() => { setIsInstanceCreated(false); setQrCode(null); }} className="px-8 py-5 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-[1.8rem] font-black uppercase text-[10px] tracking-widest hover:text-rose-500 transition-all">Cancelar</button>
+                          <button onClick={() => { setIsInstanceCreated(false); setQrCode(null); setProvisioningLogs([]); }} className="px-8 py-5 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-[1.8rem] font-black uppercase text-[10px] tracking-widest hover:text-rose-500 transition-all">Sair</button>
                        </div>
 
-                       <div className="flex items-center justify-center gap-2 px-6 py-2 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100 text-[8px] font-black uppercase tracking-[0.2em] animate-pulse">
-                          <Wifi size={10}/> Node Status: Aguardando Handshake...
+                       <div className="flex items-center justify-center gap-2 px-6 py-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-full border border-emerald-100 dark:border-emerald-800 text-[8px] font-black uppercase tracking-[0.2em] animate-pulse">
+                          <Wifi size={10}/> Node Status: Aguardando Pareamento...
                        </div>
                     </div>
                  )}
@@ -266,9 +296,8 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
         </div>
       )}
 
-      {/* INTERFACE PRINCIPAL DO INBOX */}
+      {/* Interface Principal (Lista e Mensagens) */}
       <div className="flex flex-1 overflow-hidden">
-        {/* LISTA DE CONVERSAS */}
         <div className="w-96 flex flex-col border-r border-slate-200 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30">
           <div className="p-10">
             <h2 className="text-2xl font-black tracking-tight italic uppercase mb-10 flex items-center gap-4">
@@ -293,7 +322,6 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
           </div>
         </div>
 
-        {/* ÁREA DE MENSAGENS */}
         <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-955 relative">
           {activeChat ? (
             <>
@@ -307,23 +335,20 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                   <button onClick={() => setShowPaymentShortcuts(!showPaymentShortcuts)} className="flex items-center gap-2 px-8 py-4 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all shadow-sm border border-emerald-100 dark:border-emerald-800/50">
-                      <CreditCard size={16} /> Link de Pagamento
-                   </button>
-                </div>
+                <button onClick={() => setShowPaymentShortcuts(!showPaymentShortcuts)} className="flex items-center gap-2 px-8 py-4 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all shadow-sm border border-emerald-100 dark:border-emerald-800/50">
+                  <CreditCard size={16} /> Link de Pagamento
+                </button>
               </div>
 
-              {/* PAYMENT SHORTCUTS OVERLAY */}
               {showPaymentShortcuts && (
                 <div className="absolute top-36 right-12 z-50 bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 p-8 w-80 animate-in slide-in-from-top-4">
-                   <div className="flex items-center justify-between mb-6 px-2">
+                   <div className="flex justify-between mb-6 px-2">
                       <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Escolher Gateway</h4>
                       <button onClick={() => setShowPaymentShortcuts(false)} className="text-slate-300 hover:text-rose-500"><X size={16}/></button>
                    </div>
                    <div className="space-y-2">
                       {PAYMENT_SUGGESTIONS.map(p => (
-                        <button key={p.id} onClick={() => sendPaymentLink(p.label)} className="w-full flex items-center gap-4 p-5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-2xl transition-all group text-left border border-transparent hover:border-slate-100 dark:hover:border-slate-700 shadow-sm hover:shadow-md">
+                        <button key={p.id} onClick={() => sendPaymentLink(p.label)} className="w-full flex items-center gap-4 p-5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-2xl transition-all group text-left border border-transparent hover:border-slate-100 dark:hover:border-slate-700 shadow-sm">
                            <div className="p-3 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 rounded-xl group-hover:bg-emerald-600 group-hover:text-white transition-all shadow-inner"><p.icon size={18}/></div>
                            <span className="text-[11px] font-black uppercase italic tracking-tight">{p.label}</span>
                         </button>
