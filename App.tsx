@@ -76,7 +76,7 @@ const App: React.FC = () => {
 
   const notify = (msg: string) => {
     setNotification(msg);
-    setTimeout(() => setNotification(null), 3000);
+    setTimeout(() => setNotification(null), 4000);
   };
 
   const addNotification = (notif: Omit<AppNotification, 'id' | 'time' | 'read'>) => {
@@ -100,6 +100,14 @@ const App: React.FC = () => {
     };
     syncInitial();
   }, []);
+
+  const handleLogout = () => {
+    notify('Obrigado por utilizar o Z-Prospector. Até breve!');
+    setTimeout(() => {
+      setIsLoggedIn(false);
+      setActiveModule('results');
+    }, 1500);
+  };
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -158,7 +166,7 @@ const App: React.FC = () => {
              <UserCog size={isSidebarOpen ? 24 : 34} />
              {isSidebarOpen && <span className="text-sm font-black uppercase tracking-wider">Meu Perfil</span>}
           </button>
-          <button onClick={() => setIsLoggedIn(false)} className={`w-full flex items-center ${isSidebarOpen ? 'gap-5 px-6' : 'justify-center'} py-5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-2xl transition-all`}>
+          <button onClick={handleLogout} className={`w-full flex items-center ${isSidebarOpen ? 'gap-5 px-6' : 'justify-center'} py-5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-2xl transition-all`}>
             <LogOut size={24} /> 
             {isSidebarOpen && <span className="text-sm font-black uppercase tracking-wider">Deslogar</span>}
           </button>
@@ -166,6 +174,13 @@ const App: React.FC = () => {
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden relative">
+        {/* TOAST NOTIFICATION */}
+        {notification && (
+           <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[1000] px-8 py-4 bg-indigo-600 text-white rounded-full font-black text-xs uppercase tracking-widest shadow-2xl animate-in slide-in-from-top-10 flex items-center gap-4 border-2 border-white/20">
+              <CheckCircle2 size={18} /> {notification}
+           </div>
+        )}
+
         {/* HEADER AUTHORITY */}
         <header className="h-28 bg-white/60 dark:bg-slate-900/60 backdrop-blur-2xl border-b border-slate-100 dark:border-slate-800 flex items-center justify-between px-12 z-40 relative">
            <div className="flex items-center gap-10">
@@ -188,7 +203,6 @@ const App: React.FC = () => {
                    {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-600 text-white text-[8px] font-black flex items-center justify-center rounded-full border-2 border-white dark:border-slate-800">{unreadCount}</span>}
                 </button>
                 
-                {/* NOTIFICATION POPOVER */}
                 {showNotifications && (
                   <div className="absolute top-full right-0 mt-4 w-96 bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 p-8 z-[100] animate-in slide-in-from-top-4 overflow-hidden">
                      <div className="flex items-center justify-between mb-8 border-b border-slate-50 dark:border-slate-800 pb-4">
@@ -250,7 +264,7 @@ const App: React.FC = () => {
           {activeModule === 'scheduling' && <ScheduleManager appointments={appointments} onAddAppointment={(a) => { setAppointments([...appointments, a]); addNotification({ type: 'APPOINTMENT', title: 'Novo Agendamento', description: `${a.lead} agendou ${a.service}` }); }} onUpdateAppointment={(a) => setAppointments(appointments.map(i => i.id === a.id ? a : i))} onDeleteAppointment={(id) => setAppointments(appointments.filter(i => i.id !== id))} />}
           {activeModule === 'broadcast' && <BroadcastManager leads={leads} notify={(msg) => { notify(msg); addNotification({ type: 'BROADCAST', title: 'Status de Envio', description: msg }); }} />}
           {activeModule === 'payments' && <PaymentManager totalVolume={leads.reduce((a,b) => a + (b.value || 0), 0)} pipelineVolume={leads.length * 500} />}
-          {activeModule === 'profile' && <UserProfile user={currentUser} onUpdate={(d) => setCurrentUser({...currentUser, ...d})} onLogout={() => setIsLoggedIn(false)} notify={notify} />}
+          {activeModule === 'profile' && <UserProfile user={currentUser} onUpdate={(d) => setCurrentUser({...currentUser, ...d})} onLogout={handleLogout} notify={notify} />}
         </div>
       </main>
     </div>

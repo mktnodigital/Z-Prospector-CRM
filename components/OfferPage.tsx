@@ -12,13 +12,13 @@ import {
   BarChart, Users, Laptop, Briefcase, Globe2, Monitor,
   Sun, Moon, HelpCircle, Code2, Headphones, ShieldQuestion,
   Menu as MenuIcon, MousePointer2, Sparkles, Trophy,
-  RefreshCcw, Building2, Wallet
+  RefreshCcw, Building2, Wallet, Eye, EyeOff, Shield
 } from 'lucide-react';
 import { BrandingConfig } from '../types';
 
 interface OfferPageProps {
   branding: BrandingConfig;
-  onLogin?: () => void;
+  onLogin: () => void;
   onActivationSuccess?: (email: string) => void;
 }
 
@@ -43,14 +43,21 @@ const ZLogoHero: React.FC<{ branding: BrandingConfig, className?: string }> = ({
   );
 };
 
-export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin, onActivationSuccess }) => {
+export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('annual');
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 47, seconds: 22 });
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   
-  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<any>(null);
+  // LOGIN MODAL STATE
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [securityCode, setSecurityCode] = useState('');
+  const [inputCode, setInputCode] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -63,6 +70,41 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin, onActiv
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const generateSecurityCode = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    for (let i = 0; i < 5; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setSecurityCode(code);
+  };
+
+  const handleOpenLogin = () => {
+    generateSecurityCode();
+    setIsLoginModalOpen(true);
+    setLoginError(null);
+    setInputCode('');
+  };
+
+  const handleAccess = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError(null);
+
+    if (inputCode.toUpperCase() !== securityCode) {
+      setLoginError('Código de segurança inválido. Tente novamente.');
+      generateSecurityCode();
+      setInputCode('');
+      return;
+    }
+
+    setIsAuthenticating(true);
+    // Simulação de autenticação Master
+    setTimeout(() => {
+      setIsAuthenticating(false);
+      onLogin();
+    }, 1500);
+  };
 
   const plans = [
     { id: 'start', name: 'COMEÇAR', tagline: 'Ideal para iniciantes.', monthlyPrice: 97, annualTotal: 931, features: ['CRM Kanban Visual', 'Inbox com IA Básica', 'Até 1.000 Leads/mês'], cta: 'QUERO COMEÇAR', color: 'indigo' },
@@ -85,6 +127,113 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin, onActiv
   return (
     <div className={`min-h-screen transition-colors duration-500 overflow-x-hidden ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-white text-slate-900'}`}>
       
+      {/* MODAL DE LOGIN MASTER (FUNDO FUMÊ / FORM BRANCO) */}
+      {isLoginModalOpen && (
+        <div className="fixed inset-0 z-[500] bg-slate-950/90 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in">
+           <div className="bg-white w-full max-w-lg rounded-[4rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] overflow-hidden relative animate-in zoom-in-95">
+              <button 
+                onClick={() => setIsLoginModalOpen(false)}
+                className="absolute top-10 right-10 p-3 bg-slate-100 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-2xl transition-all"
+              >
+                <X size={24} />
+              </button>
+
+              <div className="p-16 space-y-10">
+                 <div className="text-center space-y-4">
+                    <div className="w-20 h-20 bg-indigo-600 rounded-[2rem] flex items-center justify-center text-white mx-auto shadow-2xl shadow-indigo-500/30">
+                       <Lock size={36} />
+                    </div>
+                    <div>
+                       <h3 className="text-3xl font-black italic uppercase tracking-tighter text-slate-900">Command Center</h3>
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Acesso Restrito clikai.com.br</p>
+                    </div>
+                 </div>
+
+                 <form onSubmit={handleAccess} className="space-y-6">
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase text-slate-400 px-4">E-mail de Operador</label>
+                       <div className="relative">
+                          <Mail className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
+                          <input 
+                            required
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="seu@email.com"
+                            className="w-full pl-16 pr-8 py-5 bg-slate-50 border-none rounded-[2rem] font-bold text-slate-800 outline-none focus:ring-4 ring-indigo-500/10 transition-all"
+                          />
+                       </div>
+                    </div>
+
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase text-slate-400 px-4">Senha de Autoridade</label>
+                       <div className="relative">
+                          <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
+                          <input 
+                            required
+                            type={showPassword ? 'text' : 'password'}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="••••••••••••"
+                            className="w-full pl-16 pr-16 py-5 bg-slate-50 border-none rounded-[2rem] font-bold text-slate-800 outline-none focus:ring-4 ring-indigo-500/10 transition-all"
+                          />
+                          <button 
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 hover:text-indigo-600"
+                          >
+                             {showPassword ? <EyeOff size={20}/> : <Eye size={20}/>}
+                          </button>
+                       </div>
+                    </div>
+
+                    {/* SECURITY CODE (CAPTCHA) */}
+                    <div className="space-y-4 p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100">
+                       <div className="flex justify-between items-center px-2">
+                          <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Código de Segurança</label>
+                          <button type="button" onClick={generateSecurityCode} className="text-indigo-600 hover:underline"><RefreshCcw size={12}/></button>
+                       </div>
+                       <div className="flex items-center gap-6">
+                          <div className="flex-1 bg-indigo-600 text-white font-mono text-2xl font-black italic tracking-[0.5em] h-16 rounded-2xl flex items-center justify-center shadow-inner select-none px-4">
+                             {securityCode}
+                          </div>
+                          <input 
+                             required
+                             maxLength={5}
+                             value={inputCode}
+                             onChange={(e) => setInputCode(e.target.value.toUpperCase())}
+                             placeholder="Digite"
+                             className="w-32 py-5 bg-white border-2 border-slate-100 rounded-2xl font-black text-center text-xl text-indigo-600 outline-none focus:border-indigo-600 transition-all uppercase"
+                          />
+                       </div>
+                    </div>
+
+                    {loginError && (
+                       <div className="px-6 py-4 bg-rose-50 text-rose-600 rounded-2xl flex items-center gap-3 text-[10px] font-black uppercase border border-rose-100">
+                          <ShieldAlert size={16} /> {loginError}
+                       </div>
+                    )}
+
+                    <button 
+                      type="submit" 
+                      disabled={isAuthenticating}
+                      className="w-full py-7 bg-indigo-600 text-white font-black rounded-[2.5rem] shadow-2xl shadow-indigo-500/20 hover:bg-indigo-700 hover:scale-[1.02] transition-all uppercase text-xs tracking-[0.4em] flex items-center justify-center gap-4 group"
+                    >
+                       {isAuthenticating ? <Loader2 className="animate-spin" size={24}/> : <Shield size={22} className="group-hover:rotate-12 transition-transform" />}
+                       {isAuthenticating ? 'Validando Node...' : 'Entrar no Hub Master'}
+                    </button>
+                 </form>
+              </div>
+
+              <div className="bg-slate-50 p-8 text-center">
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center justify-center gap-2">
+                    <CheckCircle2 size={12} className="text-emerald-500" /> Criptografia de Ponta-a-Ponta Ativa
+                 </p>
+              </div>
+           </div>
+        </div>
+      )}
+
       {/* Barra de Urgência */}
       <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 px-4 text-center text-[10px] font-black uppercase tracking-[0.2em] sticky top-0 z-[100] shadow-xl flex justify-center items-center gap-4">
         <span className="flex items-center gap-2"><Flame size={14} className="text-yellow-400 animate-pulse"/> OFERTA EXCLUSIVA:</span>
@@ -98,7 +247,7 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin, onActiv
           <button onClick={() => scrollToSection('recursos')} className="text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-colors">Recursos</button>
           <button onClick={() => scrollToSection('precos')} className="text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-colors">Preços</button>
           <button onClick={() => scrollToSection('faq')} className="text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-colors">FAQ</button>
-          <button onClick={onLogin} className="px-8 py-3 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-transform shadow-lg">Área do Cliente</button>
+          <button onClick={handleOpenLogin} className="px-8 py-3 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-transform shadow-lg">Área de Acesso</button>
         </div>
       </nav>
 
@@ -172,7 +321,7 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin, onActiv
                 <div className="space-y-4 w-full mb-12">
                    {plan.features.map((f, i) => <div key={i} className="flex items-center gap-3 text-xs font-black uppercase text-slate-500 tracking-tight"><CheckCircle2 size={16} className="text-emerald-500 shrink-0" /> {f}</div>)}
                 </div>
-                <button onClick={() => { setSelectedPlan(plan); setIsCheckoutOpen(true); }} className={`w-full py-6 rounded-[2rem] font-black uppercase tracking-widest text-xs shadow-xl transition-all hover:scale-105 ${plan.popular ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-white'}`}>{plan.cta}</button>
+                <button onClick={() => { handleOpenLogin(); }} className={`w-full py-6 rounded-[2rem] font-black uppercase tracking-widest text-xs shadow-xl transition-all hover:scale-105 ${plan.popular ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-white'}`}>{plan.cta}</button>
               </div>
             ))}
           </div>
@@ -265,22 +414,6 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin, onActiv
             </div>
          </div>
       </footer>
-
-      {/* Modal de Checkout Simplificado */}
-      {isCheckoutOpen && selectedPlan && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/95 backdrop-blur-md">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[3rem] p-12 relative animate-in zoom-in-95">
-            <button onClick={() => setIsCheckoutOpen(false)} className="absolute top-8 right-8 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400"><X size={24} /></button>
-            <h3 className="text-3xl font-black italic uppercase tracking-tight mb-4">Assinar {selectedPlan.name}</h3>
-            <p className="text-4xl font-black text-indigo-600 italic mb-10">R$ {billingCycle === 'monthly' ? selectedPlan.monthlyPrice : selectedPlan.annualTotal},00</p>
-            <div className="space-y-4">
-               <input placeholder="Seu Nome Completo" className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold" />
-               <input placeholder="E-mail de Login" className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold" />
-               <button className="w-full py-7 bg-indigo-600 text-white font-black rounded-3xl shadow-2xl uppercase tracking-widest text-xs mt-6">Ir para Pagamento Seguros</button>
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );
