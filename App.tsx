@@ -104,15 +104,15 @@ const App: React.FC = () => {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const menuItems = [
-    { id: 'admin', label: 'Master', icon: ShieldCheck, color: 'text-orange-500', special: true },
-    { id: 'results', label: 'Stats', icon: LayoutDashboard, color: 'text-indigo-600' },
-    { id: 'capture', label: 'Leads', icon: Radar, color: 'text-cyan-600' },
-    { id: 'prospecting', label: 'CRM', icon: Kanban, color: 'text-violet-600' },
-    { id: 'inbox', label: 'Inbox', icon: MessageSquare, color: 'text-emerald-600' },
-    { id: 'scheduling', label: 'Agenda', icon: Calendar, color: 'text-pink-600' },
-    { id: 'broadcast', label: 'Envios', icon: Megaphone, color: 'text-rose-600' },
+    { id: 'admin', label: 'Master', icon: ShieldCheck, color: 'text-orange-600', special: true },
+    { id: 'results', label: 'Dashboard', icon: LayoutDashboard, color: 'text-indigo-600' },
+    { id: 'capture', label: 'Captação', icon: Radar, color: 'text-cyan-600' },
+    { id: 'prospecting', label: 'Funil CRM', icon: Kanban, color: 'text-violet-600' },
+    { id: 'inbox', label: 'Chat Inbox', icon: MessageSquare, color: 'text-emerald-600' },
+    { id: 'scheduling', label: 'Agenda IA', icon: Calendar, color: 'text-pink-600' },
+    { id: 'broadcast', label: 'Disparos', icon: Megaphone, color: 'text-rose-600' },
     { id: 'products', label: 'Ofertas', icon: Package, color: 'text-amber-600' },
-    { id: 'payments', label: 'Caixa', icon: CreditCard, color: 'text-emerald-600' },
+    { id: 'payments', label: 'Financeiro', icon: CreditCard, color: 'text-emerald-600' },
   ];
 
   if (isLoading) return <div className="fixed inset-0 flex items-center justify-center bg-slate-950 text-white font-black uppercase tracking-widest"><Loader2 className="animate-spin text-indigo-500 mr-4" /> Sincronizando Rede...</div>;
@@ -140,27 +140,27 @@ const App: React.FC = () => {
             <button 
               key={m.id} 
               onClick={() => setActiveModule(m.id as AppModule)} 
-              className={`w-full flex items-center ${isSidebarOpen ? 'gap-4 px-6' : 'justify-center'} py-5 rounded-[2rem] transition-all relative ${
+              className={`w-full flex items-center ${isSidebarOpen ? 'gap-5 px-6' : 'justify-center'} py-5 rounded-[2rem] transition-all relative ${
                 activeModule === m.id 
                   ? (m.special ? 'bg-orange-50 dark:bg-orange-900/20 shadow-sm' : 'bg-slate-50 dark:bg-slate-800 shadow-sm') 
-                  : 'text-slate-400 hover:bg-slate-50/50'
+                  : 'text-slate-500 hover:bg-slate-50/50'
               }`}
             >
               {activeModule === m.id && <div className={`absolute left-0 w-2 h-10 ${m.special ? 'bg-orange-500' : 'bg-indigo-600'} rounded-r-full`}></div>}
-              <m.icon size={isSidebarOpen ? 22 : 32} className={`${activeModule === m.id ? m.color : 'text-slate-300'} transition-all`} /> 
-              {isSidebarOpen && <span className={`text-[11px] font-black uppercase tracking-widest ${activeModule === m.id ? (m.special ? 'text-orange-600' : 'text-slate-900 dark:text-white') : ''}`}>{m.label}</span>}
+              <m.icon size={isSidebarOpen ? 24 : 34} className={`${activeModule === m.id ? m.color : 'text-slate-400'} transition-all`} /> 
+              {isSidebarOpen && <span className={`text-sm font-black uppercase tracking-wider ${activeModule === m.id ? (m.special ? 'text-orange-700' : 'text-slate-900 dark:text-white') : 'text-slate-500 opacity-80'}`}>{m.label}</span>}
             </button>
           ))}
         </nav>
 
         <div className="p-6 border-t border-slate-50 dark:border-slate-800 space-y-2">
-          <button onClick={() => setActiveModule('profile')} className={`w-full flex items-center ${isSidebarOpen ? 'gap-4 px-6' : 'justify-center'} py-5 rounded-2xl transition-all ${activeModule === 'profile' ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'text-slate-400'}`}>
-             <UserCog size={isSidebarOpen ? 20 : 32} />
-             {isSidebarOpen && <span className="text-[10px] font-black uppercase tracking-widest">Perfil</span>}
+          <button onClick={() => setActiveModule('profile')} className={`w-full flex items-center ${isSidebarOpen ? 'gap-5 px-6' : 'justify-center'} py-5 rounded-2xl transition-all ${activeModule === 'profile' ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'text-slate-500'}`}>
+             <UserCog size={isSidebarOpen ? 24 : 34} />
+             {isSidebarOpen && <span className="text-sm font-black uppercase tracking-wider">Meu Perfil</span>}
           </button>
-          <button onClick={() => setIsLoggedIn(false)} className={`w-full flex items-center ${isSidebarOpen ? 'gap-4 px-6' : 'justify-center'} py-5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-2xl transition-all`}>
-            <LogOut size={18} /> 
-            {isSidebarOpen && <span className="text-[10px] font-black uppercase tracking-widest">Sair</span>}
+          <button onClick={() => setIsLoggedIn(false)} className={`w-full flex items-center ${isSidebarOpen ? 'gap-5 px-6' : 'justify-center'} py-5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-2xl transition-all`}>
+            <LogOut size={24} /> 
+            {isSidebarOpen && <span className="text-sm font-black uppercase tracking-wider">Deslogar</span>}
           </button>
         </div>
       </aside>

@@ -18,7 +18,6 @@ interface Props {
 
 type ViewMode = 'month' | 'list';
 
-// Simulação de catálogo para sincronização
 const SERVICE_CATALOG = [
   { id: 'srv_1', name: 'Corte Master', price: 80.00 },
   { id: 'srv_2', name: 'Barba Terapia', price: 65.00 },
@@ -35,7 +34,6 @@ export const ScheduleManager: React.FC<Props> = ({ appointments, onAddAppointmen
   
   const [hoveredDay, setHoveredDay] = useState<number | null>(null);
 
-  // Form states
   const [formName, setFormName] = useState('');
   const [formTime, setFormTime] = useState('');
   const [formServiceId, setFormServiceId] = useState(SERVICE_CATALOG[0].id);
@@ -139,7 +137,7 @@ export const ScheduleManager: React.FC<Props> = ({ appointments, onAddAppointmen
   return (
     <div className="p-10 space-y-10 animate-in fade-in relative pb-40">
       
-      {/* MODAL HÍBRIDO - AGORA SINCRONIZADO COM CATALOGO */}
+      {/* MODAL HÍBRIDO */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[3.5rem] shadow-2xl p-12 relative border border-white/10 overflow-hidden">
@@ -189,7 +187,7 @@ export const ScheduleManager: React.FC<Props> = ({ appointments, onAddAppointmen
         </div>
       )}
 
-      {/* HEADER MASTER E SELECTOR DE VISUALIZAÇÃO */}
+      {/* HEADER MASTER E SELECTOR */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-10">
         <div>
            <h1 className="text-4xl font-black italic uppercase tracking-tighter flex items-center gap-5">
@@ -204,21 +202,21 @@ export const ScheduleManager: React.FC<Props> = ({ appointments, onAddAppointmen
            </div>
         </div>
 
-        <div className="flex items-center gap-4 bg-white dark:bg-slate-900 p-2 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
+        <div className="flex items-center gap-4 bg-white dark:bg-slate-900 p-2.5 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 gap-1">
            <button 
              onClick={() => setViewMode('month')} 
-             className={`flex items-center gap-3 px-8 py-4 rounded-[1.8rem] text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'month' ? 'bg-indigo-600 text-white shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}
+             className={`flex items-center gap-4 px-9 py-5 rounded-[1.8rem] text-xs font-black uppercase tracking-wider transition-all ${viewMode === 'month' ? 'bg-indigo-600 text-white shadow-xl' : 'text-slate-500 hover:text-slate-700'}`}
            >
-              <LayoutGrid size={16} /> Mês
+              <LayoutGrid size={20} /> Calendário
            </button>
            <button 
              onClick={() => setViewMode('list')} 
-             className={`flex items-center gap-3 px-8 py-4 rounded-[1.8rem] text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'list' ? 'bg-indigo-600 text-white shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}
+             className={`flex items-center gap-4 px-9 py-5 rounded-[1.8rem] text-xs font-black uppercase tracking-wider transition-all ${viewMode === 'list' ? 'bg-indigo-600 text-white shadow-xl' : 'text-slate-500 hover:text-slate-700'}`}
            >
-              <List size={16} /> Lista
+              <List size={20} /> Timeline
            </button>
            <div className="w-px h-8 bg-slate-100 dark:bg-slate-800 mx-2"></div>
-           <div className="flex items-center gap-3">
+           <div className="flex items-center gap-3 px-4">
               <button onClick={handlePrevMonth} className="p-3 bg-slate-50 dark:bg-slate-800 text-slate-400 rounded-xl hover:text-indigo-600 transition-all"><ChevronLeft size={18} /></button>
               <span className="min-w-[140px] text-center font-black italic uppercase text-xs tracking-widest text-slate-600 dark:text-slate-200">{monthName} {year}</span>
               <button onClick={handleNextMonth} className="p-3 bg-slate-50 dark:bg-slate-800 text-slate-400 rounded-xl hover:text-indigo-600 transition-all"><ChevronRight size={18} /></button>
@@ -228,7 +226,7 @@ export const ScheduleManager: React.FC<Props> = ({ appointments, onAddAppointmen
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
         
-        {/* CALENDÁRIO OU LISTA (CONTEÚDO PRINCIPAL) */}
+        {/* CALENDÁRIO OU LISTA */}
         <div className="lg:col-span-3">
            {viewMode === 'month' ? (
              <div className="bg-white dark:bg-slate-900 p-12 rounded-[4.5rem] border-2 border-slate-50 dark:border-slate-800 shadow-sm relative animate-in zoom-in-95">
@@ -264,7 +262,6 @@ export const ScheduleManager: React.FC<Props> = ({ appointments, onAddAppointmen
                            </div>
                          )}
 
-                         {/* HOVER TOOLTIP POPUP */}
                          {hoveredDay === day && !isSelected && (
                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-6 w-72 bg-slate-950/95 backdrop-blur-2xl p-8 rounded-[3rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.6)] z-[100] border border-white/10 animate-in slide-in-from-bottom-2 duration-300">
                               <div className="flex items-center gap-3 pb-4 border-b border-white/10 mb-5">
@@ -339,7 +336,7 @@ export const ScheduleManager: React.FC<Props> = ({ appointments, onAddAppointmen
            )}
         </div>
 
-        {/* SIDEBAR DE STATUS E AUTOMAÇÃO */}
+        {/* SIDEBAR */}
         <div className="space-y-8">
            <div className="bg-gradient-to-br from-indigo-600 to-purple-800 p-10 rounded-[3.5rem] text-white shadow-2xl relative overflow-hidden group">
               <Bot className="absolute -bottom-6 -right-6 w-36 h-36 text-white/10 group-hover:scale-125 transition-transform duration-1000" />
