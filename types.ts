@@ -112,4 +112,5 @@ export type AppModule =
   | 'offer'
   | 'payments'
   | 'profile'
-  | 'broadcast';
+  | 'broadcast'
+  | 'search';
