@@ -12,8 +12,7 @@ import {
   BarChart, Users, Laptop, Briefcase, Globe2, Monitor,
   Sun, Moon, HelpCircle, Code2, Headphones, ShieldQuestion,
   Menu as MenuIcon, MousePointer2, Sparkles, Trophy,
-  // Fix: Added missing icons
-  RefreshCcw, Building2
+  RefreshCcw, Building2, Wallet
 } from 'lucide-react';
 import { BrandingConfig } from '../types';
 
@@ -47,16 +46,11 @@ const ZLogoHero: React.FC<{ branding: BrandingConfig, className?: string }> = ({
 export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin, onActivationSuccess }) => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('annual');
-  const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 39, seconds: 54 });
+  const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 47, seconds: 22 });
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-  const [checkoutStep, setCheckoutStep] = useState<'register' | 'payment' | 'success'>('register');
-  const [userData, setUserData] = useState({ name: '', email: '', phone: '' });
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
-  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'card'>('pix');
-  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -77,24 +71,15 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin, onActiv
   ];
 
   const faqs = [
-    { q: 'Preciso de equipe técnica?', a: 'Não. O Z-Prospector é 100% pronto para uso.', icon: Code2 },
-    { q: 'Funciona com WhatsApp oficial?', a: 'Sim, suportamos Cloud API e conexões VPS.', icon: MessageSquare },
-    { q: 'Como funciona o cancelamento?', a: 'Livre. Cancele quando quiser pelo painel.', icon: Ban },
-    { q: 'Meus dados estão seguros?', a: 'Sim, isolamento total por unidade (Multi-tenant).', icon: ShieldCheck }
+    { q: 'Preciso de equipe técnica?', a: 'Não. O Z-Prospector é uma plataforma "No-Code", 100% pronta para uso imediato.', icon: Code2 },
+    { q: 'Funciona com WhatsApp Business?', a: 'Sim, via Evolution API ou Cloud API Oficial. Você escolhe a melhor conexão.', icon: MessageSquare },
+    { q: 'Como recebo meus ganhos?', a: 'Os pagamentos caem direto na sua conta configurada via Mercado Pago ou Stripe.', icon: Wallet },
+    { q: 'Posso cancelar quando quiser?', a: 'Sim! Sem fidelidade ou letras miúdas. O cancelamento é feito em um clique.', icon: Ban }
   ];
-
-  const handleOpenCheckout = (plan: any) => {
-    setSelectedPlan(plan);
-    setCheckoutStep('register');
-    setIsCheckoutOpen(true);
-  };
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      setIsMobileMenuOpen(false);
-    }
+    if (element) element.scrollIntoView({ behavior: 'smooth' });
   };
 
   return (
@@ -106,34 +91,38 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin, onActiv
         <span className="font-mono text-yellow-300">{timeLeft.hours.toString().padStart(2, '0')}:{timeLeft.minutes.toString().padStart(2, '0')}:{timeLeft.seconds.toString().padStart(2, '0')}</span>
       </div>
 
-      {/* Navegação */}
+      {/* Header Fixo */}
       <nav className="sticky top-12 mx-4 md:mx-10 z-[90] bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-3xl shadow-lg px-8 py-5 flex justify-between items-center">
         <ZLogoHero branding={branding} />
         <div className="hidden lg:flex items-center gap-8">
-          {['recursos', 'precos', 'faq'].map(item => (
-            <button key={item} onClick={() => scrollToSection(item)} className="text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-colors">
-              {item === 'precos' ? 'Preços' : item.charAt(0).toUpperCase() + item.slice(1)}
-            </button>
-          ))}
-          <button onClick={onLogin} className="px-8 py-3 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-transform shadow-lg">Entrar</button>
+          <button onClick={() => scrollToSection('recursos')} className="text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-colors">Recursos</button>
+          <button onClick={() => scrollToSection('precos')} className="text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-colors">Preços</button>
+          <button onClick={() => scrollToSection('faq')} className="text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-colors">FAQ</button>
+          <button onClick={onLogin} className="px-8 py-3 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-transform shadow-lg">Área do Cliente</button>
         </div>
-        <button onClick={() => setIsMobileMenuOpen(true)} className="lg:hidden p-2 bg-slate-100 dark:bg-slate-800 rounded-xl"><MenuIcon size={24}/></button>
       </nav>
 
-      {/* Hero Section */}
-      <section id="hero" className="pt-24 pb-32 px-6 max-w-7xl mx-auto">
-        <div className="flex flex-col lg:flex-row items-center justify-between gap-24">
-          <div className="flex-1 space-y-10 text-center lg:text-left">
+      {/* Hero Master */}
+      <section className="pt-24 pb-32 px-6 max-w-7xl mx-auto text-center lg:text-left">
+        <div className="flex flex-col lg:flex-row items-center gap-20">
+          <div className="flex-1 space-y-10">
             <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 text-[10px] font-black uppercase tracking-widest border border-indigo-100 dark:border-indigo-800"><Zap size={14} /> WhatsApp no Piloto Automático</div>
             <h1 className="text-5xl lg:text-7xl font-black italic uppercase tracking-tighter leading-tight">Venda todo dia no <br/><span className="text-indigo-600">WhatsApp com IA</span></h1>
             <p className="text-xl text-slate-500 font-bold leading-relaxed max-w-2xl italic uppercase tracking-wide">A primeira plataforma SaaS Master que qualifica leads e agenda vendas enquanto você dorme.</p>
             <button onClick={() => scrollToSection('precos')} className="px-12 py-6 bg-indigo-600 text-white rounded-[2rem] font-black uppercase tracking-widest shadow-2xl hover:bg-indigo-700 transition-all hover:scale-105 flex items-center justify-center gap-3 text-sm">Quero Escalar Agora <ArrowRight size={20} /></button>
           </div>
-          <div className="flex-1 relative"><img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=2070" className="rounded-[3rem] shadow-2xl border-4 border-slate-100 dark:border-slate-800 rotate-2" alt="Dashboard"/></div>
+          <div className="flex-1 relative">
+            <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=2070" className="rounded-[3rem] shadow-2xl border-4 border-slate-100 dark:border-slate-800 rotate-2" alt="Dashboard"/>
+            <div className="absolute -bottom-10 -left-10 bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 animate-bounce">
+               <TrendingUp className="text-emerald-500 mb-2" size={32} />
+               <p className="text-[10px] font-black uppercase text-slate-400">ROI Médio</p>
+               <h4 className="text-2xl font-black italic text-indigo-600">+248%</h4>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* Seção de Recursos */}
+      {/* SEÇÃO: RECURSOS MASTER */}
       <section id="recursos" className="py-32 bg-slate-50 dark:bg-slate-900/50">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-20">
@@ -150,7 +139,7 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin, onActiv
               { title: 'Relatórios ROI', desc: 'BI completo para saber exatamente de onde vem o lucro.', icon: BarChart, color: 'orange' }
             ].map((res, i) => (
               <div key={i} className="bg-white dark:bg-slate-800 p-10 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-2xl transition-all group">
-                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-8 bg-${res.color}-50 text-${res.color}-600 group-hover:rotate-12 transition-transform shadow-sm`}>
+                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-8 bg-indigo-50 text-indigo-600 group-hover:rotate-12 transition-transform shadow-sm`}>
                   <res.icon size={32} />
                 </div>
                 <h3 className="text-xl font-black italic uppercase tracking-tight mb-4">{res.title}</h3>
@@ -161,7 +150,7 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin, onActiv
         </div>
       </section>
 
-      {/* Seção de Preços */}
+      {/* SEÇÃO: PREÇOS E PLANOS */}
       <section id="precos" className="py-32">
         <div className="max-w-7xl mx-auto px-6 text-center">
           <h2 className="text-5xl font-black italic uppercase tracking-tighter mb-10">Escolha sua <span className="text-indigo-600">Velocidade</span></h2>
@@ -183,14 +172,14 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin, onActiv
                 <div className="space-y-4 w-full mb-12">
                    {plan.features.map((f, i) => <div key={i} className="flex items-center gap-3 text-xs font-black uppercase text-slate-500 tracking-tight"><CheckCircle2 size={16} className="text-emerald-500 shrink-0" /> {f}</div>)}
                 </div>
-                <button onClick={() => handleOpenCheckout(plan)} className={`w-full py-6 rounded-[2rem] font-black uppercase tracking-widest text-xs shadow-xl transition-all hover:scale-105 ${plan.popular ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-white'}`}>{plan.cta}</button>
+                <button onClick={() => { setSelectedPlan(plan); setIsCheckoutOpen(true); }} className={`w-full py-6 rounded-[2rem] font-black uppercase tracking-widest text-xs shadow-xl transition-all hover:scale-105 ${plan.popular ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-white'}`}>{plan.cta}</button>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Seção de FAQ */}
+      {/* SEÇÃO: FAQ (DÚVIDAS) */}
       <section id="faq" className="py-32 bg-slate-50 dark:bg-slate-900/50">
          <div className="max-w-3xl mx-auto px-6">
             <h2 className="text-4xl font-black italic uppercase tracking-tight text-center mb-20">Dúvidas <span className="text-indigo-600">Frequentes</span></h2>
@@ -211,7 +200,7 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin, onActiv
          </div>
       </section>
 
-      {/* Novo CTA Master Final */}
+      {/* NOVO CTA MASTER FINAL */}
       <section className="py-32 px-6">
          <div className="max-w-7xl mx-auto bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 rounded-[5rem] p-12 md:p-32 text-center text-white relative overflow-hidden shadow-[0_50px_100px_-20px_rgba(79,70,229,0.5)]">
             <Sparkles className="absolute -top-10 -right-10 w-64 h-64 text-white/5 rotate-12" />
@@ -231,14 +220,14 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin, onActiv
          </div>
       </section>
 
-      {/* Rodapé Master Colorido */}
+      {/* RODAPÉ MASTER COLORIDO */}
       <footer className="pt-32 pb-16 px-6 bg-slate-950 text-white relative overflow-hidden border-t border-white/5">
          <div className="absolute bottom-0 right-0 w-[800px] h-[400px] bg-gradient-to-t from-indigo-600/20 via-purple-600/10 to-transparent blur-[120px] pointer-events-none"></div>
          <div className="max-w-7xl mx-auto">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-16 mb-32">
                <div className="space-y-8">
                   <ZLogoHero branding={branding} />
-                  <p className="text-xs font-bold text-slate-500 uppercase leading-relaxed tracking-widest italic">{branding.appName} is the world-leading SDR automation platform. Driven by neural algorithms at clikai.com.br.</p>
+                  <p className="text-xs font-bold text-slate-500 uppercase leading-relaxed tracking-widest italic">{branding.appName} is the world-leading SDR automation platform. Driven by neural algorithms.</p>
                   <div className="flex gap-4">
                      {['facebook', 'instagram', 'linkedin'].map(social => <div key={social} className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10 hover:border-indigo-500 transition-all cursor-pointer"><Globe2 size={20} className="text-slate-400" /></div>)}
                   </div>
@@ -262,7 +251,7 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin, onActiv
                         <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
                         <span className="text-[10px] font-black uppercase tracking-widest">Todos Sistemas Online</span>
                      </div>
-                     <p className="text-[9px] font-bold text-slate-500 uppercase italic">Uptime Global: 99.98% • clikai.com.br</p>
+                     <p className="text-[9px] font-bold text-slate-500 uppercase italic">Uptime Global: 99.98%</p>
                   </div>
                </div>
             </div>
@@ -277,20 +266,17 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin, onActiv
          </div>
       </footer>
 
-      {/* Modal de Checkout (Mantido para integridade) */}
+      {/* Modal de Checkout Simplificado */}
       {isCheckoutOpen && selectedPlan && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-10 bg-slate-950/95 backdrop-blur-md animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-[3rem] shadow-2xl p-12 border border-slate-200 dark:border-slate-800 relative overflow-hidden flex flex-col md:flex-row animate-in zoom-in-95 duration-300">
-            <button onClick={() => setIsCheckoutOpen(false)} className="absolute top-6 right-6 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors z-30 text-slate-400"><X size={24} /></button>
-            <div className="w-full md:w-2/5 p-12 bg-slate-50 dark:bg-slate-800/50 border-r border-slate-100 dark:border-slate-800 flex flex-col justify-center">
-               <h3 className="text-3xl font-black italic uppercase tracking-tight">{selectedPlan.name}</h3>
-               <p className="text-4xl font-black tracking-tighter text-indigo-600 mt-6 italic">R$ {billingCycle === 'monthly' ? selectedPlan.monthlyPrice : selectedPlan.annualTotal},00</p>
-            </div>
-            <div className="flex-1 p-12 overflow-y-auto">
-               <h3 className="text-2xl font-black italic uppercase tracking-tight mb-8">Dados de Acesso Master</h3>
-               <input placeholder="E-mail de Login" className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold mb-6" />
-               <input placeholder="WhatsApp de Confirmação" className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold mb-10" />
-               <button onClick={() => setCheckoutStep('success')} className="w-full py-7 bg-indigo-600 text-white font-black rounded-[2.5rem] shadow-2xl uppercase text-xs tracking-widest">Finalizar Ativação</button>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/95 backdrop-blur-md">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[3rem] p-12 relative animate-in zoom-in-95">
+            <button onClick={() => setIsCheckoutOpen(false)} className="absolute top-8 right-8 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400"><X size={24} /></button>
+            <h3 className="text-3xl font-black italic uppercase tracking-tight mb-4">Assinar {selectedPlan.name}</h3>
+            <p className="text-4xl font-black text-indigo-600 italic mb-10">R$ {billingCycle === 'monthly' ? selectedPlan.monthlyPrice : selectedPlan.annualTotal},00</p>
+            <div className="space-y-4">
+               <input placeholder="Seu Nome Completo" className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold" />
+               <input placeholder="E-mail de Login" className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold" />
+               <button className="w-full py-7 bg-indigo-600 text-white font-black rounded-3xl shadow-2xl uppercase tracking-widest text-xs mt-6">Ir para Pagamento Seguros</button>
             </div>
           </div>
         </div>
