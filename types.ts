@@ -34,8 +34,19 @@ export interface Appointment {
   month: number;
   year: number;
   service: string;
+  serviceId?: string;
   status: 'CONFIRMED' | 'PENDING';
   ia: boolean;
+  value?: number;
+}
+
+export interface AppNotification {
+  id: string;
+  type: 'APPOINTMENT' | 'SALE' | 'INBOX' | 'BROADCAST' | 'SYSTEM';
+  title: string;
+  description: string;
+  time: string;
+  read: boolean;
 }
 
 export interface Campaign {

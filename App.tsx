@@ -7,7 +7,8 @@ import {
   LayoutDashboard, Radar, Kanban, ShieldCheck, Globe, ChevronDown,
   Lock, Mail, ArrowRight, Eye, EyeOff, X, ShieldAlert,
   Settings, Building2, UserCog, Cpu, Shield, Fingerprint, Palette,
-  ChevronLeft, ChevronRight, Megaphone, Search, CreditCard, ChevronLast, ChevronFirst
+  ChevronLeft, ChevronRight, Megaphone, Search, CreditCard, ChevronLast, ChevronFirst,
+  Bell, BellDot, ShoppingCart, TrendingUp
 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { CRMKanban } from './components/CRMKanban';
@@ -21,7 +22,7 @@ import { OfferPage } from './components/OfferPage';
 import { PaymentManager } from './components/PaymentManager';
 import { UserProfile } from './components/UserProfile';
 import { AISearchModal } from './components/AISearchModal';
-import { LeadStatus, Lead, AppModule, Appointment, BrandingConfig } from './types';
+import { LeadStatus, Lead, AppModule, Appointment, BrandingConfig, EvolutionConfig, AppNotification } from './types';
 
 const API_URL = '/api/core.php';
 
@@ -33,6 +34,12 @@ const DEFAULT_BRANDING: BrandingConfig = {
   favicon: "Logotipo%20Z_Prospector_Icon.png",
   salesPageLogo: "Logotipo%20Z_Prospector.png",
   appName: "Z-Prospector"
+};
+
+const MASTER_EVOLUTION_CONFIG: EvolutionConfig = {
+  baseUrl: 'https://api.clikai.com.br',
+  apiKey: 'f292e7c587e33adf1873e0c1fc3bfcda',
+  enabled: true
 };
 
 const ZLogo: React.FC<{ branding: BrandingConfig, type?: 'full' | 'icon', darkMode?: boolean }> = ({ branding, type = 'full', darkMode = false }) => {
@@ -49,6 +56,10 @@ const App: React.FC = () => {
   const [branding, setBranding] = useState<BrandingConfig>(DEFAULT_BRANDING);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([
+    { id: '1', type: 'SYSTEM', title: 'Boas-vindas Master', description: 'O Core Engine v3.0 está pronto para operar.', time: 'Agora', read: false },
+  ]);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -68,6 +79,16 @@ const App: React.FC = () => {
     setTimeout(() => setNotification(null), 3000);
   };
 
+  const addNotification = (notif: Omit<AppNotification, 'id' | 'time' | 'read'>) => {
+    const newNotif: AppNotification = {
+      ...notif,
+      id: Math.random().toString(36).substr(2, 9),
+      time: 'Agora',
+      read: false
+    };
+    setNotifications(prev => [newNotif, ...prev]);
+  };
+
   useEffect(() => {
     const syncInitial = async () => {
       try {
@@ -80,16 +101,18 @@ const App: React.FC = () => {
     syncInitial();
   }, []);
 
+  const unreadCount = notifications.filter(n => !n.read).length;
+
   const menuItems = [
-    { id: 'admin', label: 'Master Admin', icon: ShieldCheck, color: 'text-orange-500', special: true },
-    { id: 'results', label: 'Performance', icon: LayoutDashboard, color: 'text-indigo-600' },
-    { id: 'capture', label: 'Captação', icon: Radar, color: 'text-cyan-600' },
-    { id: 'prospecting', label: 'Pipeline CRM', icon: Kanban, color: 'text-violet-600' },
-    { id: 'inbox', label: 'Inbox IA', icon: MessageSquare, color: 'text-emerald-600' },
+    { id: 'admin', label: 'Master', icon: ShieldCheck, color: 'text-orange-500', special: true },
+    { id: 'results', label: 'Stats', icon: LayoutDashboard, color: 'text-indigo-600' },
+    { id: 'capture', label: 'Leads', icon: Radar, color: 'text-cyan-600' },
+    { id: 'prospecting', label: 'CRM', icon: Kanban, color: 'text-violet-600' },
+    { id: 'inbox', label: 'Inbox', icon: MessageSquare, color: 'text-emerald-600' },
     { id: 'scheduling', label: 'Agenda', icon: Calendar, color: 'text-pink-600' },
-    { id: 'broadcast', label: 'Disparos', icon: Megaphone, color: 'text-rose-600' },
-    { id: 'products', label: 'Catálogo', icon: Package, color: 'text-amber-600' },
-    { id: 'payments', label: 'Financeiro', icon: CreditCard, color: 'text-emerald-600' },
+    { id: 'broadcast', label: 'Envios', icon: Megaphone, color: 'text-rose-600' },
+    { id: 'products', label: 'Ofertas', icon: Package, color: 'text-amber-600' },
+    { id: 'payments', label: 'Caixa', icon: CreditCard, color: 'text-emerald-600' },
   ];
 
   if (isLoading) return <div className="fixed inset-0 flex items-center justify-center bg-slate-950 text-white font-black uppercase tracking-widest"><Loader2 className="animate-spin text-indigo-500 mr-4" /> Sincronizando Rede...</div>;
@@ -133,10 +156,10 @@ const App: React.FC = () => {
         <div className="p-6 border-t border-slate-50 dark:border-slate-800 space-y-2">
           <button onClick={() => setActiveModule('profile')} className={`w-full flex items-center ${isSidebarOpen ? 'gap-4 px-6' : 'justify-center'} py-5 rounded-2xl transition-all ${activeModule === 'profile' ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'text-slate-400'}`}>
              <UserCog size={isSidebarOpen ? 20 : 32} />
-             {isSidebarOpen && <span className="text-[10px] font-black uppercase tracking-widest">Meu Perfil</span>}
+             {isSidebarOpen && <span className="text-[10px] font-black uppercase tracking-widest">Perfil</span>}
           </button>
           <button onClick={() => setIsLoggedIn(false)} className={`w-full flex items-center ${isSidebarOpen ? 'gap-4 px-6' : 'justify-center'} py-5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-2xl transition-all`}>
-            <LogOut size={isSidebarOpen ? 18 : 32} /> 
+            <LogOut size={18} /> 
             {isSidebarOpen && <span className="text-[10px] font-black uppercase tracking-widest">Sair</span>}
           </button>
         </div>
@@ -144,18 +167,64 @@ const App: React.FC = () => {
 
       <main className="flex-1 flex flex-col overflow-hidden relative">
         {/* HEADER AUTHORITY */}
-        <header className="h-28 bg-white/60 dark:bg-slate-900/60 backdrop-blur-2xl border-b border-slate-100 dark:border-slate-800 flex items-center justify-between px-12 z-40">
+        <header className="h-28 bg-white/60 dark:bg-slate-900/60 backdrop-blur-2xl border-b border-slate-100 dark:border-slate-800 flex items-center justify-between px-12 z-40 relative">
            <div className="flex items-center gap-10">
               <div 
                 onClick={() => setIsSearchOpen(true)}
                 className="flex items-center gap-4 px-8 py-4 bg-slate-100 dark:bg-slate-800 rounded-[2rem] cursor-pointer text-slate-400 hover:text-indigo-600 hover:ring-8 ring-indigo-500/5 transition-all w-96 shadow-inner group"
               >
                  <Search size={20} className="group-hover:scale-110 transition-transform" />
-                 <span className="text-[11px] font-black uppercase tracking-widest">Pesquisa Neural (CMD + K)</span>
+                 <span className="text-[11px] font-black uppercase tracking-widest">Busca Neural</span>
               </div>
            </div>
 
            <div className="flex items-center gap-8">
+             <div className="relative">
+                <button 
+                  onClick={() => { setShowNotifications(!showNotifications); setNotifications(notifications.map(n => ({...n, read: true}))); }}
+                  className="p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl text-slate-500 hover:text-indigo-600 transition-all relative group"
+                >
+                   {unreadCount > 0 ? <BellDot className="text-rose-500 animate-bounce" size={20} /> : <Bell size={20} />}
+                   {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-600 text-white text-[8px] font-black flex items-center justify-center rounded-full border-2 border-white dark:border-slate-800">{unreadCount}</span>}
+                </button>
+                
+                {/* NOTIFICATION POPOVER */}
+                {showNotifications && (
+                  <div className="absolute top-full right-0 mt-4 w-96 bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 p-8 z-[100] animate-in slide-in-from-top-4 overflow-hidden">
+                     <div className="flex items-center justify-between mb-8 border-b border-slate-50 dark:border-slate-800 pb-4">
+                        <h3 className="text-sm font-black italic uppercase tracking-widest">Rede de Eventos</h3>
+                        <button onClick={() => setShowNotifications(false)} className="text-slate-300 hover:text-rose-500"><X size={18} /></button>
+                     </div>
+                     <div className="space-y-6 max-h-[400px] overflow-y-auto no-scrollbar">
+                        {notifications.length > 0 ? notifications.map(n => (
+                          <div key={n.id} className="flex gap-4 group cursor-default">
+                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                               n.type === 'SALE' ? 'bg-emerald-50 text-emerald-600' :
+                               n.type === 'APPOINTMENT' ? 'bg-pink-50 text-pink-600' :
+                               n.type === 'INBOX' ? 'bg-indigo-50 text-indigo-600' :
+                               'bg-slate-50 text-slate-400'
+                             }`}>
+                                {n.type === 'SALE' ? <CreditCard size={18}/> : 
+                                 n.type === 'APPOINTMENT' ? <Calendar size={18}/> : 
+                                 n.type === 'INBOX' ? <MessageSquare size={18}/> : <Zap size={18}/>}
+                             </div>
+                             <div>
+                                <h4 className="text-[11px] font-black uppercase text-slate-900 dark:text-white leading-tight">{n.title}</h4>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 leading-relaxed">{n.description}</p>
+                                <span className="text-[8px] font-black text-indigo-500 uppercase tracking-widest mt-2 block">{n.time}</span>
+                             </div>
+                          </div>
+                        )) : (
+                          <div className="py-20 flex flex-col items-center justify-center opacity-20 grayscale scale-75">
+                             <Bell size={48} />
+                             <p className="text-[10px] font-black uppercase tracking-widest mt-4">Nenhum evento recente</p>
+                          </div>
+                        )}
+                     </div>
+                  </div>
+                )}
+             </div>
+
              <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl text-slate-500 hover:text-indigo-600 transition-all">
                 {isDarkMode ? <Sun size={20}/> : <Moon size={20}/>}
              </button>
@@ -173,13 +242,13 @@ const App: React.FC = () => {
 
         <div className="flex-1 overflow-auto custom-scrollbar">
           {activeModule === 'results' && <Dashboard stats={{ totalLeads: leads.length, hotLeads: leads.filter(l => l.status === LeadStatus.HOT).length, totalValue: 0, closedValue: 0, conversionRate: '0%' }} leads={leads} />}
-          {activeModule === 'admin' && <AdminModule branding={branding} onBrandingChange={setBranding} onNicheChange={() => {}} evolutionConfig={{baseUrl: '', apiKey: '', enabled: true}} onEvolutionConfigChange={() => {}} notify={notify} />}
+          {activeModule === 'admin' && <AdminModule branding={branding} onBrandingChange={setBranding} onNicheChange={() => {}} evolutionConfig={MASTER_EVOLUTION_CONFIG} onEvolutionConfigChange={() => {}} notify={notify} />}
           {activeModule === 'capture' && <CaptureManagement onAddLead={(l) => setLeads([l, ...leads])} notify={notify} />}
           {activeModule === 'prospecting' && <CRMKanban leads={leads} onLeadsChange={setLeads} notify={notify} onNavigate={setActiveModule} />}
-          {activeModule === 'inbox' && <WhatsAppInbox niche="Vendas Master" activeLeads={leads} onSchedule={() => {}} tenant={{id: '1', name: 'Master', niche: 'SaaS', healthScore: 100, revenue: 0, activeLeads: leads.length, status: 'ONLINE'}} evolutionConfig={{baseUrl: '', apiKey: '', enabled: true}} notify={notify} />}
+          {activeModule === 'inbox' && <WhatsAppInbox niche="Vendas Master" activeLeads={leads} onSchedule={() => {}} tenant={{id: '1', name: 'Master', niche: 'SaaS', healthScore: 100, revenue: 0, activeLeads: leads.length, status: 'ONLINE'}} evolutionConfig={MASTER_EVOLUTION_CONFIG} notify={(msg) => { notify(msg); addNotification({ type: 'INBOX', title: 'Mensagem Recebida', description: msg }); }} />}
           {activeModule === 'products' && <ProductManager notify={notify} />}
-          {activeModule === 'scheduling' && <ScheduleManager appointments={appointments} onAddAppointment={(a) => setAppointments([...appointments, a])} onUpdateAppointment={(a) => setAppointments(appointments.map(i => i.id === a.id ? a : i))} onDeleteAppointment={(id) => setAppointments(appointments.filter(i => i.id !== id))} />}
-          {activeModule === 'broadcast' && <BroadcastManager leads={leads} notify={notify} />}
+          {activeModule === 'scheduling' && <ScheduleManager appointments={appointments} onAddAppointment={(a) => { setAppointments([...appointments, a]); addNotification({ type: 'APPOINTMENT', title: 'Novo Agendamento', description: `${a.lead} agendou ${a.service}` }); }} onUpdateAppointment={(a) => setAppointments(appointments.map(i => i.id === a.id ? a : i))} onDeleteAppointment={(id) => setAppointments(appointments.filter(i => i.id !== id))} />}
+          {activeModule === 'broadcast' && <BroadcastManager leads={leads} notify={(msg) => { notify(msg); addNotification({ type: 'BROADCAST', title: 'Status de Envio', description: msg }); }} />}
           {activeModule === 'payments' && <PaymentManager totalVolume={leads.reduce((a,b) => a + (b.value || 0), 0)} pipelineVolume={leads.length * 500} />}
           {activeModule === 'profile' && <UserProfile user={currentUser} onUpdate={(d) => setCurrentUser({...currentUser, ...d})} onLogout={() => setIsLoggedIn(false)} notify={notify} />}
         </div>

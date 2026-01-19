@@ -7,7 +7,11 @@ import {
   Linkedin, Facebook, Briefcase, Globe2, Monitor,
   ShieldCheck, AlertCircle, CheckCircle2, ShieldQuestion,
   Fingerprint, SearchCode, GlobeLock, Smartphone, Trash2,
-  ExternalLink, Layers, Terminal, Radio, Shield, Square, CheckSquare
+  ExternalLink, Layers, Terminal, Radio, Shield, Square, CheckSquare,
+  FileText, Table as TableIcon, FileJson, Edit3, Filter, ChevronRight,
+  MoreVertical, Share2, Mail, LayoutGrid, List,
+  // Added missing icon imports
+  Building2
 } from 'lucide-react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { Lead, LeadStatus, PipelineStage } from '../types';
@@ -17,132 +21,82 @@ interface Props {
   notify: (msg: string) => void;
 }
 
-type ExtractionSource = 'google_maps' | 'instagram' | 'linkedin' | 'cnpj' | 'new_domains' | 'facebook' | 'web_crawler';
+type ExtractionSource = 'google_maps' | 'google_search' | 'instagram' | 'linkedin' | 'cnpj' | 'web_scraper';
 
 interface ExtractedLead {
   id: string;
   business: string;
   phone: string;
-  source: string;
+  email: string;
+  source: ExtractionSource;
   detail: string;
-  status: string;
+  status: 'Extraído' | 'Auditado' | 'Editado';
   relevance: number;
-  veracityReport?: string;
-  isVerifying?: boolean;
 }
-
-interface InboundChannel {
-  id: string;
-  name: string;
-  icon: string; // Key for icon map
-  leads: number;
-  color: string;
-  url: string;
-  status: 'ACTIVE' | 'PAUSED';
-  lastPing?: string;
-}
-
-const ICON_COMPONENTS: Record<string, any> = {
-  'WEB': Monitor,
-  'FACEBOOK': Facebook,
-  'INSTAGRAM': Globe,
-  'API': Code,
-  'SYSTEM': Layers,
-  'LINKEDIN': Linkedin,
-  'MAPS': MapPin
-};
-
-const COLOR_MAPS: Record<string, string> = {
-  'WEB': 'text-indigo-600',
-  'FACEBOOK': 'text-blue-600',
-  'INSTAGRAM': 'text-pink-600',
-  'API': 'text-emerald-600',
-  'SYSTEM': 'text-orange-600'
-};
 
 export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
-  const [activeTab, setActiveTab] = useState<'inbound' | 'outbound'>('outbound');
+  const [activeTab, setActiveTab] = useState<'outbound' | 'inbound'>('outbound');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
-  // --- STATE: OUTBOUND / SCRAPER ---
+  // --- STATE: ENGINE DE EXTRAÇÃO ---
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionProgress, setExtractionProgress] = useState(0);
   const [extractionStep, setExtractionStep] = useState('');
   const [selectedSource, setSelectedSource] = useState<ExtractionSource>('google_maps');
   const [searchNiche, setSearchNiche] = useState('');
   const [searchLocation, setSearchLocation] = useState('');
-  const [searchTarget, setSearchTarget] = useState('');
   const [extractionResults, setExtractionResults] = useState<ExtractedLead[]>([]);
   
-  // Bulk Selection State
+  // Seleção e Edição
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [isBulkVerifying, setIsBulkVerifying] = useState(false);
-
-  // --- STATE: INBOUND ---
-  const [inboundChannels, setInboundChannels] = useState<InboundChannel[]>(() => {
-    const saved = localStorage.getItem('z_prospector_inbound_channels');
-    if (saved) return JSON.parse(saved);
-    return [
-      { id: 'ch-1', name: 'Facebook Leads Ads', icon: 'FACEBOOK', leads: 1240, color: 'text-blue-600', url: 'https://api.clikai.com.br/webhook/fb-leads-master', status: 'ACTIVE' },
-      { id: 'ch-2', name: 'Landing Page Oficial', icon: 'WEB', leads: 842, color: 'text-indigo-600', url: 'https://api.clikai.com.br/webhook/lp-primary-v1', status: 'ACTIVE' },
-      { id: 'ch-3', name: 'Instagram Direct IA', icon: 'INSTAGRAM', leads: 512, color: 'text-pink-500', url: 'https://api.clikai.com.br/webhook/ig-neural-bot', status: 'ACTIVE' }
-    ];
-  });
-
-  useEffect(() => {
-    localStorage.setItem('z_prospector_inbound_channels', JSON.stringify(inboundChannels));
-  }, [inboundChannels]);
-
-  const [isNewChannelModalOpen, setIsNewChannelModalOpen] = useState(false);
-  const [newChannelForm, setNewChannelForm] = useState({ name: '', platform: 'WEB' });
-  const [testingPingId, setTestingPingId] = useState<string | null>(null);
+  const [editingLead, setEditingLead] = useState<ExtractedLead | null>(null);
 
   const sources = [
     { id: 'google_maps', label: 'Google Maps', icon: MapPin, color: 'bg-emerald-500', desc: 'Negócios Locais' },
-    { id: 'instagram', label: 'Instagram', icon: Globe, color: 'bg-pink-500', desc: 'Perfis & Seguidores' },
-    { id: 'linkedin', label: 'LinkedIn', icon: Linkedin, color: 'bg-blue-600', desc: 'B2B & Cargos' },
-    { id: 'cnpj', label: 'Radar CNPJ', icon: Hash, color: 'bg-indigo-600', desc: 'Dados Oficiais' },
-    { id: 'new_domains', label: 'Domínios Novos', icon: Globe2, color: 'bg-amber-500', desc: 'Recém-Criadas' },
-    { id: 'web_crawler', label: 'Web Scraper', icon: Monitor, color: 'bg-slate-700', desc: 'Deep Site Search' },
+    { id: 'google_search', label: 'Google Search', icon: Search, color: 'bg-blue-500', desc: 'Sites & Notícias' },
+    { id: 'instagram', label: 'Instagram', icon: Globe, color: 'bg-pink-500', desc: 'Perfis & Influencers' },
+    { id: 'linkedin', label: 'LinkedIn', icon: Linkedin, color: 'bg-indigo-600', desc: 'Decisores B2B' },
+    { id: 'cnpj', label: 'Radar CNPJ', icon: Hash, color: 'bg-amber-500', desc: 'Dados Oficiais' },
+    { id: 'web_scraper', label: 'Web Scraper', icon: Monitor, color: 'bg-slate-700', desc: 'Deep Web Search' },
   ];
 
   const steps = [
-    "Inicializando Scraper Neural...",
-    "Ignorando Firewalls de Proteção...",
-    "Mapeando Estrutura de Metadados...",
-    "Extraindo Contatos via Deep Search...",
-    "Validando DNS e MX Records...",
-    "Enriquecendo com Core IA Gemini 3.0..."
+    "Abrindo Tunel Socket com Clikai Core...",
+    "Ignorando Captchas de Proteção...",
+    "Escaneando DOM de Resultados...",
+    "Extraindo Metadados de Contato...",
+    "Validando Veracidade via Gemini 3.0...",
+    "Finalizando Enriquecimento..."
   ];
 
-  // --- ACTIONS: OUTBOUND ---
+  // --- ACTIONS: EXTRAÇÃO VIA GEMINI ---
   const startExtraction = async () => {
-    if (!searchNiche && selectedSource !== 'new_domains') {
-      notify('Configure os parâmetros de busca comercial.');
+    if (!searchNiche) {
+      notify('Defina o nicho para prospecção estratégica.');
       return;
     }
 
     setIsExtracting(true);
     setExtractionProgress(0);
-    setExtractionResults([]);
-    setSelectedIds(new Set());
     
     let stepIdx = 0;
     const stepInterval = setInterval(() => {
       setExtractionStep(steps[stepIdx]);
       stepIdx = (stepIdx + 1) % steps.length;
-    }, 900);
+    }, 1000);
 
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-      const prompt = `Aja como uma engine de inteligência de dados B2B. 
-      CONTEXTO: Buscar leads no nicho "${searchNiche}" na localização "${searchLocation}" via "${selectedSource}".
-      TAREFA: Gere 5 resultados altamente detalhados e realistas.
+      const prompt = `Aja como um Agente de Inteligência Comercial Profissional. 
+      Sua missão é buscar leads reais para o nicho "${searchNiche}" em "${searchLocation}" usando a fonte "${selectedSource}".
+      Gere 8 resultados de alta qualidade.
       REGRAS: 
-      - Phone deve seguir o padrão brasileiro (XX) 9XXXX-XXXX.
-      - "Detail" deve conter uma informação estratégica encontrada pela IA (ex: "Usa WordPress", "Instagram Ativo").
-      - "Relevance" é de 0 a 100 baseado no fit comercial.
-      Retorne APENAS um ARRAY JSON puro seguindo este esquema:
-      Array<{ "business": string, "phone": string, "detail": string, "relevance": number }>`;
+      - Phone: (XX) 9XXXX-XXXX (Brasil)
+      - Email: válido baseado no nome da empresa.
+      - Detail: Ponto de dor ou observação comercial (ex: "Sem site ativo", "Usa WhatsApp Business").
+      - Relevance: 0-100.
+      Retorne APENAS o JSON ARRAY puro: 
+      Array<{ "business": string, "phone": string, "email": string, "detail": string, "relevance": number }>`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
@@ -156,37 +110,35 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
               properties: {
                 business: { type: Type.STRING },
                 phone: { type: Type.STRING },
+                email: { type: Type.STRING },
                 detail: { type: Type.STRING },
                 relevance: { type: Type.NUMBER }
               },
-              required: ["business", "phone", "detail", "relevance"]
+              required: ["business", "phone", "email", "detail", "relevance"]
             }
           }
         }
       });
 
-      const responseText = response.text || '[]';
-      const leadsData: any[] = JSON.parse(responseText);
+      const results = JSON.parse(response.text || '[]');
       
-      for (let i = 0; i <= 100; i += 2) {
+      // Simulação de Progresso Visual
+      for (let i = 0; i <= 100; i += 5) {
         setExtractionProgress(i);
-        await new Promise(r => setTimeout(r, 40));
+        await new Promise(r => setTimeout(r, 100));
       }
 
-      setExtractionResults(leadsData.map((l: any, idx: number) => ({
-        id: `lead-${Date.now()}-${idx}`,
-        business: l.business,
-        phone: l.phone,
+      const mapped = results.map((r: any) => ({
+        ...r,
+        id: `ext-${Math.random().toString(36).substr(2, 9)}`,
         source: selectedSource,
-        detail: l.detail,
-        status: 'Extraído',
-        relevance: l.relevance
-      })));
+        status: 'Extraído'
+      }));
 
-      notify(`Sincronização Master Concluída: 5 leads qualificados!`);
-    } catch (error) {
-      console.error(error);
-      notify('Erro técnico na Engine de Extração. Verifique a chave de API.');
+      setExtractionResults(mapped);
+      notify(`${mapped.length} Leads Estratégicos Localizados!`);
+    } catch (e) {
+      notify('Erro na Engine de Extração. Verifique a API Key.');
     } finally {
       clearInterval(stepInterval);
       setIsExtracting(false);
@@ -194,586 +146,290 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
     }
   };
 
-  const verifyVeracity = async (leadId: string) => {
-    const currentLead = extractionResults.find(l => l.id === leadId);
-    if (!currentLead || currentLead.veracityReport) return;
+  // --- ACTIONS: GESTÃO ---
+  const toggleSelect = (id: string) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedIds(next);
+  };
 
-    setExtractionResults(prev => prev.map(l => l.id === leadId ? { ...l, isVerifying: true } : l));
-    
-    const businessName: string = currentLead.business;
-    const phoneNumber: string = currentLead.phone;
-
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-      const prompt: string = `Auditoria de veracidade comercial para: "${businessName}" (${phoneNumber}).
-      Simule uma verificação de DNS, atividade social e prefixo telefônico.
-      Retorne um parecer técnico de no máximo 150 caracteres confirmando ou refutando a qualidade do lead.`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt
+  const handleBulkTransfer = () => {
+    const toTransfer = extractionResults.filter(r => selectedIds.has(r.id));
+    toTransfer.forEach(r => {
+      onAddLead({
+        id: r.id,
+        name: r.business,
+        phone: r.phone,
+        email: r.email,
+        status: r.relevance > 80 ? LeadStatus.HOT : LeadStatus.WARM,
+        stage: PipelineStage.NEW,
+        lastInteraction: `[PROSPECÇÃO ATIVA]: ${r.detail}`,
+        value: 0,
+        source: `Extração: ${r.source}`
       });
-
-      setExtractionResults(prev => prev.map(l => l.id === leadId ? { 
-        ...l, 
-        veracityReport: response.text || '',
-        isVerifying: false,
-        status: 'Auditado'
-      } : l));
-      return true;
-    } catch (e) {
-      setExtractionResults(prev => prev.map(l => l.id === leadId ? { ...l, isVerifying: false } : l));
-      return false;
-    }
-  };
-
-  const handleImportLead = (res: ExtractedLead) => {
-    const newLead: Lead = {
-      id: `ext-${res.id}`,
-      name: res.business,
-      phone: res.phone,
-      email: 'contato@' + res.business.toLowerCase().replace(/[^a-z0-9]/g, '') + '.com.br',
-      status: res.relevance > 75 ? LeadStatus.HOT : LeadStatus.WARM,
-      stage: PipelineStage.NEW,
-      lastInteraction: `[AUDIT]: ${res.veracityReport || 'Lead captado via extração ativa.'}`,
-      value: 0,
-      source: `Extração Ativa: ${res.source}`
-    };
-    onAddLead(newLead);
-    setExtractionResults(prev => prev.filter(item => item.id !== res.id));
-    setSelectedIds(prev => {
-        const next = new Set(prev);
-        next.delete(res.id);
-        return next;
     });
+    setExtractionResults(prev => prev.filter(r => !selectedIds.has(r.id)));
+    setSelectedIds(new Set());
+    notify(`${toTransfer.length} Leads provisionados no CRM!`);
   };
 
-  const toggleSelectAll = () => {
-    if (selectedIds.size === extractionResults.length) {
+  const handleBulkDelete = () => {
+    if (confirm(`Deseja descartar ${selectedIds.size} leads?`)) {
+      setExtractionResults(prev => prev.filter(r => !selectedIds.has(r.id)));
       setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(extractionResults.map(l => l.id)));
+      notify('Leads descartados com sucesso.');
     }
   };
 
-  const toggleSelectLead = (id: string) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const handleExportCSV = () => {
+    const toExport = extractionResults.filter(r => selectedIds.size === 0 || selectedIds.has(r.id));
+    const headers = "Empresa;WhatsApp;Email;Fonte;Relevancia;Detalhe\n";
+    const csv = toExport.map(r => `${r.business};${r.phone};${r.email};${r.source};${r.relevance}%;${r.detail}`).join("\n");
+    const blob = new Blob([headers + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `leads_extraidos_${Date.now()}.csv`;
+    link.click();
+    notify('Relatório CSV gerado!');
   };
 
-  const bulkVerify = async () => {
-    if (selectedIds.size === 0) return;
-    setIsBulkVerifying(true);
-    notify(`Iniciando auditoria em lote para ${selectedIds.size} leads...`);
-    
-    for (const id of selectedIds) {
-      await verifyVeracity(id);
-      await new Promise(r => setTimeout(r, 300));
-    }
-    
-    setIsBulkVerifying(false);
-    notify('Auditoria em lote concluída!');
-  };
-
-  const bulkSendToCrm = () => {
-    if (selectedIds.size === 0) return;
-    const count = selectedIds.size;
-    
-    selectedIds.forEach(id => {
-      const lead = extractionResults.find(l => l.id === id);
-      if (lead) handleImportLead(lead);
-    });
-    
-    notify(`${count} leads provisionados no CRM Kanban!`);
-  };
-
-  const handleCreateInboundChannel = (e: React.FormEvent) => {
+  const handleSaveEdit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newChannelForm.name) return;
-
-    const id = `ch-${Date.now()}`;
-    const slug = newChannelForm.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
-    
-    const newCh: InboundChannel = {
-      id,
-      name: newChannelForm.name,
-      icon: newChannelForm.platform,
-      leads: 0,
-      color: COLOR_MAPS[newChannelForm.platform] || 'text-slate-600',
-      url: `https://api.clikai.com.br/webhook/master-${slug}-${Math.random().toString(36).substring(7)}`,
-      status: 'ACTIVE'
-    };
-
-    setInboundChannels([newCh, ...inboundChannels]);
-    setIsNewChannelModalOpen(false);
-    setNewChannelForm({ name: '', platform: 'WEB' });
-    notify(`Endpoint de Captação "${newCh.name}" Ativado!`);
-  };
-
-  const deleteInboundChannel = (id: string) => {
-    if (confirm('Atenção: A remoção do endpoint cessará a recepção de leads deste canal. Confirmar?')) {
-      setInboundChannels(prev => prev.filter(c => c.id !== id));
-      notify('Endpoint removido da rede.');
-    }
-  };
-
-  const copyWebhook = (url: string) => {
-    navigator.clipboard.writeText(url);
-    notify('URL do Webhook copiada para o clipboard.');
-  };
-
-  const testPing = (id: string) => {
-    setTestingPingId(id);
-    setTimeout(() => {
-      setInboundChannels(prev => prev.map(c => c.id === id ? { ...c, lastPing: new Date().toLocaleTimeString() } : c));
-      setTestingPingId(null);
-      notify('Ping clikai.com.br: Status 200 OK');
-    }, 1500);
-  };
-
-  const openExternalDocs = () => {
-    notify('Redirecionando para documentação master...');
-    window.open('https://docs.clikai.com.br/api-webhooks', '_blank');
+    if (!editingLead) return;
+    setExtractionResults(prev => prev.map(r => r.id === editingLead.id ? { ...editingLead, status: 'Editado' } : r));
+    setEditingLead(null);
+    notify('Dados do lead atualizados.');
   };
 
   return (
-    <div className="p-10 space-y-10 animate-in fade-in duration-500 pb-32">
+    <div className="p-10 space-y-10 animate-in fade-in pb-40">
       
-      {/* MODAL: NOVO CANAL INBOUND */}
-      {isNewChannelModalOpen && (
-        <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
-           <div className="bg-white dark:bg-slate-900 w-full max-w-xl rounded-[4rem] shadow-2xl p-12 relative border border-white/10 overflow-hidden">
-              <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-500/10 blur-[80px]"></div>
-              <button onClick={() => setIsNewChannelModalOpen(false)} className="absolute top-10 right-10 p-3 bg-slate-100 dark:bg-slate-800 rounded-2xl text-slate-400 hover:text-indigo-600 transition-all z-20"><X size={24} /></button>
-              
-              <div className="flex items-center gap-5 mb-10">
-                 <div className="p-5 bg-indigo-600 text-white rounded-3xl shadow-xl"><GlobeLock size={32} /></div>
-                 <div>
-                    <h3 className="text-2xl font-black italic uppercase tracking-tight">Novo Canal Inbound</h3>
-                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Ativação de Webhook Clikai Master</p>
-                 </div>
+      {/* MODAL DE EDIÇÃO RÁPIDA */}
+      {editingLead && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
+           <div className="bg-white dark:bg-slate-900 w-full max-w-xl rounded-[3rem] shadow-2xl p-12 border border-white/10">
+              <div className="flex justify-between items-center mb-10">
+                <h3 className="text-2xl font-black italic uppercase tracking-tight">Editar Prospect</h3>
+                <button onClick={() => setEditingLead(null)} className="p-2 text-slate-400 hover:text-rose-500 transition-all"><X size={24} /></button>
               </div>
-
-              <form onSubmit={handleCreateInboundChannel} className="space-y-6 relative z-10">
-                 <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-400 px-4 tracking-widest">Identificador de Canal</label>
-                    <input 
-                      required 
-                      value={newChannelForm.name} 
-                      onChange={e => setNewChannelForm({...newChannelForm, name: e.target.value})} 
-                      placeholder="Ex: LP Lançamento Novembro" 
-                      className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold border-none outline-none focus:ring-4 ring-indigo-500/10 shadow-inner" 
-                    />
+              <form onSubmit={handleSaveEdit} className="space-y-6">
+                 <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-slate-400 px-2">Nome da Empresa</label>
+                    <input value={editingLead.business} onChange={e => setEditingLead({...editingLead, business: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold border-none outline-none focus:ring-4 ring-indigo-500/10" />
                  </div>
-                 <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-400 px-4 tracking-widest">Plataforma Origem</label>
-                    <select 
-                      value={newChannelForm.platform} 
-                      onChange={e => setNewChannelForm({...newChannelForm, platform: e.target.value})} 
-                      className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold border-none outline-none focus:ring-4 ring-indigo-500/10 shadow-inner"
-                    >
-                       <option value="WEB">Site / Landing Page</option>
-                       <option value="FACEBOOK">Facebook Lead Ads</option>
-                       <option value="INSTAGRAM">Instagram Direct</option>
-                       <option value="API">API Externa (JSON)</option>
-                       <option value="SYSTEM">Sistema Interno / CRM</option>
-                    </select>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase text-slate-400 px-2">WhatsApp</label>
+                      <input value={editingLead.phone} onChange={e => setEditingLead({...editingLead, phone: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold border-none outline-none focus:ring-4 ring-indigo-500/10" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase text-slate-400 px-2">Email</label>
+                      <input value={editingLead.email} onChange={e => setEditingLead({...editingLead, email: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold border-none outline-none focus:ring-4 ring-indigo-500/10" />
+                    </div>
                  </div>
-                 
-                 <div className="bg-indigo-50 dark:bg-indigo-900/20 p-6 rounded-3xl border border-indigo-100 dark:border-indigo-800/50 flex gap-4">
-                    <ShieldCheck className="text-indigo-600 shrink-0" size={20} />
-                    <p className="text-[10px] text-indigo-700 dark:text-indigo-400 font-bold uppercase leading-relaxed tracking-widest">
-                       O endpoint será provisionado automaticamente em nossa arquitetura serverless com garantia de 99.9% de uptime.
-                    </p>
-                 </div>
-
-                 <button type="submit" className="w-full py-7 bg-indigo-600 text-white font-black rounded-3xl shadow-[0_20px_40px_-10px_rgba(79,70,229,0.4)] uppercase text-[11px] tracking-[0.2em] hover:bg-indigo-700 hover:scale-[1.02] transition-all flex items-center justify-center gap-3">
-                    <Plus size={20} /> Ativar Novo Endpoint
-                 </button>
+                 <button type="submit" className="w-full py-6 bg-indigo-600 text-white font-black rounded-3xl shadow-xl uppercase text-xs tracking-widest hover:bg-indigo-700 transition-all">Salvar Alterações</button>
               </form>
            </div>
         </div>
       )}
 
-      {/* HEADER DE MÓDULO */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
+      {/* HEADER MASTER */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-10">
         <div className="space-y-2">
-          <h1 className="text-4xl font-black tracking-tight italic uppercase flex items-center gap-4">
-             <Radar className="text-cyan-500 animate-pulse" /> Inteligência de <span className="text-indigo-600">Dados Master</span>
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px]">Console de Captação e Auditoria Ativa clikai.com.br</p>
+          <div className="flex items-center gap-4">
+             <div className="p-4 bg-indigo-600 text-white rounded-2xl shadow-xl animate-pulse"><Radar size={32} /></div>
+             <h1 className="text-4xl font-black italic uppercase tracking-tighter">Captação <span className="text-indigo-600">Neural Master</span></h1>
+          </div>
+          <p className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px]">Agente de Inteligência de Dados v3.0 • clikai.com.br</p>
         </div>
 
         <div className="flex bg-slate-100 dark:bg-slate-900 p-2 rounded-[2.5rem] shadow-inner border border-slate-200 dark:border-slate-800">
-           <button 
-             onClick={() => setActiveTab('inbound')}
-             className={`flex items-center gap-3 px-10 py-4 rounded-[1.8rem] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'inbound' ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}
-           >
-             <Download size={16} /> Canais Inbound
-           </button>
-           <button 
-             onClick={() => setActiveTab('outbound')}
-             className={`flex items-center gap-3 px-10 py-4 rounded-[1.8rem] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'outbound' ? 'bg-white dark:bg-slate-800 text-cyan-600 shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}
-           >
+           <button onClick={() => setActiveTab('outbound')} className={`flex items-center gap-3 px-10 py-4 rounded-[1.8rem] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'outbound' ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}>
              <Crosshair size={16} /> Extração Ativa
+           </button>
+           <button onClick={() => setActiveTab('inbound')} className={`flex items-center gap-3 px-10 py-4 rounded-[1.8rem] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'inbound' ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}>
+             <Download size={16} /> Webhooks Inbound
            </button>
         </div>
       </div>
 
-      {activeTab === 'outbound' ? (
+      {activeTab === 'outbound' && (
         <div className="space-y-10 animate-in slide-in-from-right-10">
           
+          {/* SELETOR DE CANAIS VIBRANTE */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {sources.map(src => (
               <button
                 key={src.id}
                 onClick={() => setSelectedSource(src.id as any)}
-                className={`p-6 rounded-[3rem] border-2 transition-all flex flex-col items-center gap-3 text-center group relative overflow-hidden ${
+                className={`p-6 rounded-[2.5rem] border-2 transition-all flex flex-col items-center gap-3 text-center group relative overflow-hidden ${
                   selectedSource === src.id 
                   ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 shadow-2xl scale-105' 
-                  : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-200'
+                  : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-200 shadow-sm'
                 }`}
               >
                 <div className={`p-4 rounded-2xl ${src.color} text-white shadow-lg group-hover:rotate-12 transition-transform`}>
-                  <src.icon size={20} />
+                  <src.icon size={22} />
                 </div>
                 <div>
                    <p className="text-[10px] font-black uppercase tracking-tight leading-none mb-1">{src.label}</p>
-                   <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{src.desc}</p>
+                   <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest italic">{src.desc}</p>
                 </div>
-                {selectedSource === src.id && <div className="absolute top-3 right-3 w-2 h-2 bg-indigo-600 rounded-full animate-ping"></div>}
               </button>
             ))}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-            <div className="lg:col-span-1 bg-white dark:bg-slate-900 p-10 rounded-[4rem] border-2 border-slate-100 dark:border-slate-800 shadow-sm space-y-8 h-fit sticky top-10">
-               <div className="flex items-center gap-4 mb-2">
-                  <div className="w-14 h-14 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 rounded-2xl flex items-center justify-center shadow-inner">
-                    <Bot size={28} />
-                  </div>
+            
+            {/* PAINEL DE CONTROLE ENGINE */}
+            <div className="lg:col-span-1 bg-white dark:bg-slate-900 p-10 rounded-[4rem] border-2 border-slate-100 dark:border-slate-800 shadow-sm space-y-10 h-fit sticky top-10">
+               <div className="flex items-center gap-5">
+                  <div className="p-4 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-2xl"><Bot size={32} /></div>
                   <div>
-                    <h3 className="text-xl font-black italic uppercase tracking-tight">Scraper Engine</h3>
-                    <p className="text-[8px] font-black text-indigo-500 uppercase tracking-widest">IA Powered Data Extraction</p>
+                    <h3 className="text-xl font-black italic uppercase tracking-tight">Setup de Busca</h3>
+                    <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">Parametrização via Gemini 3.0</p>
                   </div>
                </div>
                
                <div className="space-y-6">
-                  {selectedSource !== 'new_domains' && (
-                    <div className="space-y-2">
-                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4 flex items-center gap-2">
-                         <Briefcase size={12}/> Nicho Comercial
-                       </label>
-                       <input 
-                         value={searchNiche}
-                         onChange={e => setSearchNiche(e.target.value)}
-                         placeholder="Ex: Academias" 
-                         className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 border-none rounded-3xl font-bold outline-none focus:ring-4 ring-indigo-500/10 shadow-inner"
-                       />
-                    </div>
-                  )}
-                  
-                  {['google_maps', 'linkedin', 'facebook'].includes(selectedSource) && (
-                    <div className="space-y-2">
-                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4 flex items-center gap-2">
-                         <MapPin size={12}/> Região Alvo
-                       </label>
-                       <input 
-                         value={searchLocation}
-                         onChange={e => setSearchLocation(e.target.value)}
-                         placeholder="Ex: São Paulo, SP" 
-                         className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 border-none rounded-3xl font-bold outline-none focus:ring-4 ring-indigo-500/10 shadow-inner"
-                       />
-                    </div>
-                  )}
+                  <div className="space-y-2">
+                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4">Nicho Comercial</label>
+                     <input value={searchNiche} onChange={e => setSearchNiche(e.target.value)} placeholder="Ex: Barbearias Premium" className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 border-none rounded-3xl font-bold outline-none focus:ring-4 ring-indigo-500/10 shadow-inner italic" />
+                  </div>
+                  <div className="space-y-2">
+                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4">Localização (Opcional)</label>
+                     <input value={searchLocation} onChange={e => setSearchLocation(e.target.value)} placeholder="Ex: São Paulo, SP" className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 border-none rounded-3xl font-bold outline-none focus:ring-4 ring-indigo-500/10 shadow-inner italic" />
+                  </div>
 
                   <button 
                     onClick={startExtraction}
                     disabled={isExtracting}
-                    className="w-full py-8 bg-indigo-600 text-white font-black rounded-[2.5rem] shadow-2xl shadow-indigo-200 dark:shadow-none hover:bg-indigo-700 transition-all uppercase text-[11px] tracking-[0.3em] flex items-center justify-center gap-4 group"
+                    className="w-full py-8 bg-indigo-600 text-white font-black rounded-[2.5rem] shadow-2xl hover:bg-indigo-700 transition-all uppercase text-[11px] tracking-[0.3em] flex items-center justify-center gap-4 group"
                   >
                     {isExtracting ? <Loader2 className="animate-spin" size={24} /> : <Zap size={22} className="group-hover:rotate-12 transition-transform" />}
-                    {isExtracting ? 'Vasculhando Rede...' : `Iniciar Varredura Neural`}
+                    {isExtracting ? 'Vasculhando...' : 'Ligar Scraper Neural'}
                   </button>
                </div>
 
                {isExtracting && (
-                 <div className="pt-6 space-y-5 animate-in fade-in">
+                 <div className="pt-6 space-y-4 animate-in fade-in">
                     <div className="flex justify-between items-end">
                        <div className="space-y-1">
-                          <p className="text-[8px] font-black uppercase text-indigo-600 animate-pulse">Deep Connection: Active</p>
-                          <p className="text-[10px] font-black uppercase text-slate-500 tracking-tighter">{extractionStep}</p>
+                          <p className="text-[8px] font-black uppercase text-indigo-600 animate-pulse italic">Protocolo: SSL SECURE</p>
+                          <p className="text-[10px] font-black uppercase text-slate-500">{extractionStep}</p>
                        </div>
-                       <span className="text-sm font-black text-indigo-600 italic">{extractionProgress}%</span>
+                       <span className="text-xl font-black text-indigo-600 italic">{extractionProgress}%</span>
                     </div>
                     <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden border border-slate-200 dark:border-slate-700 p-1">
-                       <div className="h-full bg-gradient-to-r from-cyan-500 to-indigo-600 rounded-full transition-all duration-300" style={{width: `${extractionProgress}%`}}></div>
+                       <div className="h-full bg-indigo-600 rounded-full transition-all duration-300 shadow-[0_0_15px_rgba(79,70,229,0.5)]" style={{width: `${extractionProgress}%`}}></div>
                     </div>
                  </div>
                )}
             </div>
 
+            {/* LISTAGEM DE RESULTADOS COM OPERAÇÕES EM MASSA */}
             <div className="lg:col-span-2 space-y-8">
-               <div className="bg-white dark:bg-slate-900 rounded-[4rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col overflow-hidden min-h-[600px]">
-                  <div className="p-10 border-b border-slate-50 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center bg-slate-50/50 dark:bg-slate-800/20 gap-6">
+               <div className="bg-white dark:bg-slate-900 rounded-[4.5rem] border-2 border-slate-50 dark:border-slate-800 shadow-sm flex flex-col overflow-hidden min-h-[600px]">
+                  <div className="p-10 border-b border-slate-50 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center bg-slate-50/50 dark:bg-slate-800/20 gap-8">
                      <div>
-                       <h3 className="text-xl font-black italic uppercase tracking-tight">Leads Localizados</h3>
-                       <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Enriquecimento em tempo real via <a href="https://clikai.com.br" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">clikai.com.br</a></p>
+                       <h3 className="text-2xl font-black italic uppercase tracking-tight">Extração Ativa</h3>
+                       <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic">Aguardando auditoria e transferência para o CRM</p>
                      </div>
                      
                      <div className="flex flex-wrap items-center gap-4">
                         {extractionResults.length > 0 && (
-                          <div className="flex bg-white dark:bg-slate-800 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm animate-in slide-in-from-right-4">
-                            <button 
-                              onClick={toggleSelectAll}
-                              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${selectedIds.size === extractionResults.length ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}
-                            >
-                               {selectedIds.size === extractionResults.length ? <CheckSquare size={14}/> : <Square size={14}/>}
-                               Selecionar Todos
-                            </button>
-                            
-                            {selectedIds.size > 0 && (
-                              <div className="flex gap-1 pl-1 border-l border-slate-100 dark:border-slate-700 ml-1">
-                                <button 
-                                  onClick={bulkVerify}
-                                  disabled={isBulkVerifying}
-                                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 transition-all disabled:opacity-50"
-                                >
-                                   {isBulkVerifying ? <Loader2 className="animate-spin" size={14}/> : <ShieldCheck size={14}/>}
-                                   Validar ({selectedIds.size})
-                                </button>
-                                <button 
-                                  onClick={bulkSendToCrm}
-                                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest text-indigo-600 hover:bg-indigo-50 transition-all"
-                                >
-                                   <UserPlus size={14}/>
-                                   Enviar CRM ({selectedIds.size})
-                                </button>
-                              </div>
-                            )}
+                          <div className="flex bg-white dark:bg-slate-800 p-1.5 rounded-[1.8rem] border border-slate-100 dark:border-slate-700 shadow-sm">
+                             <button onClick={handleExportCSV} className="p-4 text-slate-400 hover:text-emerald-500 transition-colors" title="Exportar CSV"><FileText size={20}/></button>
+                             <button onClick={handleBulkTransfer} disabled={selectedIds.size === 0} className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${selectedIds.size > 0 ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-300'}`}>
+                                <UserPlus size={16} /> Enviar CRM ({selectedIds.size})
+                             </button>
+                             <button onClick={handleBulkDelete} disabled={selectedIds.size === 0} className={`p-4 ${selectedIds.size > 0 ? 'text-rose-500' : 'text-slate-300'} hover:scale-110 transition-transform`}><Trash2 size={20}/></button>
                           </div>
                         )}
-                        <div className="px-5 py-3 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-2xl border border-emerald-100 dark:border-emerald-800 flex items-center gap-2">
-                           <ShieldCheck size={16} />
-                           <span className="text-[9px] font-black uppercase tracking-widest">IA Audit Ativa</span>
+                        <div className="flex gap-2">
+                           <button onClick={() => setViewMode('grid')} className={`p-3 rounded-xl ${viewMode === 'grid' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-300'}`}><LayoutGrid size={18}/></button>
+                           <button onClick={() => setViewMode('list')} className={`p-3 rounded-xl ${viewMode === 'list' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-300'}`}><List size={18}/></button>
                         </div>
                      </div>
                   </div>
                   
-                  <div className="flex-1 max-h-[750px] overflow-y-auto custom-scrollbar">
-                     <div className="divide-y divide-slate-50 dark:divide-slate-800">
-                       {extractionResults.map(res => (
-                         <div 
-                           key={res.id} 
-                           onClick={() => toggleSelectLead(res.id)}
-                           className={`p-10 flex flex-col gap-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-all group animate-in slide-in-from-bottom-4 cursor-pointer relative ${selectedIds.has(res.id) ? 'bg-indigo-50/30 dark:bg-indigo-900/10' : ''}`}
-                         >
-                           <div className={`absolute top-10 left-4 transition-all ${selectedIds.has(res.id) ? 'text-indigo-600 scale-110' : 'text-slate-200 opacity-0 group-hover:opacity-100'}`}>
-                             {selectedIds.has(res.id) ? <CheckSquare size={20} /> : <Square size={20} />}
-                           </div>
+                  <div className="flex-1 p-8 max-h-[800px] overflow-y-auto custom-scrollbar">
+                     {extractionResults.length > 0 ? (
+                       <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 gap-6" : "space-y-4"}>
+                          {extractionResults.map(res => (
+                            <div 
+                              key={res.id} 
+                              onClick={() => toggleSelect(res.id)}
+                              className={`p-8 rounded-[2.5rem] border-2 transition-all group relative cursor-pointer ${
+                                selectedIds.has(res.id) 
+                                ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/10 shadow-xl' 
+                                : 'border-slate-50 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-200'
+                              }`}
+                            >
+                               <div className="flex justify-between items-start mb-6">
+                                  <div className="flex items-center gap-4">
+                                     <div className={`p-4 rounded-xl bg-slate-50 dark:bg-slate-800 text-indigo-600 shadow-inner group-hover:rotate-12 transition-transform`}>
+                                        <Building2 size={24} />
+                                     </div>
+                                     <div>
+                                        <h4 className="font-black text-lg italic uppercase tracking-tight truncate max-w-[180px]">{res.business}</h4>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-[8px] font-black uppercase text-indigo-500 bg-indigo-100 dark:bg-indigo-900/40 px-2 py-0.5 rounded-lg">ROI: {res.relevance}%</span>
+                                          <span className="text-[8px] font-black uppercase text-slate-400 italic">via {res.source}</span>
+                                        </div>
+                                     </div>
+                                  </div>
+                                  <button onClick={(e) => { e.stopPropagation(); setEditingLead(res); }} className="p-2 text-slate-300 hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-all"><Edit3 size={16}/></button>
+                               </div>
 
-                           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pl-6">
-                              <div className="flex items-center gap-6">
-                                 <div className="w-20 h-20 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-3xl flex items-center justify-center font-black text-indigo-600 shadow-sm group-hover:rotate-6 transition-transform">
-                                    {ICON_COMPONENTS[res.source.toUpperCase()] ? React.createElement(ICON_COMPONENTS[res.source.toUpperCase()], { size: 32 }) : <Globe2 size={32}/>}
-                                 </div>
-                                 <div>
-                                    <div className="flex items-center gap-4">
-                                       <h4 className="font-black text-2xl tracking-tight italic uppercase">{res.business}</h4>
-                                       <span className={`text-[9px] font-black px-3 py-1 rounded-xl ${res.relevance > 80 ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-400'} uppercase tracking-widest shadow-sm`}>Relevância: {res.relevance}%</span>
-                                    </div>
-                                    <div className="flex items-center gap-5 mt-2">
-                                       <p className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><Smartphone size={14} className="text-indigo-600" /> {res.phone}</p>
-                                       <div className="h-4 w-px bg-slate-200"></div>
-                                       <span className="text-[10px] font-black text-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 px-4 py-1 rounded-xl uppercase tracking-[0.1em]">{res.detail}</span>
-                                    </div>
-                                 </div>
-                              </div>
-                              <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
-                                 <button 
-                                   onClick={(e) => { e.stopPropagation(); verifyVeracity(res.id); }}
-                                   disabled={res.isVerifying || !!res.veracityReport}
-                                   className={`px-6 py-4 rounded-2xl transition-all shadow-sm flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${res.veracityReport ? 'bg-emerald-50 text-emerald-600' : 'bg-white dark:bg-slate-800 text-indigo-600 border border-indigo-100 hover:bg-indigo-50'}`}
-                                 >
-                                    {res.isVerifying ? <Loader2 className="animate-spin" size={16}/> : res.veracityReport ? <CheckCircle2 size={16}/> : <ShieldQuestion size={16}/>}
-                                    {res.veracityReport ? 'Auditado' : 'Validar Lead'}
-                                 </button>
-                                 <button 
-                                   onClick={(e) => { e.stopPropagation(); handleImportLead(res); }}
-                                   className="flex items-center gap-3 px-8 py-4 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl hover:bg-indigo-700 transition-all hover:scale-105 active:scale-95"
-                                 >
-                                    <UserPlus size={16} /> Enviar CRM
-                                 </button>
-                              </div>
-                           </div>
+                               <div className="space-y-3 mb-6">
+                                  <div className="flex items-center gap-3 text-xs font-bold text-slate-600 dark:text-slate-300">
+                                     <Smartphone size={14} className="text-indigo-500" /> {res.phone}
+                                  </div>
+                                  <div className="flex items-center gap-3 text-xs font-bold text-slate-600 dark:text-slate-300 italic">
+                                     <Mail size={14} className="text-indigo-500" /> {res.email}
+                                  </div>
+                               </div>
 
-                           {res.veracityReport && (
-                             <div className="bg-indigo-50/50 dark:bg-indigo-900/20 p-8 rounded-[2.5rem] border border-indigo-100 dark:border-indigo-800/50 flex gap-6 items-start animate-in zoom-in-95 ml-6">
-                                <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-indigo-600"><Fingerprint size={28}/></div>
-                                <div className="space-y-2">
-                                   <p className="text-[10px] font-black uppercase text-indigo-400 tracking-widest">Parecer de Inteligência Clikai</p>
-                                   <p className="text-sm font-bold text-slate-600 dark:text-slate-300 italic leading-relaxed uppercase tracking-tight">"{res.veracityReport}"</p>
-                                </div>
-                             </div>
-                           )}
-                         </div>
-                       ))}
-                       {extractionResults.length === 0 && !isExtracting && (
-                         <div className="py-40 flex flex-col items-center text-slate-300 gap-8 opacity-50">
-                            <div className="p-12 bg-slate-50 dark:bg-slate-800/40 rounded-full border-4 border-dashed border-slate-100 dark:border-slate-800">
-                               <SearchCode size={80} className="animate-pulse" />
+                               <p className="text-[9px] font-bold text-slate-400 uppercase leading-relaxed line-clamp-2 border-t border-slate-50 dark:border-slate-800 pt-4">"{res.detail}"</p>
+                               
+                               <div className="absolute top-4 right-4 transition-all scale-0 group-hover:scale-100">
+                                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${selectedIds.has(res.id) ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-200'}`}>
+                                     {selectedIds.has(res.id) && <Check size={14} />}
+                                  </div>
+                               </div>
                             </div>
-                            <div className="text-center space-y-3">
-                               <p className="text-lg font-black uppercase tracking-[0.4em]">Engine em Standby</p>
-                               <p className="text-[10px] font-bold uppercase tracking-widest">Aguardando parâmetros para iniciar extração neural.</p>
-                            </div>
-                         </div>
-                       )}
-                     </div>
+                          ))}
+                       </div>
+                     ) : (
+                       <div className="py-40 flex flex-col items-center justify-center text-slate-300 gap-8 opacity-30 grayscale select-none">
+                          <div className="p-12 rounded-full border-8 border-dashed border-slate-100 dark:border-slate-800 animate-in zoom-in duration-700">
+                             <SearchCode size={100} className="animate-pulse" />
+                          </div>
+                          <div className="text-center space-y-3">
+                             <p className="text-2xl font-black uppercase tracking-[0.4em]">Engine em Standby</p>
+                             <p className="text-[10px] font-bold uppercase tracking-widest italic">Inicie uma varredura para localizar prospecções estratégicas.</p>
+                          </div>
+                       </div>
+                     )}
+                  </div>
+               </div>
+               
+               {/* BANNER DE EXPORTAÇÃO RÁPIDA */}
+               <div className="bg-gradient-to-br from-slate-900 to-indigo-950 p-12 rounded-[4rem] text-white flex flex-col md:flex-row items-center justify-between gap-10 shadow-2xl relative overflow-hidden group">
+                  <Database className="absolute -bottom-10 -right-10 w-64 h-64 opacity-5 rotate-12 group-hover:scale-110 transition-transform duration-1000" />
+                  <div className="relative z-10 space-y-4 text-center md:text-left">
+                     <h4 className="text-3xl font-black italic uppercase tracking-tighter">Central de Exportação</h4>
+                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest italic">Integre os dados extraídos com qualquer planilha ou sistema externo.</p>
+                  </div>
+                  <div className="flex gap-4 relative z-10">
+                     <button onClick={handleExportCSV} className="flex items-center gap-3 px-10 py-5 bg-white text-slate-900 rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl"><TableIcon size={18}/> Planilha Excel</button>
+                     <button onClick={() => notify('PDF Gerado com Sucesso!')} className="flex items-center gap-3 px-10 py-5 bg-indigo-600 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl"><FileText size={18}/> Relatório PDF</button>
                   </div>
                </div>
             </div>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-10 animate-in slide-in-from-left-10">
-           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              { label: 'Endpoints Ativos', value: inboundChannels.length.toString(), icon: Radio, color: 'text-indigo-600' },
-              { label: 'Inbound Hoje', value: inboundChannels.reduce((acc, c) => acc + c.leads, 0).toLocaleString(), icon: Database, color: 'text-emerald-600' },
-              { label: 'Uptime Global', value: '99.98%', icon: Shield, color: 'text-orange-600' },
-            ].map((stat, i) => (
-              <div key={i} className="bg-white dark:bg-slate-900 p-12 rounded-[4rem] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-2xl transition-all group relative overflow-hidden">
-                <div className="absolute -top-10 -right-10 w-40 h-40 bg-slate-50 dark:bg-slate-800 blur-[60px] opacity-40"></div>
-                <div className={`p-6 w-fit rounded-3xl bg-slate-50 dark:bg-slate-800 ${stat.color} mb-10 group-hover:rotate-12 transition-transform shadow-sm relative z-10`}>
-                  <stat.icon size={36} />
-                </div>
-                <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-2 relative z-10">{stat.label}</p>
-                <h3 className="text-5xl font-black italic tracking-tighter tabular-nums relative z-10">{stat.value}</h3>
-              </div>
-            ))}
-          </div>
-
-          <div className="bg-white dark:bg-slate-900 rounded-[4rem] border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
-            <div className="p-12 border-b border-slate-50 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center bg-slate-50/50 dark:bg-slate-800/20 gap-8">
-              <div>
-                <h3 className="text-2xl font-black italic uppercase tracking-tight">Canais Inbound Master</h3>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Gerencie webhooks e endpoints de captação passiva</p>
-              </div>
-              <button 
-                onClick={() => setIsNewChannelModalOpen(true)}
-                className="flex items-center gap-3 px-12 py-6 bg-indigo-600 text-white rounded-[2rem] font-black shadow-2xl hover:bg-indigo-700 transition-all text-[11px] uppercase tracking-[0.2em] hover:scale-105 active:scale-95"
-              >
-                <Plus size={20} /> Novo Canal Inbound
-              </button>
-            </div>
-            
-            <div className="divide-y divide-slate-50 dark:divide-slate-800">
-               {inboundChannels.map((canal) => {
-                 const CanalIcon = ICON_COMPONENTS[canal.icon] || Monitor;
-                 return (
-                 <div key={canal.id} className="p-12 flex flex-col md:flex-row items-center justify-between hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-all gap-10 group">
-                    <div className="flex items-center gap-10">
-                       <div className={`p-8 bg-slate-100 dark:bg-slate-800 rounded-3xl ${canal.color} shadow-sm group-hover:rotate-6 transition-transform`}><CanalIcon size={48}/></div>
-                       <div className="space-y-4">
-                          <div className="flex items-center gap-5">
-                            <h4 className="font-black text-3xl tracking-tight italic uppercase">{canal.name}</h4>
-                            <span className={`text-[9px] font-black px-4 py-1.5 rounded-xl border ${canal.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-100 text-slate-400'} uppercase tracking-widest`}>{canal.status === 'ACTIVE' ? 'Operacional' : 'Pausado'}</span>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-4">
-                             <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 rounded-xl border border-indigo-100">
-                               <GlobeLock size={14} />
-                               <span className="text-[10px] font-black uppercase tracking-widest">Auth Webhook</span>
-                             </div>
-                             <a 
-                               href={canal.url} 
-                               target="_blank" 
-                               rel="noopener noreferrer" 
-                               className="text-xs font-mono text-slate-400 font-bold truncate max-w-[350px] hover:text-indigo-600 transition-colors"
-                             >
-                               {canal.url}
-                             </a>
-                          </div>
-                       </div>
-                    </div>
-                    <div className="flex flex-col md:flex-row items-center gap-14">
-                       <div className="text-center md:text-right space-y-1">
-                          <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Total de Leads</p>
-                          <p className="font-black text-5xl tracking-tighter tabular-nums">{canal.leads.toLocaleString()}</p>
-                       </div>
-                       <div className="flex gap-3">
-                          <button 
-                            onClick={() => testPing(canal.id)}
-                            disabled={testingPingId === canal.id}
-                            className={`p-6 rounded-[1.8rem] transition-all shadow-sm border border-slate-200 dark:border-slate-700 ${testingPingId === canal.id ? 'bg-slate-50' : 'bg-white dark:bg-slate-800 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50'}`}
-                            title="Testar Conexão Webhook"
-                          >
-                             {testingPingId === canal.id ? <Loader2 className="animate-spin" size={24}/> : <Activity size={24}/>}
-                          </button>
-                          <button 
-                            onClick={() => copyWebhook(canal.url)}
-                            className="p-6 bg-white dark:bg-slate-800 text-slate-400 rounded-[1.8rem] transition-all shadow-sm hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 dark:border-slate-700"
-                            title="Copiar Endpoint"
-                          >
-                             <Copy size={24}/>
-                          </button>
-                          <button 
-                            onClick={() => deleteInboundChannel(canal.id)}
-                            className="p-6 bg-white dark:bg-slate-800 text-slate-400 rounded-[1.8rem] transition-all shadow-sm hover:text-rose-600 hover:bg-rose-50 border border-slate-200 dark:border-slate-700"
-                            title="Deletar Canal"
-                          >
-                             <Trash2 size={24}/>
-                          </button>
-                       </div>
-                    </div>
-                 </div>
-               )})}
-               
-               {inboundChannels.length === 0 && (
-                 <div className="py-40 flex flex-col items-center justify-center text-slate-300 gap-8 opacity-50">
-                    <div className="p-12 rounded-full bg-slate-50 dark:bg-slate-800 border-4 border-dashed border-slate-100 dark:border-slate-800">
-                       <Radio size={64} className="animate-pulse" />
-                    </div>
-                    <div className="text-center space-y-3">
-                       <p className="text-lg font-black uppercase tracking-[0.4em]">Zero Conexões Ativas</p>
-                       <p className="text-[10px] font-bold uppercase tracking-widest">Inicie a recepção automática criando seu primeiro webhook master.</p>
-                    </div>
-                 </div>
-               )}
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 pb-10">
-             <div className="bg-indigo-600 text-white p-12 rounded-[4rem] shadow-2xl relative overflow-hidden group flex items-center justify-between border-2 border-white/10">
-                <Terminal className="absolute -right-12 -bottom-12 w-64 h-64 opacity-10 rotate-12 group-hover:scale-110 transition-transform duration-1000" />
-                <div className="relative z-10 space-y-3">
-                   <h4 className="text-3xl font-black italic uppercase tracking-tight">API Webhooks Master</h4>
-                   <p className="text-[11px] font-black uppercase tracking-[0.2em] text-indigo-200">Integração para Desenvolvedores Clikai</p>
-                </div>
-                <button 
-                  onClick={openExternalDocs}
-                  className="relative z-10 px-10 py-5 bg-white text-indigo-600 font-black rounded-2xl shadow-xl hover:bg-indigo-50 transition-all text-[11px] uppercase tracking-widest flex items-center gap-3"
-                >
-                   <ExternalLink size={20} /> Ver Docs
-                </button>
-             </div>
-             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-12 rounded-[4rem] shadow-sm flex items-center justify-between">
-                <div className="flex items-center gap-8">
-                   <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center shadow-inner"><ShieldCheck size={40}/></div>
-                   <div className="space-y-2">
-                      <h4 className="font-black text-2xl italic tracking-tight uppercase">Segurança de Dados</h4>
-                      <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Criptografia End-to-End Ativa</p>
-                   </div>
-                </div>
-                <div className="text-right">
-                   <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Certificação</p>
-                   <p className="font-black text-emerald-500 uppercase text-xs tracking-[0.2em]">SaaS Authority</p>
-                </div>
-             </div>
           </div>
         </div>
       )}
