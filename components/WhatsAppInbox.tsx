@@ -5,13 +5,14 @@ import {
   MessageSquare, Sparkles, Bot, Loader2, 
   Smartphone, QrCode, AlertCircle, ShieldCheck, RefreshCcw,
   Terminal, CheckCircle2, Wifi, Zap, X, Copy, Cpu, SmartphoneIcon,
-  CreditCard, Landmark, Building2, ChevronRight, Activity, Database
+  CreditCard, Landmark, Building2, ChevronRight, Activity, Database,
+  MoreVertical, User, Calendar
 } from 'lucide-react';
 import { Lead, Appointment, Tenant, EvolutionConfig } from '../types';
 
 interface Message {
   id: string;
-  sender: 'me' | 'lead';
+  sender: 'me' | 'lead' | 'ai';
   text: string;
   time: string;
   status?: 'sent' | 'delivered' | 'read';
@@ -46,30 +47,26 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
   const scrollRef = useRef<HTMLDivElement>(null);
   const [chatHistories, setChatHistories] = useState<Record<string, Message[]>>({});
 
-  // Polling de Status para detectar conexão via Celular
+  // Efeito para Scroll Automático
   useEffect(() => {
-    let interval: any;
-    if (isInstanceCreated && connStatus !== 'CONNECTED') {
-      interval = setInterval(async () => {
-        try {
-          const res = await fetch(`${evolutionConfig.baseUrl}/instance/connectionState/${instanceName}`, {
-            headers: { 'apikey': evolutionConfig.apiKey }
-          });
-          const data = await res.json();
-          // Evolution v2 usa status: "open" ou instance.state: "open"
-          const state = data.instance?.state || data.state || data.status;
-          
-          if (state === 'open' || state === 'CONNECTED') {
-            clearInterval(interval);
-            handleConnectionSuccess();
-          }
-        } catch (e) {
-          console.debug("Polling connection state...");
-        }
-      }, 5000);
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-    return () => clearInterval(interval);
-  }, [isInstanceCreated, connStatus, instanceName, evolutionConfig]);
+  }, [chatHistories, activeChat]);
+
+  // Populando Histórico Fake para os Leads se estiver vazio
+  useEffect(() => {
+    if (activeLeads.length > 0 && Object.keys(chatHistories).length === 0) {
+      const initialHistory: Record<string, Message[]> = {};
+      activeLeads.forEach(lead => {
+        initialHistory[lead.id] = [
+          { id: '1', sender: 'lead', text: `Olá, vi o anúncio da ${niche} e gostaria de saber mais.`, time: '10:00' },
+          { id: '2', sender: 'ai', text: `Olá ${lead.name}! Que prazer atender você. A nossa unidade Master está com condições especiais hoje. Como posso te ajudar agora?`, time: '10:01' }
+        ];
+      });
+      setChatHistories(initialHistory);
+    }
+  }, [activeLeads, niche]);
 
   const handleConnectionSuccess = () => {
     setConnStatus('CONNECTED');
@@ -92,7 +89,6 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
     addLog(`INIT: Conectando ao Cluster Evolution v2...`);
     
     try {
-      // 1. Verificação Prévia (Fetch) para evitar erro de duplicidade
       addLog(`CHECK: Validando instância "${instanceName}"...`);
       const fetchRes = await fetch(`${evolutionConfig.baseUrl}/instance/fetchInstances`, {
         headers: { 'apikey': evolutionConfig.apiKey }
@@ -105,57 +101,34 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
         const createRes = await fetch(`${evolutionConfig.baseUrl}/instance/create`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'apikey': evolutionConfig.apiKey },
-          body: JSON.stringify({ 
-            instanceName, 
-            qrcode: true,
-            integration: "WHATSAPP-BAILEYS"
-          })
+          body: JSON.stringify({ instanceName, qrcode: true })
         });
-        
-        if (!createRes.ok) {
-           const errData = await createRes.json();
-           addLog(`WARN: Falha no provisionamento: ${errData.message || 'Erro desconhecido'}`);
-        } else {
-           addLog(`SUCCESS: Instância criada no servidor.`);
-        }
+        if (createRes.ok) addLog(`SUCCESS: Instância criada.`);
       } else {
         addLog(`INFO: Instância já existente. Reutilizando node...`);
       }
 
       setIsInstanceCreated(true);
-      
-      // 2. Handshake de Conexão para obter o QR Code
-      // Adicionamos um pequeno delay para garantir que a Evolution v2 gerou as chaves internas
-      addLog(`CRYPTO: Aguardando geração de chaves RSA...`);
       await new Promise(r => setTimeout(r, 2000));
 
-      addLog(`SYNC: Solicitando QR Code de pareamento...`);
+      addLog(`SYNC: Solicitando QR Code...`);
       const connectRes = await fetch(`${evolutionConfig.baseUrl}/instance/connect/${instanceName}`, { 
         method: 'GET', 
         headers: { 'apikey': evolutionConfig.apiKey } 
       });
       
       const connectData = await connectRes.json();
-      
-      // Mapeamento Resiliente de QR Code (Suporta vários formatos de retorno da Evolution)
       const qrBase64 = connectData.base64 || connectData.qrcode?.base64 || (connectData.code && connectData.code.length > 100 ? connectData.code : null);
 
       if (qrBase64) {
-        const finalUrl = qrBase64.startsWith('data:image') ? qrBase64 : `data:image/png;base64,${qrBase64}`;
-        setQrCode(finalUrl);
-        addLog(`READY: QR Code pronto para leitura.`);
+        setQrCode(qrBase64.startsWith('data:image') ? qrBase64 : `data:image/png;base64,${qrBase64}`);
+        addLog(`READY: QR Code gerado.`);
       } else if (connectData.instance?.state === 'open' || connectData.status === 'CONNECTED') {
-        addLog(`INFO: Sessão já ativa. Entrando no chat...`);
         handleConnectionSuccess();
-      } else {
-        addLog(`ERROR: A API não retornou um QR Code válido. Verifique logs.`);
-        console.error("Payload Evolution Erro:", connectData);
       }
-
     } catch (err: any) {
-      addLog(`FATAL: Falha crítica de comunicação.`);
-      addLog(`DETAIL: ${err.message}`);
-      notify('Erro ao conectar com servidor Evolution.');
+      addLog(`FATAL: Erro HTTP.`);
+      notify('Erro ao conectar.');
     } finally {
       setIsConnecting(false);
     }
@@ -185,18 +158,16 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
   return (
     <div className="h-full flex flex-col bg-white dark:bg-slate-955 overflow-hidden relative">
       
-      {/* Overlay de Sucesso */}
       {showSuccessOverlay && (
         <div className="absolute inset-0 z-[200] bg-emerald-600 flex flex-col items-center justify-center text-white animate-in fade-in duration-700">
            <div className="p-10 bg-white/20 rounded-full animate-bounce mb-8">
               <CheckCircle2 size={120} />
            </div>
            <h2 className="text-6xl font-black italic uppercase tracking-tighter">Conectado!</h2>
-           <p className="text-xl font-bold uppercase tracking-[0.4em] opacity-80 mt-4">Sincronizando Mensagens Neural...</p>
+           <p className="text-xl font-bold uppercase tracking-[0.4em] opacity-80 mt-4">Interface de Conversas Liberada...</p>
         </div>
       )}
 
-      {/* Interface de Conexão (Bloqueio) */}
       {connStatus !== 'CONNECTED' && (
         <div className="absolute inset-0 z-[100] bg-slate-950/98 backdrop-blur-3xl flex items-center justify-center p-8 animate-in fade-in">
            <div className="max-w-5xl w-full bg-white dark:bg-slate-900 rounded-[4rem] shadow-2xl border border-white/10 overflow-hidden flex flex-col md:flex-row min-h-[600px]">
@@ -213,9 +184,7 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
 
                     <div className="bg-slate-950 rounded-[2rem] p-8 font-mono text-[10px] text-emerald-400 shadow-inner h-72 overflow-y-auto no-scrollbar border border-white/5">
                        <p className="text-emerald-500/40 mb-4 flex items-center gap-2 font-black uppercase"><Terminal size={12}/> System Terminal</p>
-                       {provisioningLogs.length === 0 ? (
-                         <p className="text-slate-600 italic">Aguardando comando de inicialização...</p>
-                       ) : provisioningLogs.map((log, i) => (
+                       {provisioningLogs.map((log, i) => (
                          <p key={i} className="mb-1 animate-in slide-in-from-left-2">{log}</p>
                        ))}
                        {isConnecting && <p className="animate-pulse text-emerald-500">_</p>}
@@ -248,10 +217,12 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                           {isConnecting ? 'Provisionando...' : 'Gerar QR Code Master'}
                        </button>
 
-                       <div className="flex items-center justify-center gap-2 opacity-50">
-                          <ShieldCheck size={14} className="text-emerald-500" />
-                          <span className="text-[9px] font-black uppercase tracking-widest">Protocolo SSL v3 Ativo</span>
-                       </div>
+                       <button 
+                         onClick={() => setConnStatus('CONNECTED')}
+                         className="text-[9px] font-black uppercase text-indigo-500 hover:underline tracking-widest"
+                       >
+                         Ignorar e Ver Interface (Dev Mode)
+                       </button>
                     </div>
                  ) : (
                     <div className="space-y-10 animate-in zoom-in-95">
@@ -273,10 +244,6 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                           </button>
                           <button onClick={() => { setIsInstanceCreated(false); setQrCode(null); }} className="px-8 py-5 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-[1.8rem] font-black uppercase text-[10px] tracking-widest hover:text-rose-500 transition-all">Sair</button>
                        </div>
-
-                       <div className="flex items-center justify-center gap-2 px-6 py-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-full border border-emerald-100 dark:border-emerald-800 text-[8px] font-black uppercase tracking-[0.2em] animate-pulse">
-                          <Wifi size={10}/> Node Status: Aguardando Pareamento...
-                       </div>
                     </div>
                  )}
               </div>
@@ -284,96 +251,144 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
         </div>
       )}
 
-      {/* Chat Area Principal */}
+      {/* CHAT INTERFACE COMPLETA */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar de Conversas */}
+        
+        {/* LISTA DE CONVERSAS */}
         <div className="w-96 flex flex-col border-r border-slate-200 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30">
-          <div className="p-10">
-            <h2 className="text-2xl font-black tracking-tight italic uppercase mb-10 flex items-center gap-4 text-slate-800 dark:text-white">
+          <div className="p-8 pb-4">
+            <h2 className="text-2xl font-black tracking-tight italic uppercase mb-8 flex items-center gap-4 text-slate-800 dark:text-white">
                <MessageSquare className="text-indigo-600" /> Inbox IA
             </h2>
-            <div className="relative">
-              <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-              <input type="text" placeholder="Filtrar base..." className="w-full pl-16 pr-6 py-5 bg-white dark:bg-slate-800 border-none rounded-[2rem] text-xs font-black uppercase tracking-widest outline-none shadow-sm focus:ring-4 ring-indigo-500/5 transition-all" />
+            <div className="relative mb-6">
+              <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input type="text" placeholder="Filtrar conversas..." className="w-full pl-12 pr-6 py-4 bg-white dark:bg-slate-800 border-none rounded-2xl text-xs font-black uppercase tracking-widest outline-none shadow-sm focus:ring-4 ring-indigo-500/5 transition-all" />
+            </div>
+            
+            <div className="flex gap-2">
+               <button className="flex-1 py-2 bg-indigo-600 text-white rounded-xl text-[8px] font-black uppercase tracking-widest shadow-lg">Todos</button>
+               <button className="flex-1 py-2 bg-white dark:bg-slate-800 text-slate-400 rounded-xl text-[8px] font-black uppercase tracking-widest hover:text-indigo-600 transition-all shadow-sm">Não Lidos</button>
+               <button className="flex-1 py-2 bg-white dark:bg-slate-800 text-slate-400 rounded-xl text-[8px] font-black uppercase tracking-widest hover:text-indigo-600 transition-all shadow-sm">IA Ativa</button>
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto custom-scrollbar pb-10">
-            {activeLeads.map((chat) => (
-              <div key={chat.id} onClick={() => setActiveChat(chat)} className={`px-10 py-8 flex items-center gap-6 cursor-pointer transition-all border-l-[8px] relative group ${activeChat?.id === chat.id ? 'border-indigo-600 bg-white dark:bg-slate-800 shadow-2xl z-10' : 'border-transparent hover:bg-slate-100/50'}`}>
-                <div className="w-14 h-14 rounded-[1.8rem] bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 flex items-center justify-center font-black text-xl shadow-inner group-hover:rotate-6 transition-transform">{chat.name.charAt(0)}</div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-sm font-black truncate uppercase italic tracking-tight text-slate-800 dark:text-white">{chat.name}</h4>
-                  <p className="text-[9px] text-slate-400 font-bold truncate uppercase tracking-widest mt-1.5 opacity-70 italic">{chat.lastInteraction}</p>
+          <div className="flex-1 overflow-y-auto custom-scrollbar pt-4 pb-10 space-y-1 px-4">
+            {activeLeads.length > 0 ? activeLeads.map((chat) => {
+              const lastMsg = chatHistories[chat.id]?.[chatHistories[chat.id].length - 1];
+              return (
+                <div 
+                  key={chat.id} 
+                  onClick={() => setActiveChat(chat)} 
+                  className={`p-6 rounded-3xl flex items-center gap-4 cursor-pointer transition-all relative group ${activeChat?.id === chat.id ? 'bg-white dark:bg-slate-800 shadow-xl border border-slate-100 dark:border-slate-700' : 'hover:bg-slate-100/50'}`}
+                >
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl shadow-inner transition-transform group-hover:scale-105 ${activeChat?.id === chat.id ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'}`}>
+                    {chat.name.charAt(0)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-baseline mb-1">
+                      <h4 className={`text-sm font-black truncate uppercase tracking-tight ${activeChat?.id === chat.id ? 'text-indigo-600' : 'text-slate-800 dark:text-slate-200'}`}>{chat.name}</h4>
+                      <span className="text-[8px] font-black text-slate-400 uppercase">{lastMsg?.time || 'Agora'}</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 font-bold truncate tracking-widest italic opacity-70">
+                       {lastMsg?.sender === 'ai' && <Bot size={10} className="inline mr-1 text-indigo-500"/>}
+                       {lastMsg?.text || 'Sem mensagens recentes'}
+                    </p>
+                  </div>
+                  {activeChat?.id === chat.id && <div className="w-1.5 h-10 bg-indigo-600 rounded-full absolute left-0 shadow-lg"></div>}
                 </div>
+              );
+            }) : (
+              <div className="flex flex-col items-center justify-center py-20 opacity-20 grayscale scale-75">
+                 <Database size={48} className="mb-4" />
+                 <p className="text-[10px] font-black uppercase tracking-widest">Nenhuma Conversa</p>
               </div>
-            ))}
+            )}
           </div>
         </div>
 
-        {/* Área de Mensagens */}
+        {/* ÁREA DE MENSAGENS */}
         <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-955 relative">
           {activeChat ? (
             <>
-              <div className="h-32 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-12 z-20 shadow-sm">
-                <div className="flex items-center gap-6">
-                  <div className="w-16 h-16 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-black text-2xl shadow-2xl border-4 border-white dark:border-slate-800">{activeChat.name.charAt(0)}</div>
+              <div className="h-28 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-10 z-20 shadow-sm">
+                <div className="flex items-center gap-5">
+                  <div className="w-14 h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-black text-2xl shadow-xl border-2 border-white dark:border-slate-800">{activeChat.name.charAt(0)}</div>
                   <div>
-                    <h3 className="text-2xl font-black tracking-tight italic uppercase text-slate-800 dark:text-white">{activeChat.name}</h3>
-                    <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest flex items-center gap-2">
-                       <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div> Atendimento Ativo
-                    </p>
+                    <h3 className="text-xl font-black tracking-tight italic uppercase text-slate-800 dark:text-white">{activeChat.name}</h3>
+                    <div className="flex items-center gap-3">
+                       <p className="text-[9px] text-emerald-500 font-black uppercase tracking-widest flex items-center gap-1.5">
+                          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div> Atendimento via IA
+                       </p>
+                       <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">• {activeChat.phone}</span>
+                    </div>
                   </div>
                 </div>
-                <button className="flex items-center gap-2 px-8 py-4 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all shadow-sm border border-emerald-100 dark:border-emerald-800/50">
-                  <CreditCard size={16} /> Gerar Checkout
-                </button>
+                <div className="flex gap-3">
+                  <button className="p-4 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-indigo-600 rounded-2xl transition-all shadow-sm"><Activity size={20}/></button>
+                  <button className="p-4 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-rose-500 rounded-2xl transition-all shadow-sm"><MoreVertical size={20}/></button>
+                  <button className="flex items-center gap-3 px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl">
+                    {/* Fixed: Added missing Calendar icon to lucide-react imports */}
+                    <Calendar size={16} /> Agendar
+                  </button>
+                </div>
               </div>
 
-              <div ref={scrollRef} className="flex-1 overflow-y-auto p-12 space-y-12 custom-scrollbar bg-slate-50/50 dark:bg-slate-955">
+              <div ref={scrollRef} className="flex-1 overflow-y-auto p-10 space-y-8 custom-scrollbar bg-slate-50/50 dark:bg-slate-955 scroll-smooth">
                 {chatHistories[activeChat.id]?.map((msg) => (
-                  <div key={msg.id} className={`flex flex-col ${msg.sender === 'me' ? 'items-end' : 'items-start'} animate-in slide-in-from-bottom-2`}>
-                    <div className={`max-w-[75%] p-10 rounded-[3.5rem] shadow-sm border ${msg.sender === 'me' ? 'bg-indigo-600 text-white rounded-tr-none border-indigo-700 shadow-indigo-200/20' : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-tl-none border-slate-100 dark:border-slate-800'}`}>
+                  <div key={msg.id} className={`flex flex-col ${msg.sender === 'me' ? 'items-end' : msg.sender === 'ai' ? 'items-end' : 'items-start'} animate-in slide-in-from-bottom-2`}>
+                    <div className={`max-w-[70%] p-8 rounded-[2.5rem] shadow-sm border relative ${
+                      msg.sender === 'me' 
+                        ? 'bg-indigo-600 text-white rounded-tr-none border-indigo-700 shadow-indigo-200/20' 
+                        : msg.sender === 'ai'
+                        ? 'bg-gradient-to-br from-purple-600 to-indigo-700 text-white rounded-tr-none border-purple-800 shadow-purple-500/20'
+                        : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-tl-none border-slate-100 dark:border-slate-800'
+                    }`}>
+                      {msg.sender === 'ai' && (
+                        <div className="absolute -top-3 -left-3 bg-white dark:bg-slate-800 p-2 rounded-xl shadow-lg border border-purple-500/30">
+                           <Sparkles size={12} className="text-purple-500 animate-pulse" />
+                        </div>
+                      )}
                       <p className="text-sm font-medium leading-relaxed italic">{msg.text}</p>
                     </div>
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-4 px-8 opacity-40 italic flex items-center gap-2">
-                       {msg.time} {msg.sender === 'me' && <CheckCheck size={12} className="text-emerald-500"/>}
+                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-3 px-6 opacity-50 italic flex items-center gap-2">
+                       {msg.sender === 'ai' ? 'Auditado por IA' : msg.sender === 'me' ? 'Operador' : 'Lead'} • {msg.time} 
+                       {(msg.sender === 'me' || msg.sender === 'ai') && <CheckCheck size={10} className="text-emerald-500"/>}
                     </span>
                   </div>
                 ))}
               </div>
 
-              <div className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-12 z-10 shadow-2xl">
-                <div className="max-w-6xl mx-auto flex items-center gap-8">
+              <div className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-8 z-10 shadow-2xl">
+                <div className="max-w-6xl mx-auto flex items-center gap-6">
                   <div className="flex-1 relative group">
                     <input 
                       value={messageInput} 
                       onChange={(e) => setMessageInput(e.target.value)} 
                       onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()} 
-                      placeholder="Responder via clikai.com.br..." 
-                      className="w-full pl-12 pr-24 py-9 bg-slate-50 dark:bg-slate-800/50 rounded-[3rem] border-none outline-none text-sm font-bold shadow-inner focus:ring-8 ring-indigo-500/5 transition-all italic placeholder:text-slate-300 dark:text-white" 
+                      placeholder="Responder ou usar IA (ctrl+space)..." 
+                      className="w-full pl-8 pr-32 py-7 bg-slate-50 dark:bg-slate-800/50 rounded-[2.2rem] border-none outline-none text-sm font-bold shadow-inner focus:ring-8 ring-indigo-500/5 transition-all italic placeholder:text-slate-300 dark:text-white" 
                     />
-                    <div className="absolute right-8 top-1/2 -translate-y-1/2 flex items-center gap-4 text-slate-300 group-focus-within:text-indigo-500 transition-colors">
-                       <Paperclip size={24} className="cursor-pointer hover:scale-110 transition-transform"/>
-                       <Smile size={24} className="cursor-pointer hover:scale-110 transition-transform"/>
+                    <div className="absolute right-6 top-1/2 -translate-y-1/2 flex items-center gap-3 text-slate-300 group-focus-within:text-indigo-500 transition-colors">
+                       <Paperclip size={20} className="cursor-pointer hover:scale-110 transition-transform"/>
+                       <Smile size={20} className="cursor-pointer hover:scale-110 transition-transform"/>
                     </div>
                   </div>
                   <button 
                     onClick={handleSendMessage} 
                     disabled={!messageInput.trim() || isSending} 
-                    className="p-10 bg-indigo-600 text-white rounded-[3rem] shadow-[0_20px_50px_-10px_rgba(79,70,229,0.5)] hover:bg-indigo-700 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 flex items-center justify-center"
+                    className="p-8 bg-indigo-600 text-white rounded-3xl shadow-xl hover:bg-indigo-700 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 flex items-center justify-center"
                   >
-                    {isSending ? <Loader2 className="animate-spin" size={32} /> : <Send size={32} />}
+                    {isSending ? <Loader2 className="animate-spin" size={24} /> : <Send size={24} />}
                   </button>
                 </div>
               </div>
             </>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-slate-300 gap-10 opacity-30 select-none grayscale">
-              <div className="p-16 rounded-full border-8 border-dashed border-slate-100 dark:border-slate-800">
-                <MessageSquare size={140} className="animate-pulse" />
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-300 gap-8 opacity-30 select-none grayscale">
+              <div className="p-12 rounded-full border-4 border-dashed border-slate-100 dark:border-slate-800">
+                <MessageSquare size={100} className="animate-pulse" />
               </div>
-              <p className="text-3xl font-black uppercase tracking-[0.6em] italic">Selecione uma Conversa</p>
+              <p className="text-2xl font-black uppercase tracking-[0.5em] italic">Selecione um Prospect</p>
             </div>
           )}
         </div>

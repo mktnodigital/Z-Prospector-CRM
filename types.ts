@@ -42,7 +42,7 @@ export interface Appointment {
 
 export interface AppNotification {
   id: string;
-  type: 'APPOINTMENT' | 'SALE' | 'INBOX' | 'BROADCAST' | 'SYSTEM';
+  type: 'APPOINTMENT' | 'SALE' | 'INBOX' | 'BROADCAST' | 'SYSTEM' | 'N8N';
   title: string;
   description: string;
   time: string;
@@ -67,8 +67,11 @@ export interface N8nWorkflow {
   id: string;
   name: string;
   webhookUrl: string;
-  event: 'LEAD_CREATED' | 'STAGE_CHANGED' | 'AI_QUALIFIED' | 'PAYMENT_RECEIVED';
+  apiKey?: string;
+  event: 'LEAD_CREATED' | 'STAGE_CHANGED' | 'AI_QUALIFIED' | 'PAYMENT_RECEIVED' | 'CUSTOM';
   status: 'ACTIVE' | 'PAUSED';
+  lastExecution?: string;
+  hits: number;
 }
 
 export interface EvolutionConfig {
@@ -124,4 +127,5 @@ export type AppModule =
   | 'payments'
   | 'profile'
   | 'broadcast'
-  | 'search';
+  | 'search'
+  | 'n8n';

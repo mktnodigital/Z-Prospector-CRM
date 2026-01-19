@@ -8,7 +8,7 @@ import {
   Lock, Mail, ArrowRight, Eye, EyeOff, X, ShieldAlert,
   Settings, Building2, UserCog, Cpu, Shield, Fingerprint, Palette,
   ChevronLeft, ChevronRight, Megaphone, Search, CreditCard, ChevronLast, ChevronFirst,
-  Bell, BellDot, ShoppingCart, TrendingUp
+  Bell, BellDot, ShoppingCart, TrendingUp, Workflow, Code2
 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { CRMKanban } from './components/CRMKanban';
@@ -22,6 +22,7 @@ import { OfferPage } from './components/OfferPage';
 import { PaymentManager } from './components/PaymentManager';
 import { UserProfile } from './components/UserProfile';
 import { AISearchModal } from './components/AISearchModal';
+import { N8nManager } from './components/N8nManager';
 import { LeadStatus, Lead, AppModule, Appointment, BrandingConfig, EvolutionConfig, AppNotification } from './types';
 
 const API_URL = '/api/core.php';
@@ -119,6 +120,7 @@ const App: React.FC = () => {
     { id: 'capture', label: 'Captação', icon: Radar, color: 'text-cyan-600' },
     { id: 'prospecting', label: 'Funil CRM', icon: Kanban, color: 'text-violet-600' },
     { id: 'inbox', label: 'Chat Inbox', icon: MessageSquare, color: 'text-emerald-600' },
+    { id: 'n8n', label: 'N8n Flows', icon: Code2, color: 'text-indigo-500' },
     { id: 'scheduling', label: 'Agenda IA', icon: Calendar, color: 'text-pink-600' },
     { id: 'broadcast', label: 'Disparos', icon: Megaphone, color: 'text-rose-600' },
     { id: 'products', label: 'Ofertas', icon: Package, color: 'text-amber-600' },
@@ -272,6 +274,7 @@ const App: React.FC = () => {
               notify={(msg) => { notify(msg); addNotification({ type: 'INBOX', title: 'Mensagem Recebida', description: msg }); }} 
             />
           )}
+          {activeModule === 'n8n' && <N8nManager notify={(msg) => { notify(msg); addNotification({ type: 'N8N', title: 'Infra n8n Alerta', description: msg }); }} />}
           {activeModule === 'products' && <ProductManager notify={notify} />}
           {activeModule === 'scheduling' && <ScheduleManager appointments={appointments} onAddAppointment={(a) => { setAppointments([...appointments, a]); addNotification({ type: 'APPOINTMENT', title: 'Novo Agendamento', description: `${a.lead} agendou ${a.service}` }); }} onUpdateAppointment={(a) => setAppointments(appointments.map(i => i.id === a.id ? a : i))} onDeleteAppointment={(id) => setAppointments(appointments.filter(i => i.id !== id))} />}
           {activeModule === 'broadcast' && <BroadcastManager leads={leads} isWhatsAppConnected={isWhatsAppConnected} onNavigate={setActiveModule} notify={(msg) => { notify(msg); addNotification({ type: 'BROADCAST', title: 'Status de Envio', description: msg }); }} />}
