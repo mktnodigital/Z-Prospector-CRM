@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { 
   User, Mail, Lock, ShieldCheck, Trash2, Camera, Bell, 
@@ -69,91 +70,75 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onLogo
       />
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div className="flex items-center gap-5">
-           <div className="relative">
-              <div className="w-20 h-20 bg-indigo-600 rounded-[2rem] flex items-center justify-center text-white text-3xl font-black shadow-2xl border-4 border-white dark:border-slate-800 overflow-hidden">
+        <div className="flex items-center gap-6">
+           <div className="relative group">
+              <div className="w-24 h-24 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-[2.5rem] flex items-center justify-center text-white text-4xl font-black shadow-[0_20px_50px_-10px_rgba(79,70,229,0.5)] border-4 border-white dark:border-slate-800 overflow-hidden">
                 {user.avatar ? <img src={user.avatar} className="w-full h-full object-cover" /> : user.name.charAt(0)}
               </div>
-              <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full border-4 border-white dark:border-slate-950 animate-pulse"></div>
+              <button onClick={() => fileInputRef.current?.click()} className="absolute -bottom-1 -right-1 p-2 bg-white dark:bg-slate-700 rounded-xl shadow-xl text-indigo-600 border border-slate-100 dark:border-slate-600 hover:scale-110 transition-transform">
+                <Camera size={18} />
+              </button>
            </div>
            <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-black italic uppercase tracking-tight">Master Console</h1>
-                <span className="px-3 py-1 bg-emerald-500/10 text-emerald-500 text-[9px] font-black uppercase rounded-lg border border-emerald-500/20">Online</span>
+                <h1 className="text-4xl font-black italic uppercase tracking-tighter">{user.name}</h1>
+                <span className="px-4 py-1.5 bg-emerald-500/10 text-emerald-500 text-[10px] font-black uppercase rounded-xl border border-emerald-500/20">Autoridade Master</span>
               </div>
-              <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mt-1">Status: Conexão Criptografada Ativa</p>
+              <p className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px] mt-1 italic">{user.role} • clikai.com.br</p>
            </div>
         </div>
-        <button onClick={onLogout} className="flex items-center gap-2 px-6 py-3 bg-rose-50 dark:bg-rose-900/20 text-rose-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all border border-rose-100 dark:border-800">
-          <LogOut size={16} /> Encerrar Sessão
+        <button onClick={onLogout} className="flex items-center gap-3 px-8 py-4 bg-rose-50 dark:bg-rose-900/20 text-rose-500 rounded-[1.8rem] font-black text-[10px] uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all border border-rose-100 dark:border-rose-800 shadow-sm">
+          <LogOut size={18} /> Encerrar Sessão
         </button>
       </div>
 
-      <div className="flex bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 p-2 rounded-[2.5rem] w-full overflow-x-auto no-scrollbar shadow-sm">
+      <div className="flex bg-slate-100 dark:bg-slate-900/50 p-2 rounded-[2.5rem] w-full overflow-x-auto no-scrollbar shadow-inner border border-slate-200 dark:border-slate-800">
         {[
-          { id: 'profile', label: 'Dados', icon: User },
-          { id: 'security', label: 'Segurança', icon: Lock },
-          { id: 'subscription', label: 'Assinatura', icon: Crown },
-          { id: 'billing', label: 'Pagamentos', icon: CreditCard },
-          { id: 'danger', label: 'Crítico', icon: AlertTriangle },
+          { id: 'profile', label: 'Dados de Acesso', icon: User, color: 'text-indigo-500', bg: 'bg-indigo-500' },
+          { id: 'security', label: 'Segurança Global', icon: ShieldCheck, color: 'text-blue-500', bg: 'bg-blue-500' },
+          { id: 'subscription', label: 'Minha Assinatura', icon: Crown, color: 'text-purple-500', bg: 'bg-purple-500' },
+          { id: 'billing', label: 'Cartões & Faturas', icon: Wallet, color: 'text-emerald-500', bg: 'bg-emerald-500' },
+          { id: 'danger', label: 'Config. Críticas', icon: AlertTriangle, color: 'text-rose-500', bg: 'bg-rose-500' },
         ].map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center gap-3 px-8 py-4 rounded-[1.8rem] text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex-1 ${
-              activeTab === tab.id ? 'bg-indigo-600 text-white shadow-xl' : 'text-slate-400 hover:text-slate-600'
+            className={`flex items-center gap-3 px-8 py-5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex-1 ${
+              activeTab === tab.id ? `${tab.bg} text-white shadow-2xl scale-[1.02]` : 'text-slate-400 hover:text-slate-600'
             }`}
           >
-            <tab.icon size={16} /> {tab.label}
+            <tab.icon size={18} /> {tab.label}
           </button>
         ))}
       </div>
 
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[3.5rem] shadow-sm overflow-hidden min-h-[500px]">
+      <div className="bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-[4rem] shadow-sm overflow-hidden min-h-[500px]">
         
         {activeTab === 'profile' && (
-          <form onSubmit={handleSaveProfile} className="p-12 space-y-10 animate-in slide-in-from-bottom-5">
-            <div className="flex items-center gap-10">
-               <div className="relative group">
-                  <div className="w-32 h-32 bg-indigo-600 rounded-[2.5rem] flex items-center justify-center text-white text-4xl font-black shadow-2xl transition-transform group-hover:scale-105 overflow-hidden border-4 border-white dark:border-slate-800">
-                     {user.avatar ? (
-                        <img src={user.avatar} className="w-full h-full object-cover" alt="Avatar" />
-                     ) : (
-                        user.name.charAt(0)
-                     )}
-                  </div>
-                  <button 
-                    type="button" 
-                    onClick={() => fileInputRef.current?.click()}
-                    className="absolute -bottom-2 -right-2 p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-xl text-indigo-600 border border-slate-100 dark:border-slate-700 hover:scale-110 transition-all z-10"
-                  >
-                     <Camera size={20} />
-                  </button>
-               </div>
-               <div>
-                  <h3 className="text-2xl font-black italic uppercase tracking-tight">{user.name}</h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Fingerprint size={14} className="text-indigo-600" />
-                    <p className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em]">{user.role}</p>
-                  </div>
-               </div>
-            </div>
+          <form onSubmit={handleSaveProfile} className="p-12 space-y-12 animate-in slide-in-from-bottom-5">
+             <div className="flex items-center gap-6">
+                <div className="p-5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-[1.8rem]"><Fingerprint size={32}/></div>
+                <div>
+                   <h3 className="text-2xl font-black italic uppercase tracking-tight">Identidade de Acesso</h3>
+                   <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Seus dados básicos na rede clikai</p>
+                </div>
+             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 px-2">Nome de Exibição</label>
-                  <input required value={name} onChange={e => setName(e.target.value)} className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none outline-none font-bold focus:ring-4 ring-indigo-500/10" />
+                  <label className="text-[10px] font-black uppercase text-slate-400 px-4">Nome Completo</label>
+                  <input required value={name} onChange={e => setName(e.target.value)} className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-black italic border-none outline-none focus:ring-4 ring-indigo-500/10 shadow-inner" />
                </div>
                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 px-2">E-mail Master</label>
-                  <input required type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none outline-none font-bold focus:ring-4 ring-indigo-500/10" />
+                  <label className="text-[10px] font-black uppercase text-slate-400 px-4">E-mail Master</label>
+                  <input required type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-black italic border-none outline-none focus:ring-4 ring-indigo-500/10 shadow-inner" />
                </div>
             </div>
 
             <div className="pt-8 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-               <button type="submit" disabled={isLoading} className="px-12 py-5 bg-indigo-600 text-white font-black rounded-2xl shadow-xl hover:bg-indigo-700 transition-all flex items-center gap-3 uppercase text-[10px] tracking-widest">
-                  {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-                  {isLoading ? 'Salvando...' : 'Sincronizar Dados'}
+               <button type="submit" disabled={isLoading} className="px-12 py-6 bg-indigo-600 text-white font-black rounded-3xl shadow-xl hover:bg-indigo-700 transition-all flex items-center gap-4 uppercase text-[10px] tracking-[0.2em]">
+                  {isLoading ? <Loader2 size={20} className="animate-spin" /> : <CheckCircle size={20} />}
+                  {isLoading ? 'Sincronizando...' : 'Atualizar Perfil Master'}
                </button>
             </div>
           </form>
@@ -162,33 +147,40 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onLogo
         {activeTab === 'security' && (
           <div className="p-12 space-y-12 animate-in slide-in-from-bottom-5">
             <div className="flex items-center gap-6">
-              <div className="p-5 bg-blue-50 text-blue-600 rounded-3xl"><Key size={32} /></div>
+              <div className="p-5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 rounded-[1.8rem]"><Lock size={32} /></div>
               <div>
-                <h3 className="text-2xl font-black italic uppercase tracking-tight">Segurança de Acesso</h3>
-                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Proteção de Identidade Master</p>
+                <h3 className="text-2xl font-black italic uppercase tracking-tight">Security Vault</h3>
+                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Proteção de Identidade e Acesso em Dois Fatores</p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 px-2">Nova Senha Master</label>
-                  <input type="password" placeholder="••••••••••••" className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none outline-none font-bold focus:ring-4 ring-indigo-500/10" />
+              <div className="space-y-8">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 px-4">Nova Senha Master</label>
+                    <input type="password" placeholder="••••••••••••" className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold border-none outline-none focus:ring-4 ring-blue-500/10" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 px-4">Confirmar Senha</label>
+                    <input type="password" placeholder="••••••••••••" className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold border-none outline-none focus:ring-4 ring-blue-500/10" />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 px-2">Confirmar Senha</label>
-                  <input type="password" placeholder="••••••••••••" className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none outline-none font-bold focus:ring-4 ring-indigo-500/10" />
-                </div>
-                <button className="px-10 py-5 bg-slate-900 text-white font-black rounded-2xl text-[10px] uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-lg">Atualizar Security Passphrase</button>
+                <button className="w-full py-5 bg-slate-900 dark:bg-slate-800 text-white font-black rounded-2xl text-[10px] uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg">Propagar Nova Senha</button>
               </div>
 
-              <div className="p-8 bg-indigo-50 dark:bg-indigo-900/20 rounded-[2.5rem] border border-indigo-100 dark:border-indigo-800 flex flex-col justify-between">
-                <div className="flex items-center gap-4 mb-6">
-                  <Smartphone className="text-indigo-600" size={24} />
-                  <h4 className="text-lg font-black italic uppercase tracking-tight">Autenticação 2FA</h4>
+              <div className="p-10 bg-blue-50 dark:bg-blue-900/20 rounded-[3.5rem] border border-blue-100 dark:border-blue-800 flex flex-col justify-between group overflow-hidden relative">
+                <ShieldCheck className="absolute -right-6 -bottom-6 w-32 h-32 opacity-10 group-hover:scale-125 transition-transform duration-700" />
+                <div className="relative z-10">
+                   <div className="flex items-center gap-4 mb-6">
+                     <Smartphone className="text-blue-600" size={28} />
+                     <h4 className="text-lg font-black italic uppercase tracking-tight">MFA Autenticador</h4>
+                   </div>
+                   <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase leading-relaxed tracking-widest mb-10 italic">
+                     Garanta que apenas dispositivos autorizados acessem o Command Center. A ativação do MFA é mandatória para Super Admins.
+                   </p>
                 </div>
-                <p className="text-[10px] text-slate-500 font-bold uppercase leading-relaxed tracking-widest mb-8">Exigir código via app ou SMS para cada novo login em dispositivos desconhecidos.</p>
-                <button className="w-full py-5 bg-indigo-600 text-white font-black rounded-2xl text-[10px] uppercase tracking-widest shadow-xl hover:bg-indigo-700 transition-all">Configurar Autenticador</button>
+                <button className="w-full py-6 bg-blue-600 text-white font-black rounded-3xl text-[10px] uppercase tracking-widest shadow-xl hover:bg-blue-700 transition-all relative z-10">Configurar APP Autenticador</button>
               </div>
             </div>
           </div>
@@ -196,155 +188,70 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onLogo
 
         {activeTab === 'subscription' && (
           <div className="p-12 space-y-12 animate-in slide-in-from-bottom-5">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
-              <div className="flex items-center gap-6">
-                <div className="p-5 bg-purple-50 text-purple-600 rounded-3xl"><Crown size={32} /></div>
-                <div>
-                  <h3 className="text-2xl font-black italic uppercase tracking-tight">Assinatura Master</h3>
-                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Plano Ativo e Ciclo de Faturamento</p>
-                </div>
-              </div>
-              <span className="px-6 py-3 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg border-4 border-white dark:border-slate-800">Assinatura Ativa</span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="p-10 bg-slate-900 text-white rounded-[3rem] shadow-2xl relative overflow-hidden group col-span-1 md:col-span-2">
-                <Rocket className="absolute -right-10 -bottom-10 w-48 h-48 opacity-10 rotate-12 group-hover:scale-110 transition-transform duration-700" />
-                <div className="relative z-10 space-y-8">
-                  <div>
-                    <h4 className="text-3xl font-black italic uppercase tracking-tighter">PLANO ESCALAR</h4>
-                    <p className="text-indigo-300 text-[10px] font-black uppercase tracking-[0.3em] mt-1">Capacidade Ilimitada Master</p>
-                  </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-5xl font-black italic tracking-tighter tabular-nums">R$ 397</span>
-                    <span className="text-xs font-bold uppercase opacity-50">/mês</span>
-                  </div>
-                  <div className="pt-6 flex gap-3">
-                    <button className="px-8 py-4 bg-white text-slate-900 font-black rounded-2xl text-[10px] uppercase tracking-widest shadow-xl hover:bg-indigo-50 transition-all">Alterar Plano</button>
-                    <button className="px-8 py-4 bg-white/10 text-white font-black rounded-2xl text-[10px] uppercase tracking-widest backdrop-blur-md border border-white/20 hover:bg-white/20 transition-all">Cancelar Ciclo</button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white dark:bg-slate-800 p-10 rounded-[3rem] border border-slate-200 dark:border-slate-700 flex flex-col justify-between">
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Próxima Renovação</p>
-                  <h5 className="text-2xl font-black italic uppercase tracking-tight">15 Out, 2024</h5>
-                </div>
-                <div className="pt-8 space-y-4">
-                  <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-slate-500">
-                    <span>Leads Utilizados</span>
-                    <span>8.5k / 10k</span>
-                  </div>
-                  <div className="h-3 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                    <div className="h-full bg-indigo-600 w-[85%]"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'billing' && (
-          <div className="p-12 space-y-12 animate-in slide-in-from-bottom-5">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-6">
-                <div className="p-5 bg-emerald-50 text-emerald-600 rounded-3xl"><Wallet size={32} /></div>
-                <div>
-                  <h3 className="text-2xl font-black italic uppercase tracking-tight">Métodos & Faturas</h3>
-                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Gestão de Cobrança e Histórico</p>
-                </div>
-              </div>
-              <button className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl">
-                <Plus size={16} /> Novo Cartão Master
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-              <div className="space-y-6">
-                <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 px-2">Cartões Cadastrados</h4>
-                {activeCards.map(card => (
-                  <div key={card.id} className="p-8 bg-slate-50 dark:bg-slate-800 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 flex items-center justify-between group hover:border-indigo-400 transition-all">
-                    <div className="flex items-center gap-6">
-                      <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl shadow-sm"><CardIcon size={24} className="text-slate-400" /></div>
+            <div className="p-12 bg-slate-900 text-white rounded-[4rem] shadow-2xl relative overflow-hidden group">
+                <Rocket className="absolute -right-16 -bottom-16 w-64 h-64 opacity-10 rotate-12 group-hover:scale-110 transition-transform duration-1000" />
+                <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-10">
+                   <div className="space-y-8">
                       <div>
-                        <p className="font-black italic uppercase tracking-tight text-lg">{card.brand} •••• {card.last4}</p>
-                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">Expira em {card.exp} • <span className="text-emerald-500">{card.status}</span></p>
+                         <div className="flex items-center gap-3 mb-2">
+                           <Crown className="text-yellow-400" size={24} />
+                           <h4 className="text-4xl font-black italic uppercase tracking-tighter">PLANO ESCALAR</h4>
+                         </div>
+                         <p className="text-indigo-300 text-[11px] font-black uppercase tracking-[0.4em]">Node de Operação Ilimitada</p>
                       </div>
-                    </div>
-                    <button className="p-3 text-slate-300 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={18} /></button>
-                  </div>
-                ))}
-              </div>
-
-              <div className="space-y-6">
-                <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 px-2">Histórico de Faturas</h4>
-                <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
-                   {[
-                     { date: '15 Set, 2024', val: 'R$ 397,00', status: 'PAID' },
-                     { date: '15 Ago, 2024', val: 'R$ 397,00', status: 'PAID' },
-                     { date: '15 Jul, 2024', val: 'R$ 397,00', status: 'PAID' },
-                   ].map((inv, i) => (
-                     <div key={i} className="px-8 py-6 flex items-center justify-between border-b border-slate-50 last:border-none hover:bg-slate-50 transition-all">
-                        <div className="flex items-center gap-4">
-                           <History size={16} className="text-slate-300" />
-                           <span className="font-bold text-sm">{inv.date}</span>
-                        </div>
-                        <div className="flex items-center gap-6">
-                           <span className="font-black italic text-sm">{inv.val}</span>
-                           <span className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg"><CheckCircle size={14} /></span>
-                        </div>
-                     </div>
-                   ))}
+                      <div className="flex items-baseline gap-3">
+                         <span className="text-6xl font-black italic tracking-tighter tabular-nums">R$ 397</span>
+                         <span className="text-sm font-bold uppercase opacity-40">/ Mensal</span>
+                      </div>
+                   </div>
+                   <div className="flex flex-col gap-4 w-full md:w-auto">
+                      <button className="px-12 py-6 bg-white text-slate-900 font-black rounded-3xl text-[11px] uppercase tracking-[0.2em] shadow-xl hover:bg-yellow-400 transition-all hover:scale-105 active:scale-95">Upgrade para Franquia</button>
+                      <button className="px-12 py-6 bg-white/10 text-white font-black rounded-3xl text-[11px] uppercase tracking-[0.2em] backdrop-blur-md border border-white/20 hover:bg-white/20 transition-all">Download Contrato SaaS</button>
+                   </div>
                 </div>
-              </div>
             </div>
           </div>
         )}
 
         {activeTab === 'danger' && (
           <div className="p-12 space-y-12 animate-in slide-in-from-bottom-5">
-            <div className="flex items-center gap-6">
-              <div className="p-5 bg-rose-50 text-rose-600 rounded-3xl"><ShieldAlert size={32} /></div>
-              <div>
-                <h3 className="text-2xl font-black italic uppercase tracking-tight text-rose-600">Área Crítica</h3>
-                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Ações Irreversíveis de Conta Master</p>
-              </div>
-            </div>
-
-            <div className="max-w-2xl bg-rose-50 dark:bg-rose-900/10 p-10 rounded-[3.5rem] border border-rose-100 dark:border-rose-900/30 space-y-8">
-              <div className="flex gap-6">
-                 <AlertTriangle size={32} className="text-rose-500 shrink-0" />
-                 <div className="space-y-4">
-                    <h4 className="text-xl font-black italic uppercase tracking-tight">Exclusão Permanente de Conta</h4>
-                    <p className="text-[10px] text-rose-700/70 dark:text-rose-400 font-bold uppercase leading-relaxed tracking-widest italic">
-                      Ao encerrar sua conta master, todas as suas unidades, leads, integrações e históricos de conversas da VPS Evolution serão destruídos permanentemente após 30 dias.
-                    </p>
+            <div className="max-w-3xl bg-rose-50 dark:bg-rose-900/10 p-12 rounded-[4rem] border border-rose-100 dark:border-rose-900/30 space-y-10 relative overflow-hidden group">
+               <ShieldAlert className="absolute -right-10 -bottom-10 w-48 h-48 opacity-5 -rotate-12 group-hover:scale-125 transition-transform" />
+               <div className="flex gap-8 relative z-10">
+                  <div className="p-6 bg-white dark:bg-slate-900 rounded-3xl shadow-sm text-rose-500 h-fit"><AlertTriangle size={48} /></div>
+                  <div className="space-y-6">
+                     <div>
+                        <h4 className="text-3xl font-black italic uppercase tracking-tight text-rose-600">Encerrar Autoridade</h4>
+                        <p className="text-[10px] text-rose-700/60 dark:text-rose-400 font-bold uppercase leading-relaxed tracking-widest mt-1">ESTA AÇÃO É IRREVERSÍVEL</p>
+                     </div>
+                     <p className="text-sm font-bold text-slate-600 dark:text-slate-300 italic leading-loose uppercase tracking-tight">
+                        Ao encerrar sua conta master, todos os sub-tenants vinculados, campanhas de disparos, audiências de IA e o banco de dados do pipeline serão deletados permanentemente de nossos clusters.
+                     </p>
+                  </div>
+               </div>
+               
+               {!showDeleteConfirm ? (
+                 <button 
+                   onClick={() => setShowDeleteConfirm(true)}
+                   className="w-full py-8 bg-rose-600 text-white font-black rounded-[2.5rem] shadow-[0_20px_50px_-10px_rgba(225,29,72,0.4)] hover:bg-rose-700 hover:scale-[1.02] transition-all uppercase text-xs tracking-[0.4em] relative z-10"
+                 >
+                   Desejo Destruir Minha Conta Master
+                 </button>
+               ) : (
+                 <div className="space-y-8 animate-in zoom-in-95 relative z-10">
+                   <div className="p-8 bg-white dark:bg-slate-900 rounded-[2.5rem] border-4 border-rose-500 shadow-xl">
+                     <p className="text-center font-black text-rose-600 uppercase text-sm mb-4">Confirme digitando o e-mail {user.email}:</p>
+                     <input 
+                       placeholder="E-mail de confirmação" 
+                       className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none outline-none font-black text-center text-rose-600 italic"
+                     />
+                   </div>
+                   <div className="flex gap-4">
+                     <button onClick={() => notify('Processo de encerramento iniciado...')} className="flex-1 py-6 bg-rose-600 text-white font-black rounded-[1.8rem] text-[11px] uppercase tracking-[0.3em] shadow-xl hover:bg-rose-700 transition-all">Confirmar Exclusão</button>
+                     <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 py-6 bg-slate-100 dark:bg-slate-800 font-black rounded-[1.8rem] text-[11px] uppercase tracking-[0.3em] transition-all">Cancelar Ação</button>
+                   </div>
                  </div>
-              </div>
-              
-              {!showDeleteConfirm ? (
-                <button 
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="w-full py-6 bg-rose-600 text-white font-black rounded-3xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px] tracking-widest"
-                >
-                  Desejo encerrar minha Autoridade Master
-                </button>
-              ) : (
-                <div className="space-y-6 animate-in zoom-in-95">
-                  <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border-2 border-rose-500">
-                    <p className="text-center font-black text-rose-600 uppercase text-xs">Confirme digitando SEU E-MAIL abaixo:</p>
-                    <input 
-                      placeholder={user.email} 
-                      className="w-full mt-4 px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-xl border-none outline-none font-bold text-center"
-                    />
-                  </div>
-                  <div className="flex gap-4">
-                    <button onClick={() => notify('Processo de encerramento iniciado...')} className="flex-1 py-5 bg-rose-600 text-white font-black rounded-2xl text-[10px] uppercase tracking-widest shadow-xl">Confirmar Destruição</button>
-                    <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 py-5 bg-slate-100 dark:bg-slate-800 font-black rounded-2xl text-[10px] uppercase tracking-widest">Cancelar</button>
-                  </div>
-                </div>
-              )}
+               )}
             </div>
           </div>
         )}
