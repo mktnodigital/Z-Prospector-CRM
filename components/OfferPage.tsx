@@ -352,10 +352,10 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Análise de Conversa em Tempo Real</p>
                         </div>
                         <p className="font-mono text-xs text-indigo-300">
-                           > Analisando intenção de compra...<br/>
-                           > Cliente demonstrou urgência.<br/>
-                           > Ação sugerida: OFERECER HORÁRIO DE HOJE.<br/>
-                           > Probabilidade de fechamento: 89%.
+                           &gt; Analisando intenção de compra...<br/>
+                           &gt; Cliente demonstrou urgência.<br/>
+                           &gt; Ação sugerida: OFERECER HORÁRIO DE HOJE.<br/>
+                           &gt; Probabilidade de fechamento: 89%.
                         </p>
                      </div>
                   </div>
