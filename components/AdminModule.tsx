@@ -9,7 +9,7 @@ import {
   ArrowRight, CheckCircle2, ShoppingCart, CreditCard, Landmark, Globe, Palette, Building2,
   Image as ImageIcon, Type, Layout, Save, X, Ban, Edit3, Smartphone, Globe2,
   Lock, ShieldAlert, Fingerprint, History, Monitor, Shield, UploadCloud, ImagePlus, Workflow,
-  Check, AlertTriangle
+  Check, AlertTriangle, Layers
 } from 'lucide-react';
 import { BrandingConfig, EvolutionConfig, Tenant } from '../types';
 import { IntegrationSettings } from './IntegrationSettings';
@@ -24,6 +24,68 @@ interface AdminModuleProps {
 }
 
 type AdminSubTab = 'infra' | 'branding' | 'tenants' | 'payments' | 'security';
+
+// BLUEPRINTS DE SISTEMA (CORE INFRASTRUCTURE)
+const SYSTEM_WORKFLOWS = {
+  provisioning: {
+    "name": "Sys - Tenant Provisioning Master v1",
+    "nodes": [
+      { 
+        "name": "Webhook - New Tenant", 
+        "type": "n8n-nodes-base.webhook", 
+        "parameters": { "path": "sys-provisioning", "httpMethod": "POST", "responseMode": "lastNode" },
+        "position": [100, 300]
+      },
+      { 
+        "name": "Create Evolution Instance", 
+        "type": "n8n-nodes-base.httpRequest", 
+        "parameters": { 
+          "url": "https://api.clikai.com.br/instance/create", 
+          "method": "POST",
+          "bodyParameters": { "parameters": [{ "name": "instanceName", "value": "={{$json.body.instanceName}}" }, { "name": "token", "value": "={{$json.body.token}}" }] }
+        },
+        "position": [300, 300] 
+      },
+      { 
+        "name": "Setup Database Schema", 
+        "type": "n8n-nodes-base.mySql", 
+        "parameters": { "operation": "executeQuery", "query": "CALL create_tenant_schema('{{$json.body.tenant_id}}');" },
+        "position": [500, 300] 
+      },
+      {
+        "name": "Send Welcome Email",
+        "type": "n8n-nodes-base.emailSend",
+        "parameters": { "toEmail": "={{$json.body.admin_email}}", "subject": "Sua Unidade foi Provisionada!" },
+        "position": [700, 300]
+      }
+    ],
+    "connections": { 
+      "Webhook - New Tenant": { "main": [[{ "node": "Create Evolution Instance", "type": "main", "index": 0 }]] },
+      "Create Evolution Instance": { "main": [[{ "node": "Setup Database Schema", "type": "main", "index": 0 }]] },
+      "Setup Database Schema": { "main": [[{ "node": "Send Welcome Email", "type": "main", "index": 0 }]] }
+    }
+  },
+  billing: {
+    "name": "Sys - Global Billing Sync v1",
+    "nodes": [
+      { "name": "Stripe Trigger", "type": "n8n-nodes-base.stripeTrigger", "parameters": { "event": ["charge.succeeded", "invoice.payment_failed"] }, "position": [100, 300] },
+      { "name": "Switch Status", "type": "n8n-nodes-base.switch", "position": [300, 300] },
+      { "name": "Activate Tenant", "type": "n8n-nodes-base.mySql", "parameters": { "query": "UPDATE tenants SET status='ONLINE'..." }, "position": [500, 200] },
+      { "name": "Suspend Tenant", "type": "n8n-nodes-base.mySql", "parameters": { "query": "UPDATE tenants SET status='OFFLINE'..." }, "position": [500, 400] }
+    ],
+    "connections": { "Stripe Trigger": { "main": [[{ "node": "Switch Status", "type": "main", "index": 0 }]] } }
+  },
+  monitoring: {
+    "name": "Sys - Health Check Monitor v1",
+    "nodes": [
+      { "name": "Cron 5min", "type": "n8n-nodes-base.cron", "parameters": { "triggerTimes": { "item": [{ "mode": "everyMinute", "value": 5 }] } }, "position": [100, 300] },
+      { "name": "Ping Evolution API", "type": "n8n-nodes-base.httpRequest", "parameters": { "url": "https://api.clikai.com.br/instance/fetchInstances" }, "position": [300, 300] },
+      { "name": "Check DB Latency", "type": "n8n-nodes-base.mySql", "parameters": { "query": "SELECT 1" }, "position": [300, 500] },
+      { "name": "Report to Dashboard", "type": "n8n-nodes-base.httpRequest", "parameters": { "url": "https://zprospector.com.br/api/health", "method": "POST" }, "position": [600, 400] }
+    ],
+    "connections": { "Cron 5min": { "main": [[{ "node": "Ping Evolution API", "type": "main", "index": 0 }, { "node": "Check DB Latency", "type": "main", "index": 0 }]] } }
+  }
+};
 
 export const AdminModule: React.FC<AdminModuleProps> = ({ branding, onBrandingChange, evolutionConfig, onEvolutionConfigChange, notify }) => {
   const [activeTab, setActiveTab] = useState<AdminSubTab>('branding');
@@ -139,6 +201,18 @@ export const AdminModule: React.FC<AdminModuleProps> = ({ branding, onBrandingCh
       setIsSyncing(false);
       notify('Ambiente Master Sincronizado com Sucesso!');
     }, 1500);
+  };
+
+  const handleDownloadSystemWorkflow = (key: keyof typeof SYSTEM_WORKFLOWS) => {
+    const blueprint = SYSTEM_WORKFLOWS[key];
+    const data = JSON.stringify(blueprint, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `system_core_${key}_workflow.json`;
+    link.click();
+    notify(`Workflow Crítico Baixado: ${blueprint.name}`);
   };
 
   // --- HANDLERS: SECURITY ---
@@ -436,7 +510,32 @@ export const AdminModule: React.FC<AdminModuleProps> = ({ branding, onBrandingCh
                   </div>
                </div>
 
-               <div className="pt-10 flex justify-end gap-4">
+               {/* SYSTEM CORE WORKFLOWS DOWNLOAD */}
+               <div className="p-8 bg-slate-50 dark:bg-slate-800 rounded-[3rem] border border-slate-100 dark:border-slate-700">
+                  <div className="flex items-center gap-4 mb-8">
+                     <Layers size={24} className="text-slate-400" />
+                     <h4 className="text-lg font-black italic uppercase tracking-tight text-slate-800 dark:text-slate-200">Core System Workflows</h4>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                     <button onClick={() => handleDownloadSystemWorkflow('provisioning')} className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 flex flex-col items-center text-center hover:border-orange-500 transition-all group">
+                        <div className="p-3 bg-orange-50 text-orange-600 rounded-xl mb-3 group-hover:scale-110 transition-transform"><Database size={20}/></div>
+                        <p className="text-[10px] font-black uppercase tracking-widest mb-1 text-slate-700 dark:text-slate-300">Tenant Provisioning</p>
+                        <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1"><Download size={10}/> JSON</span>
+                     </button>
+                     <button onClick={() => handleDownloadSystemWorkflow('billing')} className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 flex flex-col items-center text-center hover:border-emerald-500 transition-all group">
+                        <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl mb-3 group-hover:scale-110 transition-transform"><CreditCard size={20}/></div>
+                        <p className="text-[10px] font-black uppercase tracking-widest mb-1 text-slate-700 dark:text-slate-300">Global Billing Sync</p>
+                        <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1"><Download size={10}/> JSON</span>
+                     </button>
+                     <button onClick={() => handleDownloadSystemWorkflow('monitoring')} className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 flex flex-col items-center text-center hover:border-blue-500 transition-all group">
+                        <div className="p-3 bg-blue-50 text-blue-600 rounded-xl mb-3 group-hover:scale-110 transition-transform"><Activity size={20}/></div>
+                        <p className="text-[10px] font-black uppercase tracking-widest mb-1 text-slate-700 dark:text-slate-300">Health Monitor</p>
+                        <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1"><Download size={10}/> JSON</span>
+                     </button>
+                  </div>
+               </div>
+
+               <div className="pt-4 flex justify-end gap-4">
                   <button onClick={handleGlobalSync} disabled={isSyncing} className="px-12 py-6 bg-orange-600 text-white font-black rounded-3xl shadow-xl uppercase text-[10px] tracking-widest hover:scale-105 transition-all flex items-center gap-3">
                      {isSyncing ? <Loader2 size={18} className="animate-spin" /> : <RefreshCcw size={18} />} Sincronizar Cluster Master
                   </button>

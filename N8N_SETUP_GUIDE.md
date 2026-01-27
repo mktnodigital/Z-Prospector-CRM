@@ -56,7 +56,17 @@ Você pode baixar estes arquivos diretamente pelo painel do **Z-Prospector > Mó
 
 ---
 
-## 4. Configurando no Z-Prospector
+## 4. System Core Workflows (Infraestrutura)
+
+Além dos fluxos de operação (vendas/atendimento), existem fluxos críticos de sistema disponíveis para download na **Central do Operador > Infra**.
+
+1.  **Sys - Tenant Provisioning Master:** Disparado quando uma nova unidade é criada. Conecta na Evolution API e cria a instância `instanceName` automaticamente, além de rodar os scripts de banco de dados.
+2.  **Sys - Global Billing Sync:** Ouve eventos do Stripe (pagamento realizado) e libera/bloqueia o acesso do tenant mudando o status para `ONLINE` ou `OFFLINE` no banco de dados.
+3.  **Sys - Health Monitor:** Roda a cada 5 minutos (Cron) para verificar se a API da Evolution e o Banco de Dados estão respondendo. Se falhar, envia um alerta.
+
+---
+
+## 5. Configurando no Z-Prospector
 
 1.  No arquivo `components/App.tsx`, certifique-se de que a `API_KEY` do Gemini está no `.env`.
 2.  No módulo **N8n Automator** do sistema:
@@ -64,7 +74,7 @@ Você pode baixar estes arquivos diretamente pelo painel do **Z-Prospector > Mó
     *   Use o botão "Download" nos cards para pegar o `.json` pronto.
     *   No N8n, clique em "Import from File" e selecione o arquivo baixado.
 
-## 5. Variáveis de Ambiente no N8n
+## 6. Variáveis de Ambiente no N8n
 
 Para os fluxos funcionarem, configure estas credenciais no N8n:
 
