@@ -419,16 +419,16 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
                         
                         <div className="font-mono text-xs md:text-sm space-y-3 md:space-y-4">
                            <div className="p-3 md:p-4 bg-indigo-500/10 border-l-4 border-indigo-500 rounded-r-xl">
-                              <span className="text-indigo-400 font-bold">> Analisando intenção de compra...</span>
+                              <span className="text-indigo-400 font-bold">&gt; Analisando intenção de compra...</span>
                            </div>
                            <div className="p-3 md:p-4 bg-rose-500/10 border-l-4 border-rose-500 rounded-r-xl">
-                              <span className="text-rose-400 font-bold">> Cliente demonstrou urgência.</span>
+                              <span className="text-rose-400 font-bold">&gt; Cliente demonstrou urgência.</span>
                            </div>
                            <div className="p-3 md:p-4 bg-emerald-500/10 border-l-4 border-emerald-500 rounded-r-xl">
-                              <span className="text-emerald-400 font-bold">> Ação sugerida: OFERECER HORÁRIO DE HOJE.</span>
+                              <span className="text-emerald-400 font-bold">&gt; Ação sugerida: OFERECER HORÁRIO DE HOJE.</span>
                            </div>
                            <div className="p-3 md:p-4 bg-slate-800 rounded-xl text-slate-400">
-                              > Probabilidade de fechamento: <span className="text-white font-bold">89%</span>
+                              &gt; Probabilidade de fechamento: <span className="text-white font-bold">89%</span>
                            </div>
                         </div>
                      </div>
