@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Search, Send, Paperclip, Smile, CheckCheck, 
@@ -142,7 +141,8 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                 body: JSON.stringify({ 
                     instanceName, 
                     token: Math.random().toString(36).substring(7),
-                    qrcode: true 
+                    qrcode: true,
+                    integration: 'WHATSAPP-BAILEYS'
                 })
              });
 
