@@ -13,6 +13,70 @@ interface N8nManagerProps {
   notify: (msg: string) => void;
 }
 
+// BLUEPRINTS REAIS PARA IMPORTAÇÃO NO N8N
+const WORKFLOW_BLUEPRINTS = {
+  wf_1: {
+    "name": "Sync Lead Ads to CRM",
+    "nodes": [
+      {
+        "parameters": {
+          "path": "meta-sync-01",
+          "responseMode": "lastNode",
+          "options": {}
+        },
+        "name": "Webhook Inbound",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 1,
+        "position": [100, 300]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://zprospector.com.br/api/core.php?action=save-lead",
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              { "name": "name", "value": "={{$json.body.full_name}}" },
+              { "name": "phone", "value": "={{$json.body.phone_number}}" },
+              { "name": "source", "value": "Meta Ads" }
+            ]
+          }
+        },
+        "name": "Save to Z-Prospector",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 3,
+        "position": [300, 300]
+      }
+    ],
+    "connections": {
+      "Webhook Inbound": { "main": [[{ "node": "Save to Z-Prospector", "type": "main", "index": 0 }]] }
+    }
+  },
+  wf_2: {
+    "name": "AI SDR - Qualification",
+    "nodes": [
+      {
+        "parameters": { "path": "evolution-inbound", "httpMethod": "POST" },
+        "name": "Evolution Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "position": [100, 300]
+      },
+      {
+        "parameters": {
+          "modelId": "gemini-pro",
+          "prompt": "Analise a intenção do cliente: {{$json.body.data.message.conversation}}"
+        },
+        "name": "Google Gemini",
+        "type": "n8n-nodes-base.googleGemini",
+        "position": [300, 300]
+      }
+    ],
+    "connections": {
+      "Evolution Webhook": { "main": [[{ "node": "Google Gemini", "type": "main", "index": 0 }]] }
+    }
+  }
+};
+
 const INITIAL_WORKFLOWS: N8nWorkflow[] = [
   { 
     id: 'wf_1', 
@@ -101,14 +165,27 @@ export const N8nManager: React.FC<N8nManagerProps> = ({ notify }) => {
   };
 
   const handleDownloadJson = (wf: N8nWorkflow) => {
-    const data = JSON.stringify(wf, null, 2);
+    // Tenta pegar o blueprint real, se não existir, gera um genérico baseado nos metadados
+    const blueprint = WORKFLOW_BLUEPRINTS[wf.id as keyof typeof WORKFLOW_BLUEPRINTS] || {
+      name: wf.name,
+      nodes: [
+        {
+          name: "Webhook Trigger",
+          type: "n8n-nodes-base.webhook",
+          parameters: { path: wf.webhookUrl.split('/').pop(), httpMethod: "POST" }
+        }
+      ],
+      connections: {}
+    };
+
+    const data = JSON.stringify(blueprint, null, 2);
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `n8n_workflow_${wf.id}.json`;
+    link.download = `n8n_workflow_${wf.id}_master.json`;
     link.click();
-    notify('Backup do Workflow baixado!');
+    notify('Blueprint JSON baixado! Importe no seu n8n.');
   };
 
   const handleTestConnection = () => {
@@ -195,7 +272,9 @@ export const N8nManager: React.FC<N8nManagerProps> = ({ notify }) => {
              <div className="mt-auto flex items-center justify-between pt-6 border-t border-slate-50 dark:border-slate-800">
                 <div className="flex gap-2">
                    <button onClick={() => handleOpenEdit(wf)} className="p-3 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-indigo-600 rounded-xl transition-all shadow-sm"><Edit3 size={16}/></button>
-                   <button onClick={() => handleDownloadJson(wf)} className="p-3 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-emerald-500 rounded-xl transition-all shadow-sm"><Download size={16}/></button>
+                   <button onClick={() => handleDownloadJson(wf)} className="p-3 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-emerald-500 rounded-xl transition-all shadow-sm group/btn" title="Baixar Blueprint JSON">
+                      <Download size={16} className="group-hover/btn:animate-bounce"/>
+                   </button>
                    <button onClick={() => handleDelete(wf.id)} className="p-3 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-rose-500 rounded-xl transition-all shadow-sm"><Trash2 size={16}/></button>
                 </div>
                 <button 
