@@ -14,6 +14,8 @@ export enum PipelineStage {
   CLOSED = 'CLOSED'
 }
 
+export type SalesPhase = 'ATRAIR' | 'CONVERSAR' | 'QUALIFICAR' | 'AGENDAR' | 'FECHAR';
+
 export interface Lead {
   id: string;
   name: string;

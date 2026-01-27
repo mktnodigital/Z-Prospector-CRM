@@ -1,263 +1,224 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   TrendingUp, Users, MessageSquare, DollarSign, 
   ArrowUpRight, ArrowDownRight, Clock,
   Brain, Zap, Trophy, Target, X, Activity, BarChart3, PieChart as PieChartIcon,
   ChevronRight, ArrowRight, ShieldCheck, Loader2, Sparkles, Filter,
-  Calendar, CheckCircle2, AlertCircle, RefreshCcw
+  Calendar, CheckCircle2, AlertCircle, RefreshCcw, Flame
 } from 'lucide-react';
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, 
-  Tooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, 
+  Tooltip, ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
-import { Lead, PipelineStage, LeadStatus } from '../types';
+import { GoogleGenAI } from "@google/genai";
+import { Lead, PipelineStage, LeadStatus, SalesPhase } from '../types';
 
 interface DashboardProps {
-  stats: {
-    totalLeads: number;
-    hotLeads: number;
-    totalValue: number;
-    closedValue: number;
-    conversionRate: string;
-  };
+  performanceMode: boolean;
   leads: Lead[];
 }
 
-// Mock de variação por período
-const DATA_MONTH = [
-  { name: 'Seg', leads: 40, sales: 12 },
-  { name: 'Ter', leads: 65, sales: 25 },
-  { name: 'Qua', leads: 45, sales: 18 },
-  { name: 'Qui', leads: 90, sales: 42 },
-  { name: 'Sex', leads: 70, sales: 30 },
-  { name: 'Sáb', leads: 110, sales: 55 },
-  { name: 'Dom', leads: 85, sales: 40 },
+const DATA_PERFORMANCE = [
+  { name: '08h', sales: 1200 },
+  { name: '10h', sales: 3500 },
+  { name: '12h', sales: 2800 },
+  { name: '14h', sales: 5200 },
+  { name: '16h', sales: 4100 },
+  { name: '18h', sales: 6800 },
 ];
 
-const DATA_30_DAYS = [
-  { name: 'Sem 1', leads: 400, sales: 120 },
-  { name: 'Sem 2', leads: 600, sales: 250 },
-  { name: 'Sem 3', leads: 450, sales: 180 },
-  { name: 'Sem 4', leads: 900, sales: 420 },
-];
+export const Dashboard: React.FC<DashboardProps> = ({ performanceMode, leads }) => {
+  const [aiCoachMessage, setAiCoachMessage] = useState<string>('');
+  const [isAiThinking, setIsAiThinking] = useState(false);
 
-const AI_EFFICIENCY_DATA = [
-  { name: 'IA Agendado', value: 75 },
-  { name: 'Manual', value: 25 },
-];
+  // Cálculos em Tempo Real para o PLACAR
+  const liveStats = useMemo(() => {
+    const activeConversations = leads.filter(l => l.status === LeadStatus.HOT || l.stage === PipelineStage.NEGOTIATION).length;
+    const todayRevenue = leads.filter(l => l.stage === PipelineStage.CLOSED).reduce((acc, curr) => acc + (curr.value || 0), 0);
+    const potentialRevenue = leads.filter(l => l.stage !== PipelineStage.CLOSED && l.stage !== PipelineStage.NEW).reduce((acc, curr) => acc + (curr.value || 0), 0);
+    const aiSales = Math.round(todayRevenue * 0.65); // Simulação de atribuição
 
-export const Dashboard: React.FC<DashboardProps> = ({ stats, leads }) => {
-  const [selectedPeriod, setSelectedPeriod] = useState<'month' | '30days'>('month');
-  const [showAiReport, setShowAiReport] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  // Cálculos Derivados do Estado Real de Leads
-  const dynamicStats = useMemo(() => {
-    const closedLeads = leads.filter(l => l.stage === PipelineStage.CLOSED);
-    const totalClosedValue = closedLeads.reduce((acc, curr) => acc + (curr.value || 0), 0);
-    const conversionRate = leads.length > 0 ? ((closedLeads.length / leads.length) * 100).toFixed(1) : '0';
-    const cpa = closedLeads.length > 0 ? (2500 / closedLeads.length).toFixed(2) : '0'; // Simulando 2.5k de spend
-
-    return {
-      totalLeads: leads.length,
-      closedSales: closedLeads.length,
-      totalRevenue: totalClosedValue,
-      conversion: conversionRate,
-      cpa: cpa
-    };
+    return { activeConversations, todayRevenue, potentialRevenue, aiSales };
   }, [leads]);
 
-  const chartData = selectedPeriod === 'month' ? DATA_MONTH : DATA_30_DAYS;
+  // Coach de Receita IA
+  useEffect(() => {
+    const generateCoachInsight = async () => {
+      setIsAiThinking(true);
+      try {
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const prompt = `
+          Aja como um Coach de Vendas de Elite e Agressivo (Lobo de Wall Street vibes, mas profissional).
+          Analise estes dados:
+          - Conversas Ativas Agora: ${liveStats.activeConversations}
+          - Receita Já Fechada Hoje: R$ ${liveStats.todayRevenue}
+          - Dinheiro na Mesa (Potencial): R$ ${liveStats.potentialRevenue}
+          
+          Gere uma frase CURTA, IMPACTANTE e PROVOCATIVA para o operador agir AGORA.
+          Exemplos: "Tem R$ 50k parados no funil. Vai deixar esfriar?", "Ritmo excelente, mas dá pra dobrar a meta até às 18h."
+          Não use saudações. Vá direto ao ponto.
+        `;
+        
+        const response = await ai.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: prompt
+        });
+        setAiCoachMessage(response.text || "Foque nas negociações quentes. O dinheiro não espera.");
+      } catch (e) {
+        setAiCoachMessage("Concentre-se nos leads com etiqueta 'HOT'. Eles estão prontos para comprar.");
+      } finally {
+        setIsAiThinking(false);
+      }
+    };
 
-  const handleRefreshData = () => {
-    setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 1000);
-  };
+    if (performanceMode) {
+      generateCoachInsight();
+      const interval = setInterval(generateCoachInsight, 60000); // Atualiza a cada minuto no modo performance
+      return () => clearInterval(interval);
+    }
+  }, [performanceMode, liveStats]);
+
+  const phases: { id: SalesPhase, label: string, progress: number, color: string }[] = [
+    { id: 'ATRAIR', label: '1. Atração', progress: 100, color: 'bg-cyan-500' },
+    { id: 'CONVERSAR', label: '2. Conversa', progress: 85, color: 'bg-blue-500' },
+    { id: 'QUALIFICAR', label: '3. Qualificação', progress: 60, color: 'bg-indigo-500' },
+    { id: 'AGENDAR', label: '4. Agenda', progress: 40, color: 'bg-violet-500' },
+    { id: 'FECHAR', label: '5. Fechamento', progress: 25, color: 'bg-emerald-500' },
+  ];
 
   return (
-    <div className="p-10 space-y-10 animate-in fade-in duration-500 pb-32">
+    <div className={`p-8 space-y-8 animate-in fade-in pb-32 ${performanceMode ? 'text-slate-100' : 'text-slate-900'}`}>
       
-      {/* MODAL RELATÓRIO IA MASTER */}
-      {showAiReport && (
-        <div className="fixed inset-0 z-[350] flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-xl animate-in fade-in">
-           <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[3.5rem] shadow-2xl p-12 relative border border-slate-200 dark:border-slate-800">
-              <button onClick={() => setShowAiReport(false)} className="absolute top-10 right-10 p-3 bg-slate-100 dark:bg-slate-800 rounded-2xl text-slate-400 hover:text-rose-500 transition-all"><X size={24} /></button>
-              
-              <div className="flex items-center gap-5 mb-10">
-                 <div className="p-5 bg-indigo-600 text-white rounded-3xl shadow-xl shadow-indigo-200 dark:shadow-none"><Brain size={32} /></div>
-                 <div>
-                    <h3 className="text-2xl font-black italic uppercase tracking-tight">Audit IA v3.0</h3>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Análise de Eficiência Cognitiva da Unidade</p>
-                 </div>
-              </div>
-
-              <div className="space-y-6 mb-10">
-                 <div className="grid grid-cols-2 gap-4">
-                    <div className="p-6 bg-slate-50 dark:bg-slate-800 rounded-3xl">
-                       <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Precisão de Qualificação</p>
-                       <h4 className="text-2xl font-black text-emerald-500">98.4%</h4>
-                    </div>
-                    <div className="p-6 bg-slate-50 dark:bg-slate-800 rounded-3xl">
-                       <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Horas Salvas / Mês</p>
-                       <h4 className="text-2xl font-black text-indigo-600">342h</h4>
-                    </div>
-                 </div>
-                 <div className="p-6 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-3xl">
-                    <h5 className="text-[10px] font-black uppercase mb-3 flex items-center gap-2 text-indigo-600"><Sparkles size={14}/> Sugestão do Core IA:</h5>
-                    <p className="text-xs font-bold text-slate-500 leading-relaxed uppercase tracking-widest italic">
-                      "Detectamos um gargalo na etapa de NEGOCIAÇÃO. Recomendamos ativar o workflow de 'Proposta Escrita por IA' para reduzir o tempo de fechamento em 14%."
-                    </p>
-                 </div>
-              </div>
-
-              <button onClick={() => setShowAiReport(false)} className="w-full py-6 bg-indigo-600 text-white font-black rounded-3xl shadow-xl uppercase text-xs tracking-widest hover:scale-[1.02] transition-all">Sincronizar Melhorias</button>
-           </div>
-        </div>
-      )}
-
-      {/* Header com Contexto Master */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+      {/* HEADER DO PLACAR */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
-          <div className="flex items-center gap-4">
-             <h1 className="text-4xl font-black italic uppercase tracking-tight">Performance <span className="text-indigo-600">& ROI</span></h1>
-             {isRefreshing && <Loader2 className="animate-spin text-indigo-500" size={24} />}
-          </div>
-          <div className="flex items-center gap-2 mt-2">
-             <Activity size={14} className="text-emerald-500" />
-             <p className="text-slate-500 dark:text-slate-400 font-bold tracking-[0.1em] uppercase text-[10px]">Visão Estratégica: <span className="text-indigo-600">Unidade Matriz (Tenant 01)</span></p>
-          </div>
+          <h1 className="text-4xl font-black italic uppercase tracking-tighter flex items-center gap-4">
+             <Trophy className={performanceMode ? 'text-yellow-400' : 'text-indigo-600'} size={36} /> 
+             Painel de <span className={performanceMode ? 'text-indigo-400' : 'text-indigo-600'}>Resultado</span>
+          </h1>
+          <p className={`text-[10px] font-black uppercase tracking-[0.3em] mt-2 ${performanceMode ? 'text-slate-400' : 'text-slate-500'}`}>
+            Monitoramento em Tempo Real da Operação
+          </p>
         </div>
-        <div className="flex items-center gap-4">
-           <button onClick={handleRefreshData} className="p-4 bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-2xl text-slate-400 hover:text-indigo-600 transition-all shadow-sm">
-              {/* Fix: Added missing RefreshCcw icon from lucide-react */}
-              <RefreshCcw size={20} className={isRefreshing ? 'animate-spin' : ''} />
-           </button>
-           <div className="flex gap-2 bg-white dark:bg-slate-900 p-2 rounded-[1.8rem] shadow-sm border border-slate-100 dark:border-slate-800">
-              <button onClick={() => setSelectedPeriod('month')} className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase transition-all tracking-widest ${selectedPeriod === 'month' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-100 dark:shadow-none' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>Este Mês</button>
-              <button onClick={() => setSelectedPeriod('30days')} className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase transition-all tracking-widest ${selectedPeriod === '30days' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-100 dark:shadow-none' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>30 Dias</button>
+        
+        {/* WIDGET DO COACH IA */}
+        <div className={`flex-1 max-w-2xl p-6 rounded-[2rem] border relative overflow-hidden flex items-center gap-5 shadow-xl ${performanceMode ? 'bg-slate-900/80 border-indigo-500/30' : 'bg-white border-slate-200'}`}>
+           <div className={`absolute inset-0 opacity-10 bg-gradient-to-r ${performanceMode ? 'from-indigo-600 to-purple-600' : 'from-slate-200 to-transparent'}`}></div>
+           <div className={`p-4 rounded-2xl ${performanceMode ? 'bg-indigo-500/20 text-indigo-400' : 'bg-indigo-50 text-indigo-600'} shrink-0`}>
+              {isAiThinking ? <Loader2 className="animate-spin" size={24} /> : <Brain size={24} />}
+           </div>
+           <div className="relative z-10">
+              <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${performanceMode ? 'text-indigo-400' : 'text-indigo-600'}`}>Coach de Receita (IA)</p>
+              <p className={`text-sm md:text-lg font-bold italic leading-tight ${performanceMode ? 'text-white' : 'text-slate-800'}`}>
+                 "{aiCoachMessage}"
+              </p>
            </div>
         </div>
       </div>
 
-      {/* KPIs Dinâmicos Baseados no Estado */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-        {[
-          { label: 'Leads Captados', value: dynamicStats.totalLeads, trend: '+12%', color: 'indigo', icon: Users, gradient: 'from-indigo-500/10 to-transparent' },
-          { label: 'Conversão ROI', value: `${dynamicStats.conversion}%`, trend: '+4.2%', color: 'emerald', icon: Trophy, gradient: 'from-emerald-500/10 to-transparent' },
-          { label: 'CPA Master', value: `R$ ${dynamicStats.cpa}`, trend: '-15%', color: 'rose', icon: Target, gradient: 'from-rose-500/10 to-transparent' },
-          { label: 'MRR Acumulado', value: `R$ ${dynamicStats.totalRevenue.toLocaleString('pt-BR')}`, trend: '+22%', color: 'blue', icon: DollarSign, gradient: 'from-blue-500/10 to-transparent' },
-        ].map((kpi, i) => (
-          <div key={i} className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] border-2 border-slate-50 dark:border-slate-800 shadow-sm hover:shadow-2xl hover:border-indigo-500/20 transition-all group relative overflow-hidden">
-            <div className={`absolute inset-0 bg-gradient-to-br ${kpi.gradient} opacity-0 group-hover:opacity-100 transition-opacity`}></div>
-            <div className="flex justify-between items-start mb-10 relative z-10">
-              <div className={`p-5 rounded-2xl bg-slate-50 dark:bg-slate-800 ${kpi.color === 'indigo' ? 'text-indigo-600' : kpi.color === 'emerald' ? 'text-emerald-600' : kpi.color === 'rose' ? 'text-rose-600' : 'text-blue-600'} group-hover:rotate-12 transition-transform shadow-sm`}>
-                <kpi.icon size={28} />
-              </div>
-              <div className={`text-[10px] font-black px-4 py-2 rounded-xl ${kpi.trend.startsWith('+') ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'} border border-current/10 flex items-center gap-1`}>
-                {kpi.trend.startsWith('+') ? <ArrowUpRight size={12}/> : <ArrowDownRight size={12}/>} {kpi.trend}
-              </div>
-            </div>
-            <div className="relative z-10">
-               <p className="text-slate-400 dark:text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1">{kpi.label}</p>
-               <h3 className="text-3xl font-black italic tracking-tighter dark:text-white tabular-nums">{kpi.value}</h3>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-10">
-        <div className="lg:col-span-2 bg-white dark:bg-slate-900 p-10 rounded-[3.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
-          <div className="flex justify-between items-center mb-12">
-            <div>
-               <h3 className="text-xl font-black italic uppercase tracking-tight">Crescimento da Operação</h3>
-               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Leads vs Vendas Fechadas</p>
-            </div>
-            <div className="flex gap-4">
-               <div className="flex items-center gap-2"><div className="w-3 h-3 bg-indigo-600 rounded-full"></div><span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Leads</span></div>
-               <div className="flex items-center gap-2"><div className="w-3 h-3 bg-emerald-500 rounded-full"></div><span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Vendas</span></div>
-            </div>
-          </div>
-          <div className="h-[400px] w-full min-w-0 relative mt-auto">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={50}>
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id="colorLeads" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 900, fill: '#94a3b8'}} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 900, fill: '#94a3b8'}} />
-                <Tooltip 
-                  contentStyle={{borderRadius: '24px', border: 'none', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.2)', padding: '20px'}}
-                  itemStyle={{fontSize: '10px', fontWeight: 900, textTransform: 'uppercase'}}
-                />
-                <Area type="monotone" dataKey="leads" stroke="#4f46e5" fillOpacity={1} fill="url(#colorLeads)" strokeWidth={4} />
-                <Area type="monotone" dataKey="sales" stroke="#10b981" fillOpacity={1} fill="url(#colorSales)" strokeWidth={4} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* AI Score Interativo */}
-        <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 p-10 rounded-[3.5rem] shadow-2xl relative overflow-hidden text-white group flex flex-col justify-between">
-           <Zap className="absolute -top-10 -right-10 w-48 h-48 text-white/10 group-hover:rotate-12 group-hover:scale-125 transition-transform duration-1000" />
-           <div className="relative z-10 flex flex-col h-full">
-              <div className="flex items-center gap-5 mb-10">
-                 <div className="w-16 h-16 rounded-3xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-2xl">
-                    <Brain size={32} className="text-yellow-400 animate-pulse" />
+      {/* PLACAR DE MÉTRICAS VIVAS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+         {[
+           { label: 'Conversas Ativas', value: liveStats.activeConversations, sub: 'Leads engajados agora', icon: MessageSquare, color: 'text-cyan-400', border: 'border-cyan-500/20' },
+           { label: 'Receita em Jogo', value: `R$ ${liveStats.potentialRevenue.toLocaleString()}`, sub: 'Potencial no Pipeline', icon: Target, color: 'text-yellow-400', border: 'border-yellow-500/20' },
+           { label: 'Vendas Hoje', value: `R$ ${liveStats.todayRevenue.toLocaleString()}`, sub: 'Caixa Confirmado', icon: DollarSign, color: 'text-emerald-400', border: 'border-emerald-500/20' },
+           { label: 'Atribuição IA', value: `R$ ${liveStats.aiSales.toLocaleString()}`, sub: 'Gerado automaticamente', icon: Zap, color: 'text-purple-400', border: 'border-purple-500/20' },
+         ].map((kpi, i) => (
+           <div key={i} className={`p-8 rounded-[2.5rem] border-2 flex flex-col justify-between h-48 relative group overflow-hidden transition-all hover:scale-[1.02] ${performanceMode ? `bg-slate-900/50 ${kpi.border}` : 'bg-white border-slate-100 shadow-sm'}`}>
+              <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full opacity-10 blur-xl ${performanceMode ? 'bg-white' : 'bg-indigo-600'}`}></div>
+              <div className="flex justify-between items-start">
+                 <div className={`p-3 rounded-xl ${performanceMode ? 'bg-slate-800' : 'bg-slate-50'} ${kpi.color}`}>
+                    <kpi.icon size={24} />
                  </div>
-                 <div>
-                    <h3 className="text-2xl font-black italic uppercase tracking-tight">AI Audit</h3>
-                    <p className="text-indigo-200 text-[9px] font-black uppercase tracking-[0.2em]">ZapFlow Intelligence</p>
-                 </div>
+                 {performanceMode && <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]"></div>}
               </div>
-
-              <div className="flex-1 flex flex-col items-center justify-center py-6">
-                 <div className="relative w-56 h-56 min-w-0">
-                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                       <PieChart>
-                          <Pie 
-                            data={AI_EFFICIENCY_DATA} 
-                            innerRadius={70} 
-                            outerRadius={95} 
-                            dataKey="value" 
-                            stroke="none"
-                            paddingAngle={5}
-                            isAnimationActive={true}
-                          >
-                             <Cell fill="#fff" />
-                             <Cell fill="rgba(255,255,255,0.1)" />
-                          </Pie>
-                       </PieChart>
-                    </ResponsiveContainer>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                       <span className="text-5xl font-black italic tracking-tighter">75%</span>
-                       <span className="text-[9px] font-black uppercase tracking-[0.3em] text-indigo-200 mt-1">Autônomo</span>
-                    </div>
-                 </div>
-              </div>
-
-              <div className="mt-10 space-y-4">
-                 <div className="p-5 bg-white/10 backdrop-blur-md rounded-2xl border border-white/10 flex items-center gap-4">
-                    <ShieldCheck className="text-emerald-400" size={20} />
-                    <p className="text-[10px] font-black uppercase tracking-widest text-indigo-100">Carga Neural Otimizada</p>
-                 </div>
-                 <button 
-                  onClick={() => setShowAiReport(true)}
-                  className="w-full py-6 bg-white text-indigo-900 font-black rounded-3xl text-[11px] uppercase tracking-widest shadow-2xl hover:bg-yellow-400 hover:text-indigo-900 transition-all flex items-center justify-center gap-3 group"
-                 >
-                    Relatório IA <ArrowRight className="group-hover:translate-x-2 transition-transform" size={18} />
-                 </button>
+              <div>
+                 <h3 className={`text-3xl font-black italic tracking-tighter tabular-nums ${performanceMode ? 'text-white' : 'text-slate-900'}`}>{kpi.value}</h3>
+                 <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${performanceMode ? 'text-slate-400' : 'text-slate-500'}`}>{kpi.label}</p>
+                 <p className={`text-[9px] mt-2 opacity-60 font-medium ${performanceMode ? 'text-slate-500' : 'text-slate-400'}`}>{kpi.sub}</p>
               </div>
            </div>
-        </div>
+         ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+         {/* GRÁFICO DE VELOCIDADE DE VENDAS */}
+         <div className={`lg:col-span-2 p-8 rounded-[3rem] border-2 shadow-sm relative overflow-hidden ${performanceMode ? 'bg-slate-900/50 border-slate-800' : 'bg-white border-slate-100'}`}>
+            <div className="flex justify-between items-center mb-8">
+               <div>
+                  <h3 className="text-xl font-black italic uppercase tracking-tight">Velocidade de Vendas</h3>
+                  <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Performance horária da operação</p>
+               </div>
+               <div className={`flex items-center gap-2 px-4 py-2 rounded-full border ${performanceMode ? 'bg-slate-800 border-slate-700 text-emerald-400' : 'bg-slate-50 border-slate-200 text-emerald-600'}`}>
+                  <Activity size={14} className="animate-pulse"/>
+                  <span className="text-[9px] font-black uppercase tracking-widest">Ao Vivo</span>
+               </div>
+            </div>
+            
+            <div className="h-[300px] w-full">
+               <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={DATA_PERFORMANCE}>
+                     <defs>
+                        <linearGradient id="colorSalesPerf" x1="0" y1="0" x2="0" y2="1">
+                           <stop offset="5%" stopColor={performanceMode ? '#818cf8' : '#4f46e5'} stopOpacity={0.3}/>
+                           <stop offset="95%" stopColor={performanceMode ? '#818cf8' : '#4f46e5'} stopOpacity={0}/>
+                        </linearGradient>
+                     </defs>
+                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={performanceMode ? '#334155' : '#e2e8f0'} opacity={0.3} />
+                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 900, fill: performanceMode ? '#94a3b8' : '#64748b'}} dy={10} />
+                     <Tooltip 
+                        contentStyle={{
+                           borderRadius: '16px', 
+                           border: 'none', 
+                           backgroundColor: performanceMode ? '#1e293b' : '#fff',
+                           boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+                           color: performanceMode ? '#fff' : '#0f172a'
+                        }}
+                     />
+                     <Area 
+                        type="monotone" 
+                        dataKey="sales" 
+                        stroke={performanceMode ? '#818cf8' : '#4f46e5'} 
+                        strokeWidth={4} 
+                        fill="url(#colorSalesPerf)" 
+                     />
+                  </AreaChart>
+               </ResponsiveContainer>
+            </div>
+         </div>
+
+         {/* FASES DA METODOLOGIA */}
+         <div className={`p-8 rounded-[3rem] border-2 flex flex-col justify-between relative overflow-hidden ${performanceMode ? 'bg-indigo-950/20 border-indigo-900/50' : 'bg-slate-50 border-slate-100'}`}>
+            <div className="mb-6 relative z-10">
+               <h3 className="text-xl font-black italic uppercase tracking-tight flex items-center gap-3">
+                  <Flame size={20} className={performanceMode ? 'text-orange-500' : 'text-orange-600'} /> 5 Fases do Sucesso
+               </h3>
+               <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mt-1">Onde estão seus leads agora?</p>
+            </div>
+
+            <div className="space-y-5 relative z-10">
+               {phases.map((phase, i) => (
+                  <div key={i} className="space-y-1.5">
+                     <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                        <span className={performanceMode ? 'text-slate-300' : 'text-slate-600'}>{phase.label}</span>
+                        <span className={performanceMode ? 'text-white' : 'text-indigo-600'}>{phase.progress}%</span>
+                     </div>
+                     <div className={`w-full h-2 rounded-full overflow-hidden ${performanceMode ? 'bg-slate-800' : 'bg-slate-200'}`}>
+                        <div className={`h-full rounded-full transition-all duration-1000 ${phase.color}`} style={{width: `${phase.progress}%`}}></div>
+                     </div>
+                  </div>
+               ))}
+            </div>
+
+            {/* CTA FASE */}
+            <div className={`mt-8 p-4 rounded-2xl border flex items-center gap-3 relative z-10 ${performanceMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`}>
+               <AlertCircle size={18} className="text-rose-500 shrink-0" />
+               <p className="text-[9px] font-bold leading-tight uppercase tracking-wide opacity-80">
+                  Gargalo detectado na fase <span className="text-rose-500 font-black underline">FECHAMENTO</span>. Ative o script de urgência.
+               </p>
+            </div>
+         </div>
       </div>
     </div>
   );
