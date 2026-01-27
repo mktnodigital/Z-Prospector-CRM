@@ -74,17 +74,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ performanceMode, leads }) 
 
     if (performanceMode) {
       generateCoachInsight();
-      const interval = setInterval(generateCoachInsight, 60000); // Atualiza a cada minuto no modo performance
+      const interval = setInterval(generateCoachInsight, 60000); 
       return () => clearInterval(interval);
     }
   }, [performanceMode, liveStats]);
 
   const phases: { id: SalesPhase, label: string, progress: number, color: string }[] = [
-    { id: 'ATRAIR', label: '1. Atração', progress: 100, color: 'bg-cyan-500' },
-    { id: 'CONVERSAR', label: '2. Conversa', progress: 85, color: 'bg-blue-500' },
-    { id: 'QUALIFICAR', label: '3. Qualificação', progress: 60, color: 'bg-indigo-500' },
-    { id: 'AGENDAR', label: '4. Agenda', progress: 40, color: 'bg-violet-500' },
-    { id: 'FECHAR', label: '5. Fechamento', progress: 25, color: 'bg-emerald-500' },
+    { id: 'ATRAIR', label: '1. Atração', progress: 100, color: 'bg-cyan-500 shadow-cyan-500/50' },
+    { id: 'CONVERSAR', label: '2. Conversa', progress: 85, color: 'bg-blue-500 shadow-blue-500/50' },
+    { id: 'QUALIFICAR', label: '3. Qualificação', progress: 60, color: 'bg-indigo-500 shadow-indigo-500/50' },
+    { id: 'AGENDAR', label: '4. Agenda', progress: 40, color: 'bg-violet-500 shadow-violet-500/50' },
+    { id: 'FECHAR', label: '5. Fechamento', progress: 25, color: 'bg-emerald-500 shadow-emerald-500/50' },
   ];
 
   return (
@@ -94,8 +94,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ performanceMode, leads }) 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
           <h1 className="text-4xl font-black italic uppercase tracking-tighter flex items-center gap-4">
-             <Trophy className={performanceMode ? 'text-yellow-400' : 'text-indigo-600'} size={36} /> 
-             Painel de <span className={performanceMode ? 'text-indigo-400' : 'text-indigo-600'}>Resultado</span>
+             <Trophy className={performanceMode ? 'text-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.5)]' : 'text-indigo-600'} size={36} /> 
+             Painel de <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500">Resultado</span>
           </h1>
           <p className={`text-[10px] font-black uppercase tracking-[0.3em] mt-2 ${performanceMode ? 'text-slate-400' : 'text-slate-500'}`}>
             Monitoramento em Tempo Real da Operação
@@ -103,9 +103,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ performanceMode, leads }) 
         </div>
         
         {/* WIDGET DO COACH IA */}
-        <div className={`flex-1 max-w-2xl p-6 rounded-[2rem] border relative overflow-hidden flex items-center gap-5 shadow-xl ${performanceMode ? 'bg-slate-900/80 border-indigo-500/30' : 'bg-white border-slate-200'}`}>
-           <div className={`absolute inset-0 opacity-10 bg-gradient-to-r ${performanceMode ? 'from-indigo-600 to-purple-600' : 'from-slate-200 to-transparent'}`}></div>
-           <div className={`p-4 rounded-2xl ${performanceMode ? 'bg-indigo-500/20 text-indigo-400' : 'bg-indigo-50 text-indigo-600'} shrink-0`}>
+        <div className={`flex-1 max-w-2xl p-6 rounded-[2rem] border relative overflow-hidden flex items-center gap-5 shadow-xl ${performanceMode ? 'bg-slate-900/40 border-indigo-500/30 backdrop-blur-md' : 'bg-white/80 border-slate-200'}`}>
+           <div className={`absolute inset-0 opacity-10 bg-gradient-to-r ${performanceMode ? 'from-indigo-600 to-purple-600' : 'from-indigo-200 to-purple-200'}`}></div>
+           <div className={`p-4 rounded-2xl ${performanceMode ? 'bg-indigo-500/20 text-indigo-400' : 'bg-indigo-50 text-indigo-600'} shrink-0 shadow-lg`}>
               {isAiThinking ? <Loader2 className="animate-spin" size={24} /> : <Brain size={24} />}
            </div>
            <div className="relative z-10">
@@ -120,23 +120,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ performanceMode, leads }) 
       {/* PLACAR DE MÉTRICAS VIVAS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
          {[
-           { label: 'Conversas Ativas', value: liveStats.activeConversations, sub: 'Leads engajados agora', icon: MessageSquare, color: 'text-cyan-400', border: 'border-cyan-500/20' },
-           { label: 'Receita em Jogo', value: `R$ ${liveStats.potentialRevenue.toLocaleString()}`, sub: 'Potencial no Pipeline', icon: Target, color: 'text-yellow-400', border: 'border-yellow-500/20' },
-           { label: 'Vendas Hoje', value: `R$ ${liveStats.todayRevenue.toLocaleString()}`, sub: 'Caixa Confirmado', icon: DollarSign, color: 'text-emerald-400', border: 'border-emerald-500/20' },
-           { label: 'Atribuição IA', value: `R$ ${liveStats.aiSales.toLocaleString()}`, sub: 'Gerado automaticamente', icon: Zap, color: 'text-purple-400', border: 'border-purple-500/20' },
+           { label: 'Conversas Ativas', value: liveStats.activeConversations, sub: 'Leads engajados agora', icon: MessageSquare, gradient: 'from-cyan-500 to-blue-600', shadow: 'shadow-cyan-500/20' },
+           { label: 'Receita em Jogo', value: `R$ ${liveStats.potentialRevenue.toLocaleString()}`, sub: 'Potencial no Pipeline', icon: Target, gradient: 'from-yellow-400 to-orange-500', shadow: 'shadow-orange-500/20' },
+           { label: 'Vendas Hoje', value: `R$ ${liveStats.todayRevenue.toLocaleString()}`, sub: 'Caixa Confirmado', icon: DollarSign, gradient: 'from-emerald-400 to-teal-600', shadow: 'shadow-emerald-500/20' },
+           { label: 'Atribuição IA', value: `R$ ${liveStats.aiSales.toLocaleString()}`, sub: 'Gerado automaticamente', icon: Zap, gradient: 'from-violet-500 to-purple-600', shadow: 'shadow-purple-500/20' },
          ].map((kpi, i) => (
-           <div key={i} className={`p-8 rounded-[2.5rem] border-2 flex flex-col justify-between h-48 relative group overflow-hidden transition-all hover:scale-[1.02] ${performanceMode ? `bg-slate-900/50 ${kpi.border}` : 'bg-white border-slate-100 shadow-sm'}`}>
-              <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full opacity-10 blur-xl ${performanceMode ? 'bg-white' : 'bg-indigo-600'}`}></div>
-              <div className="flex justify-between items-start">
-                 <div className={`p-3 rounded-xl ${performanceMode ? 'bg-slate-800' : 'bg-slate-50'} ${kpi.color}`}>
-                    <kpi.icon size={24} />
+           <div key={i} className={`p-8 rounded-[2.5rem] flex flex-col justify-between h-48 relative group overflow-hidden transition-all hover:scale-[1.02] bg-gradient-to-br ${kpi.gradient} text-white shadow-xl ${kpi.shadow}`}>
+              
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 blur-3xl rounded-full -translate-y-10 translate-x-10 group-hover:scale-150 transition-transform duration-700"></div>
+              
+              <div className="flex justify-between items-start relative z-10">
+                 <div className="p-3 rounded-xl bg-white/20 backdrop-blur-sm border border-white/20">
+                    <kpi.icon size={24} className="text-white drop-shadow-md" />
                  </div>
-                 {performanceMode && <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]"></div>}
+                 {performanceMode && <div className="w-2 h-2 rounded-full bg-white animate-pulse shadow-[0_0_10px_rgba(255,255,255,0.8)]"></div>}
               </div>
-              <div>
-                 <h3 className={`text-3xl font-black italic tracking-tighter tabular-nums ${performanceMode ? 'text-white' : 'text-slate-900'}`}>{kpi.value}</h3>
-                 <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${performanceMode ? 'text-slate-400' : 'text-slate-500'}`}>{kpi.label}</p>
-                 <p className={`text-[9px] mt-2 opacity-60 font-medium ${performanceMode ? 'text-slate-500' : 'text-slate-400'}`}>{kpi.sub}</p>
+              
+              <div className="relative z-10">
+                 <h3 className="text-3xl font-black italic tracking-tighter tabular-nums drop-shadow-sm">{kpi.value}</h3>
+                 <p className="text-[10px] font-black uppercase tracking-widest mt-1 opacity-90">{kpi.label}</p>
+                 <p className="text-[9px] mt-2 opacity-70 font-medium">{kpi.sub}</p>
               </div>
            </div>
          ))}
@@ -144,13 +147,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ performanceMode, leads }) 
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
          {/* GRÁFICO DE VELOCIDADE DE VENDAS */}
-         <div className={`lg:col-span-2 p-8 rounded-[3rem] border-2 shadow-sm relative overflow-hidden ${performanceMode ? 'bg-slate-900/50 border-slate-800' : 'bg-white border-slate-100'}`}>
+         <div className={`lg:col-span-2 p-8 rounded-[3rem] border shadow-lg relative overflow-hidden ${performanceMode ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-100'}`}>
             <div className="flex justify-between items-center mb-8">
                <div>
                   <h3 className="text-xl font-black italic uppercase tracking-tight">Velocidade de Vendas</h3>
                   <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Performance horária da operação</p>
                </div>
-               <div className={`flex items-center gap-2 px-4 py-2 rounded-full border ${performanceMode ? 'bg-slate-800 border-slate-700 text-emerald-400' : 'bg-slate-50 border-slate-200 text-emerald-600'}`}>
+               <div className={`flex items-center gap-2 px-4 py-2 rounded-full border ${performanceMode ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-600'}`}>
                   <Activity size={14} className="animate-pulse"/>
                   <span className="text-[9px] font-black uppercase tracking-widest">Ao Vivo</span>
                </div>
@@ -161,8 +164,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ performanceMode, leads }) 
                   <AreaChart data={DATA_PERFORMANCE}>
                      <defs>
                         <linearGradient id="colorSalesPerf" x1="0" y1="0" x2="0" y2="1">
-                           <stop offset="5%" stopColor={performanceMode ? '#818cf8' : '#4f46e5'} stopOpacity={0.3}/>
-                           <stop offset="95%" stopColor={performanceMode ? '#818cf8' : '#4f46e5'} stopOpacity={0}/>
+                           <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.6}/>
+                           <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
                         </linearGradient>
                      </defs>
                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={performanceMode ? '#334155' : '#e2e8f0'} opacity={0.3} />
@@ -179,7 +182,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ performanceMode, leads }) 
                      <Area 
                         type="monotone" 
                         dataKey="sales" 
-                        stroke={performanceMode ? '#818cf8' : '#4f46e5'} 
+                        stroke="#8b5cf6" 
                         strokeWidth={4} 
                         fill="url(#colorSalesPerf)" 
                      />
@@ -189,10 +192,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ performanceMode, leads }) 
          </div>
 
          {/* FASES DA METODOLOGIA */}
-         <div className={`p-8 rounded-[3rem] border-2 flex flex-col justify-between relative overflow-hidden ${performanceMode ? 'bg-indigo-950/20 border-indigo-900/50' : 'bg-slate-50 border-slate-100'}`}>
+         <div className={`p-8 rounded-[3rem] border flex flex-col justify-between relative overflow-hidden shadow-lg ${performanceMode ? 'bg-indigo-950/30 border-indigo-500/20' : 'bg-white border-indigo-50'}`}>
             <div className="mb-6 relative z-10">
                <h3 className="text-xl font-black italic uppercase tracking-tight flex items-center gap-3">
-                  <Flame size={20} className={performanceMode ? 'text-orange-500' : 'text-orange-600'} /> 5 Fases do Sucesso
+                  <Flame size={20} className="text-orange-500" /> 5 Fases do Sucesso
                </h3>
                <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mt-1">Onde estão seus leads agora?</p>
             </div>
@@ -204,7 +207,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ performanceMode, leads }) 
                         <span className={performanceMode ? 'text-slate-300' : 'text-slate-600'}>{phase.label}</span>
                         <span className={performanceMode ? 'text-white' : 'text-indigo-600'}>{phase.progress}%</span>
                      </div>
-                     <div className={`w-full h-2 rounded-full overflow-hidden ${performanceMode ? 'bg-slate-800' : 'bg-slate-200'}`}>
+                     <div className={`w-full h-2.5 rounded-full overflow-hidden ${performanceMode ? 'bg-slate-800' : 'bg-slate-100'}`}>
                         <div className={`h-full rounded-full transition-all duration-1000 ${phase.color}`} style={{width: `${phase.progress}%`}}></div>
                      </div>
                   </div>
@@ -212,10 +215,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ performanceMode, leads }) 
             </div>
 
             {/* CTA FASE */}
-            <div className={`mt-8 p-4 rounded-2xl border flex items-center gap-3 relative z-10 ${performanceMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`}>
+            <div className={`mt-8 p-4 rounded-2xl border flex items-center gap-3 relative z-10 ${performanceMode ? 'bg-rose-900/20 border-rose-500/30' : 'bg-rose-50 border-rose-100'}`}>
                <AlertCircle size={18} className="text-rose-500 shrink-0" />
-               <p className="text-[9px] font-bold leading-tight uppercase tracking-wide opacity-80">
-                  Gargalo detectado na fase <span className="text-rose-500 font-black underline">FECHAMENTO</span>. Ative o script de urgência.
+               <p className={`text-[9px] font-bold leading-tight uppercase tracking-wide opacity-80 ${performanceMode ? 'text-rose-200' : 'text-rose-700'}`}>
+                  Gargalo detectado na fase <span className="font-black underline">FECHAMENTO</span>. Ative o script de urgência.
                </p>
             </div>
          </div>

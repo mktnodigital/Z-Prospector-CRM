@@ -141,6 +141,15 @@ export const AdminModule: React.FC<AdminModuleProps> = ({ branding, onBrandingCh
     }, 1500);
   };
 
+  // --- HANDLERS: SECURITY ---
+  const handlePropagatePassword = () => {
+    notify('Hash de segurança atualizado em todos os nós.');
+  };
+
+  const handleConfigureMFA = () => {
+    notify('QR Code de MFA gerado e enviado ao email master.');
+  };
+
   return (
     <div className="p-10 space-y-10 animate-in fade-in pb-40">
       
@@ -450,18 +459,34 @@ export const AdminModule: React.FC<AdminModuleProps> = ({ branding, onBrandingCh
                     <span className="text-[10px] font-black uppercase tracking-widest">Sistema Seguro</span>
                  </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                 {[
-                   { label: 'Security Score', value: '100%', icon: Shield, color: 'text-emerald-500' },
-                   { label: 'Vault Status', value: 'Encrypted', icon: Lock, color: 'text-orange-500' },
-                   { label: 'Active Sessions', value: '3', icon: Users, color: 'text-blue-500' }
-                 ].map((stat, i) => (
-                    <div key={i} className="bg-slate-50 dark:bg-slate-800/40 p-8 rounded-[3rem] border border-slate-100 dark:border-slate-700">
-                       <div className={`p-4 rounded-2xl bg-white dark:bg-slate-900 w-fit mb-6 ${stat.color} shadow-sm`}><stat.icon size={24}/></div>
-                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
-                       <h4 className="text-2xl font-black italic tracking-tighter text-slate-900 dark:text-white">{stat.value}</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                <div className="space-y-8">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase text-slate-400 px-4">Nova Senha Master</label>
+                      <input type="password" placeholder="••••••••••••" className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold border-none outline-none focus:ring-4 ring-blue-500/10" />
                     </div>
-                 ))}
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase text-slate-400 px-4">Confirmar Senha</label>
+                      <input type="password" placeholder="••••••••••••" className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold border-none outline-none focus:ring-4 ring-blue-500/10" />
+                    </div>
+                  </div>
+                  <button onClick={handlePropagatePassword} className="w-full py-5 bg-slate-900 dark:bg-slate-800 text-white font-black rounded-2xl text-[10px] uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg active:scale-95">Propagar Nova Senha</button>
+                </div>
+
+                <div className="p-10 bg-blue-50 dark:bg-blue-900/20 rounded-[3.5rem] border border-blue-100 dark:border-blue-800 flex flex-col justify-between group overflow-hidden relative">
+                  <ShieldCheck className="absolute -right-6 -bottom-6 w-32 h-32 opacity-10 group-hover:scale-125 transition-transform duration-700" />
+                  <div className="relative z-10">
+                     <div className="flex items-center gap-4 mb-6">
+                       <Smartphone className="text-blue-600" size={28} />
+                       <h4 className="text-lg font-black italic uppercase tracking-tight">MFA Autenticador</h4>
+                     </div>
+                     <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase leading-relaxed tracking-widest mb-10 italic">
+                       Garanta que apenas dispositivos autorizados acessem o Command Center. A ativação do MFA é mandatória para Super Admins.
+                     </p>
+                  </div>
+                  <button onClick={handleConfigureMFA} className="w-full py-6 bg-blue-600 text-white font-black rounded-3xl text-[10px] uppercase tracking-widest shadow-xl hover:bg-blue-700 transition-all relative z-10 active:scale-95">Configurar APP Autenticador</button>
+                </div>
               </div>
               
               <div className="p-8 bg-orange-50 dark:bg-orange-900/10 rounded-[3rem] border border-orange-100 dark:border-orange-800/30 flex gap-6">

@@ -22,14 +22,13 @@ export const AISearchModal: React.FC<AISearchModalProps> = ({ isOpen, onClose, o
     return () => window.removeEventListener('keydown', handleEsc);
   }, [onClose]);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query.trim()) return;
+  const runSearch = async (searchQuery: string) => {
+    if (!searchQuery.trim()) return;
 
     setIsSearching(true);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `Aja como o assistente central do CRM Z-Prospector. O usuário perguntou: "${query}". 
+      const prompt = `Aja como o assistente central do CRM Z-Prospector. O usuário perguntou: "${searchQuery}". 
       Com base na pergunta, sugira qual módulo do sistema ele deve acessar e forneça um insight curto.
       Módulos disponíveis: admin, results, capture, prospecting, inbox, broadcast, scheduling, products, payments.
       Retorne JSON: { "targetModule": "string", "insight": "string", "actionLabel": "string" }`;
@@ -46,6 +45,16 @@ export const AISearchModal: React.FC<AISearchModalProps> = ({ isOpen, onClose, o
     } finally {
       setIsSearching(false);
     }
+  };
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    runSearch(query);
+  };
+
+  const handleSuggestionClick = (suggestion: string) => {
+    setQuery(suggestion);
+    runSearch(suggestion);
   };
 
   if (!isOpen) return null;
@@ -96,10 +105,16 @@ export const AISearchModal: React.FC<AISearchModalProps> = ({ isOpen, onClose, o
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-4">
-               <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl text-[10px] font-black text-slate-400 uppercase tracking-widest border border-transparent hover:border-indigo-500/20 cursor-pointer transition-all">
+               <div 
+                 onClick={() => handleSuggestionClick("Qual o ROI de hoje?")}
+                 className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl text-[10px] font-black text-slate-400 uppercase tracking-widest border border-transparent hover:border-indigo-500/20 cursor-pointer transition-all hover:bg-slate-100 dark:hover:bg-slate-700"
+               >
                   Sugestão: "Qual o ROI de hoje?"
                </div>
-               <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl text-[10px] font-black text-slate-400 uppercase tracking-widest border border-transparent hover:border-indigo-500/20 cursor-pointer transition-all">
+               <div 
+                 onClick={() => handleSuggestionClick("Provisionar WhatsApp")}
+                 className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl text-[10px] font-black text-slate-400 uppercase tracking-widest border border-transparent hover:border-indigo-500/20 cursor-pointer transition-all hover:bg-slate-100 dark:hover:bg-slate-700"
+               >
                   Sugestão: "Provisionar WhatsApp"
                </div>
             </div>
