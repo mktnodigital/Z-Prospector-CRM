@@ -12,7 +12,8 @@ import {
   BarChart, Users, Laptop, Briefcase, Globe2, Monitor,
   Sun, Moon, HelpCircle, Code2, Headphones, ShieldQuestion,
   Menu as MenuIcon, MousePointer2, Sparkles, Trophy,
-  RefreshCcw, Building2, Wallet, Eye, EyeOff, Shield
+  RefreshCcw, Building2, Wallet, Eye, EyeOff, Shield,
+  Activity, Layers, Filter, History
 } from 'lucide-react';
 import { BrandingConfig } from '../types';
 
@@ -107,16 +108,16 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
   };
 
   const plans = [
-    { id: 'start', name: 'COMEÇAR', tagline: 'Ideal para iniciantes.', monthlyPrice: 97, annualTotal: 931, features: ['CRM Kanban Visual', 'Inbox com IA Básica', 'Até 1.000 Leads/mês'], cta: 'QUERO COMEÇAR', color: 'indigo' },
-    { id: 'growth', name: 'VENDER MAIS', tagline: 'O mais vendido.', monthlyPrice: 197, annualTotal: 1891, features: ['Tudo do Começar', 'Follow-ups Automáticos', 'IA de Agendamento Ativa'], cta: 'VENDER TODO DIA', popular: true, color: 'violet' },
-    { id: 'scale', name: 'ESCALAR', tagline: 'Poder total.', monthlyPrice: 397, annualTotal: 3811, features: ['Tudo do Vender Mais', 'Gestão Multi-unidade', 'BI de Vendas Master'], cta: 'ESCALAR AGORA', color: 'slate' }
+    { id: 'start', name: 'INICIAÇÃO', tagline: 'Para quem está montando a rotina.', monthlyPrice: 97, annualTotal: 931, features: ['Pipeline Visual de Conversão', 'Central de Conversas Unificada', 'Até 1.000 Oportunidades/mês'], cta: 'ATIVAR OPERAÇÃO', color: 'indigo' },
+    { id: 'growth', name: 'TRAÇÃO', tagline: 'Para quem quer ritmo constante.', monthlyPrice: 197, annualTotal: 1891, features: ['Cadências Automáticas de Resposta', 'Co-piloto de Vendas (IA)', 'Recuperação de Agenda'], cta: 'ACELERAR RITMO', popular: true, color: 'violet' },
+    { id: 'scale', name: 'DOMÍNIO', tagline: 'Para operações de alto volume.', monthlyPrice: 397, annualTotal: 3811, features: ['Visão Multi-operação', 'Inteligência de Dados Master', 'Motor de Escala Total'], cta: 'ESCALAR AGORA', color: 'slate' }
   ];
 
   const faqs = [
-    { q: 'Preciso de equipe técnica?', a: 'Não. O Z-Prospector é uma plataforma "No-Code", 100% pronta para uso imediato.', icon: Code2 },
-    { q: 'Funciona com WhatsApp Business?', a: 'Sim, via Evolution API ou Cloud API Oficial. Você escolhe a melhor conexão.', icon: MessageSquare },
-    { q: 'Como recebo meus ganhos?', a: 'Os pagamentos caem direto na sua conta configurada via Mercado Pago ou Stripe.', icon: Wallet },
-    { q: 'Posso cancelar quando quiser?', a: 'Sim! Sem fidelidade ou letras miúdas. O cancelamento é feito em um clique.', icon: Ban }
+    { q: 'Preciso de conhecimento técnico?', a: 'Não. O Z-Prospector é um método pronto. Você não "programa", você apenas opera e vende.', icon: Zap },
+    { q: 'Isso substitui minha equipe?', a: 'Não, ele potencializa. Sua equipe para de perder tempo com tarefas manuais e foca apenas em fechar negócio.', icon: Users },
+    { q: 'Serve para o meu nicho?', a: 'Se você vende conversando (WhatsApp, Reunião, Direct), o método funciona. Não importa o produto, importa o processo.', icon: Target },
+    { q: 'E se eu parar de usar?', a: 'Você tem liberdade total. O cancelamento da operação é feito em um clique, sem contratos de fidelidade abusivos.', icon: ShieldCheck }
   ];
 
   const scrollToSection = (id: string) => {
@@ -127,7 +128,7 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
   return (
     <div className={`min-h-screen transition-colors duration-500 overflow-x-hidden ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-white text-slate-900'}`}>
       
-      {/* MODAL DE LOGIN MASTER (FUNDO FUMÊ / FORM BRANCO) */}
+      {/* MODAL DE LOGIN MASTER */}
       {isLoginModalOpen && (
         <div className="fixed inset-0 z-[500] bg-slate-950/90 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in">
            <div className="bg-white w-full max-w-lg rounded-[4rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] overflow-hidden relative animate-in zoom-in-95">
@@ -144,14 +145,14 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
                        <Lock size={36} />
                     </div>
                     <div>
-                       <h3 className="text-3xl font-black italic uppercase tracking-tighter text-slate-900">Command Center</h3>
-                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Acesso Restrito clikai.com.br</p>
+                       <h3 className="text-3xl font-black italic uppercase tracking-tighter text-slate-900">Central do Operador</h3>
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Acesso à Operação</p>
                     </div>
                  </div>
 
                  <form onSubmit={handleAccess} className="space-y-6">
                     <div className="space-y-2">
-                       <label className="text-[10px] font-black uppercase text-slate-400 px-4">E-mail de Operador</label>
+                       <label className="text-[10px] font-black uppercase text-slate-400 px-4">Identificação</label>
                        <div className="relative">
                           <Mail className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
                           <input 
@@ -159,14 +160,14 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            placeholder="seu@email.com"
+                            placeholder="Seu e-mail de acesso"
                             className="w-full pl-16 pr-8 py-5 bg-slate-50 border-none rounded-[2rem] font-bold text-slate-800 outline-none focus:ring-4 ring-indigo-500/10 transition-all"
                           />
                        </div>
                     </div>
 
                     <div className="space-y-2">
-                       <label className="text-[10px] font-black uppercase text-slate-400 px-4">Senha de Autoridade</label>
+                       <label className="text-[10px] font-black uppercase text-slate-400 px-4">Credencial</label>
                        <div className="relative">
                           <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
                           <input 
@@ -187,10 +188,9 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
                        </div>
                     </div>
 
-                    {/* SECURITY CODE (CAPTCHA) */}
                     <div className="space-y-4 p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100">
                        <div className="flex justify-between items-center px-2">
-                          <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Código de Segurança</label>
+                          <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Validação de Segurança</label>
                           <button type="button" onClick={generateSecurityCode} className="text-indigo-600 hover:underline"><RefreshCcw size={12}/></button>
                        </div>
                        <div className="flex items-center gap-6">
@@ -202,7 +202,7 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
                              maxLength={5}
                              value={inputCode}
                              onChange={(e) => setInputCode(e.target.value.toUpperCase())}
-                             placeholder="Digite"
+                             placeholder="DIGITE"
                              className="w-32 py-5 bg-white border-2 border-slate-100 rounded-2xl font-black text-center text-xl text-indigo-600 outline-none focus:border-indigo-600 transition-all uppercase"
                           />
                        </div>
@@ -219,199 +219,261 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
                       disabled={isAuthenticating}
                       className="w-full py-7 bg-indigo-600 text-white font-black rounded-[2.5rem] shadow-2xl shadow-indigo-500/20 hover:bg-indigo-700 hover:scale-[1.02] transition-all uppercase text-xs tracking-[0.4em] flex items-center justify-center gap-4 group"
                     >
-                       {isAuthenticating ? <Loader2 className="animate-spin" size={24}/> : <Shield size={22} className="group-hover:rotate-12 transition-transform" />}
-                       {isAuthenticating ? 'Validando Node...' : 'Entrar no Hub Master'}
+                       {isAuthenticating ? <Loader2 className="animate-spin" size={24}/> : <Zap size={22} className="group-hover:rotate-12 transition-transform" />}
+                       {isAuthenticating ? 'Validando...' : 'Iniciar Operação'}
                     </button>
                  </form>
-              </div>
-
-              <div className="bg-slate-50 p-8 text-center">
-                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center justify-center gap-2">
-                    <CheckCircle2 size={12} className="text-emerald-500" /> Criptografia de Ponta-a-Ponta Ativa
-                 </p>
               </div>
            </div>
         </div>
       )}
 
-      {/* Barra de Urgência */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 px-4 text-center text-[10px] font-black uppercase tracking-[0.2em] sticky top-0 z-[100] shadow-xl flex justify-center items-center gap-4">
-        <span className="flex items-center gap-2"><Flame size={14} className="text-yellow-400 animate-pulse"/> OFERTA EXCLUSIVA:</span>
-        <span className="font-mono text-yellow-300">{timeLeft.hours.toString().padStart(2, '0')}:{timeLeft.minutes.toString().padStart(2, '0')}:{timeLeft.seconds.toString().padStart(2, '0')}</span>
-      </div>
-
-      {/* Header Fixo */}
-      <nav className="sticky top-12 mx-4 md:mx-10 z-[90] bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-3xl shadow-lg px-8 py-5 flex justify-between items-center">
+      {/* 1. HERO SECTION */}
+      <nav className="sticky top-6 mx-4 md:mx-10 z-[90] bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-3xl shadow-lg px-8 py-5 flex justify-between items-center transition-all">
         <ZLogoHero branding={branding} />
         <div className="hidden lg:flex items-center gap-8">
-          <button onClick={() => scrollToSection('recursos')} className="text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-colors">Recursos</button>
-          <button onClick={() => scrollToSection('precos')} className="text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-colors">Preços</button>
-          <button onClick={() => scrollToSection('faq')} className="text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-colors">FAQ</button>
-          <button onClick={handleOpenLogin} className="px-8 py-3 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-transform shadow-lg">Área de Acesso</button>
+          <button onClick={() => scrollToSection('metodo')} className="text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-colors">O Método</button>
+          <button onClick={() => scrollToSection('precos')} className="text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-colors">Ativação</button>
+          <button onClick={handleOpenLogin} className="px-8 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-lg">Acessar Operação</button>
         </div>
       </nav>
 
-      {/* Hero Master */}
-      <section className="pt-24 pb-32 px-6 max-w-7xl mx-auto text-center lg:text-left">
+      <section className="pt-20 pb-32 px-6 max-w-7xl mx-auto text-center lg:text-left">
         <div className="flex flex-col lg:flex-row items-center gap-20">
           <div className="flex-1 space-y-10">
-            <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 text-[10px] font-black uppercase tracking-widest border border-indigo-100 dark:border-indigo-800"><Zap size={14} /> WhatsApp no Piloto Automático</div>
-            <h1 className="text-5xl lg:text-7xl font-black italic uppercase tracking-tighter leading-tight">Venda todo dia no <br/><span className="text-indigo-600">WhatsApp com IA</span></h1>
-            <p className="text-xl text-slate-500 font-bold leading-relaxed max-w-2xl italic uppercase tracking-wide">A primeira plataforma SaaS Master que qualifica leads e agenda vendas enquanto você dorme.</p>
-            <button onClick={() => scrollToSection('precos')} className="px-12 py-6 bg-indigo-600 text-white rounded-[2rem] font-black uppercase tracking-widest shadow-2xl hover:bg-indigo-700 transition-all hover:scale-105 flex items-center justify-center gap-3 text-sm">Quero Escalar Agora <ArrowRight size={20} /></button>
+            <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-orange-50 dark:bg-orange-900/30 text-orange-600 text-[10px] font-black uppercase tracking-widest border border-orange-100 dark:border-orange-800"><Flame size={14} /> Fim da Improvisação</div>
+            <h1 className="text-5xl lg:text-7xl font-black italic uppercase tracking-tighter leading-none text-slate-900 dark:text-white">
+              Transforme conversas em <span className="text-indigo-600">Receita Previsível.</span>
+            </h1>
+            <p className="text-xl text-slate-500 font-bold leading-relaxed max-w-2xl italic uppercase tracking-wide">
+              Não é sobre ter mais leads. É sobre ter um processo que não falha. Ative o motor que transforma agenda vazia em caixa diário.
+            </p>
+            <button onClick={() => scrollToSection('precos')} className="px-12 py-6 bg-indigo-600 text-white rounded-[2rem] font-black uppercase tracking-widest shadow-2xl hover:bg-indigo-700 transition-all hover:scale-105 flex items-center justify-center gap-3 text-sm group">
+              Ativar Motor de Vendas <ArrowRight size={20} className="group-hover:translate-x-2 transition-transform" />
+            </button>
           </div>
           <div className="flex-1 relative">
-            <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=2070" className="rounded-[3rem] shadow-2xl border-4 border-slate-100 dark:border-slate-800 rotate-2" alt="Dashboard"/>
-            <div className="absolute -bottom-10 -left-10 bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 animate-bounce">
-               <TrendingUp className="text-emerald-500 mb-2" size={32} />
-               <p className="text-[10px] font-black uppercase text-slate-400">ROI Médio</p>
-               <h4 className="text-2xl font-black italic text-indigo-600">+248%</h4>
+            <div className="absolute inset-0 bg-indigo-600 blur-[100px] opacity-20 rounded-full"></div>
+            <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=2070" className="rounded-[3rem] shadow-2xl border-4 border-slate-100 dark:border-slate-800 rotate-2 relative z-10" alt="Processo de Vendas"/>
+            <div className="absolute -bottom-10 -left-10 bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 animate-bounce z-20">
+               <Activity className="text-emerald-500 mb-2" size={32} />
+               <p className="text-[10px] font-black uppercase text-slate-400">Ritmo de Vendas</p>
+               <h4 className="text-2xl font-black italic text-indigo-600">Constante</h4>
             </div>
           </div>
         </div>
       </section>
 
-      {/* SEÇÃO: RECURSOS MASTER */}
-      <section id="recursos" className="py-32 bg-slate-50 dark:bg-slate-900/50">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-20">
-             <h2 className="text-4xl font-black italic uppercase tracking-tight mb-4">Poder de <span className="text-indigo-600">Autoridade Master</span></h2>
-             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Tudo o que você precisa para dominar o mercado</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-            {[
-              { title: 'Qualificação Neural', desc: 'IA que separa curiosos de compradores reais em segundos.', icon: Brain, color: 'indigo' },
-              { title: 'CRM Kanban Master', desc: 'Arraste e solte leads no seu funil de vendas visual.', icon: LayoutDashboard, color: 'violet' },
-              { title: 'Follow-up Eterno', desc: 'A IA persegue o lead até ele responder ou comprar.', icon: RefreshCcw, color: 'emerald' },
-              { title: 'Agendamento IA', desc: 'Extração automática de horários direto da conversa.', icon: Calendar, color: 'pink' },
-              { title: 'Multi-unidade', desc: 'Gerencie infinitas filiais ou franquias num só lugar.', icon: Building2, color: 'blue' },
-              { title: 'Relatórios ROI', desc: 'BI completo para saber exatamente de onde vem o lucro.', icon: BarChart, color: 'orange' }
-            ].map((res, i) => (
-              <div key={i} className="bg-white dark:bg-slate-800 p-10 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-2xl transition-all group">
-                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-8 bg-indigo-50 text-indigo-600 group-hover:rotate-12 transition-transform shadow-sm`}>
-                  <res.icon size={32} />
-                </div>
-                <h3 className="text-xl font-black italic uppercase tracking-tight mb-4">{res.title}</h3>
-                <p className="text-sm font-bold text-slate-500 uppercase leading-relaxed tracking-widest italic">{res.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+      {/* 2. PROBLEMA REAL */}
+      <section className="py-24 bg-slate-50 dark:bg-slate-900/50">
+         <div className="max-w-4xl mx-auto px-6 text-center space-y-8">
+            <h2 className="text-3xl font-black italic uppercase tracking-tight">O problema nunca foi o lead. <br/><span className="text-rose-500">O problema é a falta de ritmo.</span></h2>
+            <p className="text-lg font-bold text-slate-500 leading-relaxed max-w-2xl mx-auto uppercase tracking-wide">
+               Você perde vendas porque esquece de responder. Sua agenda oscila porque você para de prospectar quando está atendendo. O dinheiro fica na mesa por pura falta de processo.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-10">
+               <div className="p-6 bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700">
+                  <div className="w-12 h-12 bg-rose-50 text-rose-500 rounded-xl flex items-center justify-center mx-auto mb-4"><History size={24}/></div>
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-400">Leads Esquecidos</p>
+               </div>
+               <div className="p-6 bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700">
+                  <div className="w-12 h-12 bg-rose-50 text-rose-500 rounded-xl flex items-center justify-center mx-auto mb-4"><Calendar size={24}/></div>
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-400">Agenda Instável</p>
+               </div>
+               <div className="p-6 bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700">
+                  <div className="w-12 h-12 bg-rose-50 text-rose-500 rounded-xl flex items-center justify-center mx-auto mb-4"><Wallet size={24}/></div>
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-400">Caixa Imprevisível</p>
+               </div>
+            </div>
+         </div>
       </section>
 
-      {/* SEÇÃO: PREÇOS E PLANOS */}
+      {/* 3. A VIRADA DE CHAVE & 4. METODOLOGIA */}
+      <section id="metodo" className="py-32 px-6 max-w-7xl mx-auto">
+         <div className="text-center mb-20">
+            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-600 bg-indigo-50 px-4 py-2 rounded-full">A Nova Operação</span>
+            <h2 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter mt-6">O Método de 5 Fases</h2>
+            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mt-4">Uma rotina clara para conduzir o cliente do "Oi" ao "Pix".</p>
+         </div>
+
+         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+            {[
+               { step: '01', title: 'ATRAIR', desc: 'Centralização de oportunidades em um único lugar.', icon: Target, color: 'bg-slate-100 text-slate-600' },
+               { step: '02', title: 'CONVERSAR', desc: 'Início imediato de diálogo. Sem deixar o cliente esfriar.', icon: MessageSquare, color: 'bg-blue-50 text-blue-600' },
+               { step: '03', title: 'QUALIFICAR', desc: 'Identificar quem tem dinheiro e urgência agora.', icon: Filter, color: 'bg-indigo-50 text-indigo-600' },
+               { step: '04', title: 'AGENDAR', desc: 'Transformar intenção em compromisso na agenda.', icon: Calendar, color: 'bg-violet-50 text-violet-600' },
+               { step: '05', title: 'FECHAR', desc: 'Garantir o pagamento e reativar para próxima venda.', icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600' },
+            ].map((phase, i) => (
+               <div key={i} className="p-8 rounded-[2.5rem] border-2 border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-500 hover:shadow-xl transition-all group relative overflow-hidden">
+                  <div className={`absolute top-0 right-0 p-4 text-[40px] font-black text-slate-100 dark:text-slate-800 leading-none select-none group-hover:text-indigo-50/50 transition-colors`}>{phase.step}</div>
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 ${phase.color} relative z-10`}>
+                     <phase.icon size={24} />
+                  </div>
+                  <h3 className="text-lg font-black italic uppercase tracking-tight mb-2 relative z-10">{phase.title}</h3>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase leading-relaxed tracking-widest relative z-10">{phase.desc}</p>
+               </div>
+            ))}
+         </div>
+      </section>
+
+      {/* 5. DIFERENCIAL & 6. INTELIGÊNCIA */}
+      <section className="py-32 bg-slate-900 text-white relative overflow-hidden">
+         <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5"></div>
+         <div className="max-w-7xl mx-auto px-6 relative z-10">
+            <div className="flex flex-col lg:flex-row items-center gap-20">
+               <div className="flex-1 space-y-8">
+                  <h2 className="text-4xl font-black italic uppercase tracking-tighter">O ritmo não para quando <br/><span className="text-indigo-500">você descansa.</span></h2>
+                  <p className="text-lg font-bold text-slate-400 uppercase tracking-widest leading-loose">
+                     Enquanto você dorme, o processo continua. O sistema organiza, a inteligência alerta e a operação se mantém pronta para o dia seguinte.
+                  </p>
+                  <div className="space-y-6">
+                     <div className="flex items-start gap-4">
+                        <div className="p-3 bg-indigo-600 rounded-xl"><Brain size={20}/></div>
+                        <div>
+                           <h4 className="font-black uppercase tracking-widest text-sm">IA como Co-piloto</h4>
+                           <p className="text-[10px] font-bold text-slate-500 uppercase mt-1">Ela analisa as conversas e te diz: "Esse cliente está pronto, feche agora".</p>
+                        </div>
+                     </div>
+                     <div className="flex items-start gap-4">
+                        <div className="p-3 bg-indigo-600 rounded-xl"><RefreshCcw size={20}/></div>
+                        <div>
+                           <h4 className="font-black uppercase tracking-widest text-sm">Retenção de Oportunidade</h4>
+                           <p className="text-[10px] font-bold text-slate-500 uppercase mt-1">Nenhum lead fica para trás. Se ele não comprou hoje, o método o traz de volta amanhã.</p>
+                        </div>
+                     </div>
+                  </div>
+               </div>
+               <div className="flex-1">
+                  <div className="bg-slate-800 p-10 rounded-[3rem] border border-slate-700 shadow-2xl relative">
+                     <Bot className="absolute -top-10 -right-10 text-slate-700 w-48 h-48 rotate-12 opacity-50" />
+                     <div className="relative z-10 space-y-6">
+                        <div className="bg-slate-900 p-6 rounded-2xl border border-slate-700 flex gap-4 items-center">
+                           <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                           <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Análise de Conversa em Tempo Real</p>
+                        </div>
+                        <p className="font-mono text-xs text-indigo-300">
+                           > Analisando intenção de compra...<br/>
+                           > Cliente demonstrou urgência.<br/>
+                           > Ação sugerida: OFERECER HORÁRIO DE HOJE.<br/>
+                           > Probabilidade de fechamento: 89%.
+                        </p>
+                     </div>
+                  </div>
+               </div>
+            </div>
+         </div>
+      </section>
+
+      {/* 7. TRANSFORMAÇÃO & 8. PARA QUEM É */}
+      <section className="py-32 px-6 max-w-5xl mx-auto">
+         <div className="bg-slate-50 dark:bg-slate-800 rounded-[4rem] p-12 md:p-20 text-center space-y-10 border border-slate-100 dark:border-slate-700">
+            <h2 className="text-3xl font-black italic uppercase tracking-tight">Do Caos à <span className="text-indigo-600">Previsibilidade</span></h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 text-left">
+               <div className="space-y-4">
+                  <h4 className="font-black uppercase tracking-widest text-rose-500 flex items-center gap-2"><X size={16}/> Como é hoje:</h4>
+                  <ul className="space-y-3">
+                     {['Acorda sem saber se vai vender', 'Esquece de responder clientes no WhatsApp', 'Perde tempo com curiosos', 'Sente ansiedade no fim do mês'].map((item, i) => (
+                        <li key={i} className="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-start gap-2">
+                           <span className="w-1.5 h-1.5 bg-rose-400 rounded-full mt-1.5 shrink-0"></span> {item}
+                        </li>
+                     ))}
+                  </ul>
+               </div>
+               <div className="space-y-4">
+                  <h4 className="font-black uppercase tracking-widest text-emerald-500 flex items-center gap-2"><Check size={16}/> Com a Operação Ativa:</h4>
+                  <ul className="space-y-3">
+                     {['Rotina clara do que fazer ao acordar', 'Processo conduz o cliente ao fechamento', 'IA filtra quem realmente compra', 'Previsibilidade de caixa e agenda'].map((item, i) => (
+                        <li key={i} className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wide flex items-start gap-2">
+                           <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mt-1.5 shrink-0"></span> {item}
+                        </li>
+                     ))}
+                  </ul>
+               </div>
+            </div>
+            <div className="pt-10 border-t border-slate-200 dark:border-slate-700">
+               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Para quem vive de fechar negócios via conversa.</p>
+            </div>
+         </div>
+      </section>
+
+      {/* 9. O QUE O USUÁRIO ATIVA (Preços) */}
       <section id="precos" className="py-32">
         <div className="max-w-7xl mx-auto px-6 text-center">
-          <h2 className="text-5xl font-black italic uppercase tracking-tighter mb-10">Escolha sua <span className="text-indigo-600">Velocidade</span></h2>
+          <h2 className="text-5xl font-black italic uppercase tracking-tighter mb-4">Ative sua <span className="text-indigo-600">Operação</span></h2>
+          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-16">Você não compra um acesso. Você ativa um motor de vendas.</p>
+          
           <div className="flex bg-slate-100 dark:bg-slate-800 p-2 rounded-[2rem] w-fit mx-auto mb-20">
             <button onClick={() => setBillingCycle('monthly')} className={`px-10 py-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all ${billingCycle === 'monthly' ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-xl' : 'text-slate-400'}`}>Mensal</button>
             <button onClick={() => setBillingCycle('annual')} className={`px-10 py-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all ${billingCycle === 'annual' ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-xl' : 'text-slate-400'}`}>Anual (20% OFF)</button>
           </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
             {plans.map(plan => (
-              <div key={plan.id} className={`relative p-12 rounded-[4rem] border-2 transition-all flex flex-col items-center ${plan.popular ? 'border-indigo-600 bg-indigo-50/20 shadow-2xl scale-105 z-10' : 'border-slate-100 dark:border-slate-800'}`}>
-                {plan.popular && <span className="absolute -top-5 bg-indigo-600 text-white px-8 py-2 rounded-full font-black text-[10px] uppercase tracking-widest shadow-xl">Mais Vendido</span>}
-                <h3 className="text-3xl font-black italic uppercase tracking-tight mb-2">{plan.name}</h3>
+              <div key={plan.id} className={`relative p-12 rounded-[4rem] border-2 transition-all flex flex-col items-center group hover:border-indigo-500 ${plan.popular ? 'border-indigo-600 bg-indigo-50/10 shadow-2xl scale-105 z-10' : 'border-slate-100 dark:border-slate-800'}`}>
+                {plan.popular && <span className="absolute -top-5 bg-indigo-600 text-white px-8 py-2 rounded-full font-black text-[10px] uppercase tracking-widest shadow-xl">Mais Escolhido</span>}
+                <h3 className="text-2xl font-black italic uppercase tracking-tight mb-2">{plan.name}</h3>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-10 italic">{plan.tagline}</p>
                 <div className="flex items-baseline gap-2 mb-10">
                   <span className="text-xs font-black text-slate-400">R$</span>
                   <h4 className="text-6xl font-black tracking-tighter tabular-nums italic">{billingCycle === 'monthly' ? plan.monthlyPrice : Math.round(plan.annualTotal/12)}</h4>
                   <span className="text-xs font-bold text-slate-400 uppercase">/mês</span>
                 </div>
-                <div className="space-y-4 w-full mb-12">
-                   {plan.features.map((f, i) => <div key={i} className="flex items-center gap-3 text-xs font-black uppercase text-slate-500 tracking-tight"><CheckCircle2 size={16} className="text-emerald-500 shrink-0" /> {f}</div>)}
+                <div className="space-y-4 w-full mb-12 text-left pl-4">
+                   {plan.features.map((f, i) => <div key={i} className="flex items-center gap-3 text-xs font-black uppercase text-slate-500 tracking-tight"><CheckCircle2 size={16} className="text-indigo-600 shrink-0" /> {f}</div>)}
                 </div>
-                <button onClick={() => { handleOpenLogin(); }} className={`w-full py-6 rounded-[2rem] font-black uppercase tracking-widest text-xs shadow-xl transition-all hover:scale-105 ${plan.popular ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-white'}`}>{plan.cta}</button>
+                <button onClick={() => { handleOpenLogin(); }} className={`w-full py-6 rounded-[2rem] font-black uppercase tracking-widest text-xs shadow-xl transition-all hover:scale-105 ${plan.popular ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-slate-900 text-white hover:bg-slate-800'}`}>{plan.cta}</button>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* SEÇÃO: FAQ (DÚVIDAS) */}
+      {/* 10. FAQ */}
       <section id="faq" className="py-32 bg-slate-50 dark:bg-slate-900/50">
          <div className="max-w-3xl mx-auto px-6">
-            <h2 className="text-4xl font-black italic uppercase tracking-tight text-center mb-20">Dúvidas <span className="text-indigo-600">Frequentes</span></h2>
+            <h2 className="text-4xl font-black italic uppercase tracking-tight text-center mb-20">Perguntas <span className="text-indigo-600">Comuns</span></h2>
             <div className="space-y-6">
                {faqs.map((faq, i) => (
-                 <div key={i} className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 overflow-hidden">
+                 <div key={i} className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 overflow-hidden hover:shadow-lg transition-all">
                     <button onClick={() => setOpenFaqIndex(openFaqIndex === i ? null : i)} className="w-full p-8 flex items-center justify-between text-left group">
                        <div className="flex items-center gap-6">
                           <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl"><faq.icon size={20}/></div>
-                          <span className="font-black italic uppercase text-sm tracking-tight">{faq.q}</span>
+                          <span className="font-black italic uppercase text-sm tracking-tight pr-4">{faq.q}</span>
                        </div>
                        <ChevronDown className={`transition-transform duration-300 ${openFaqIndex === i ? 'rotate-180 text-indigo-600' : 'text-slate-300'}`} />
                     </button>
-                    {openFaqIndex === i && <div className="px-24 pb-10 animate-in slide-in-from-top-4"><p className="text-sm font-bold text-slate-500 uppercase leading-relaxed italic tracking-widest">{faq.a}</p></div>}
+                    {openFaqIndex === i && <div className="px-24 pb-10 animate-in slide-in-from-top-4"><p className="text-xs font-bold text-slate-500 uppercase leading-loose italic tracking-widest">{faq.a}</p></div>}
                  </div>
                ))}
             </div>
          </div>
       </section>
 
-      {/* NOVO CTA MASTER FINAL */}
+      {/* 11. CHAMADA FINAL & POSICIONAMENTO */}
       <section className="py-32 px-6">
-         <div className="max-w-7xl mx-auto bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 rounded-[5rem] p-12 md:p-32 text-center text-white relative overflow-hidden shadow-[0_50px_100px_-20px_rgba(79,70,229,0.5)]">
+         <div className="max-w-7xl mx-auto bg-gradient-to-br from-indigo-900 to-slate-900 rounded-[5rem] p-12 md:p-32 text-center text-white relative overflow-hidden shadow-2xl">
+            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10"></div>
             <Sparkles className="absolute -top-10 -right-10 w-64 h-64 text-white/5 rotate-12" />
-            <Trophy className="absolute -bottom-10 -left-10 w-48 h-48 text-white/5 -rotate-12" />
+            
             <div className="relative z-10 space-y-10">
-               <h2 className="text-4xl md:text-7xl font-black italic uppercase tracking-tighter leading-tight">Pronto para assumir a <br/><span className="text-yellow-400">Autoridade do Mercado?</span></h2>
-               <p className="text-lg md:text-2xl font-bold opacity-80 uppercase tracking-widest italic max-w-4xl mx-auto">Sua unidade master está a um clique de distância da automação total.</p>
-               <button onClick={() => scrollToSection('precos')} className="px-16 py-8 bg-white text-indigo-900 rounded-[2.5rem] font-black uppercase tracking-[0.3em] text-sm md:text-lg shadow-2xl hover:bg-yellow-400 hover:scale-110 transition-all flex items-center justify-center gap-4 mx-auto group">
-                 Ativar Minha Licença Master <ArrowRight className="group-hover:translate-x-3 transition-transform" />
+               <h2 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter leading-tight">Assuma o controle da <br/><span className="text-indigo-400">Sua Receita.</span></h2>
+               <p className="text-lg md:text-xl font-bold opacity-70 uppercase tracking-widest italic max-w-4xl mx-auto">
+                  Pare de torcer para vender. Comece a operar uma máquina de conversão previsível.
+               </p>
+               <button onClick={() => scrollToSection('precos')} className="px-16 py-8 bg-white text-slate-900 rounded-[2.5rem] font-black uppercase tracking-[0.3em] text-sm md:text-lg shadow-2xl hover:bg-indigo-50 hover:scale-110 transition-all flex items-center justify-center gap-4 mx-auto group">
+                 Iniciar Minha Operação <ArrowRight className="group-hover:translate-x-3 transition-transform" />
                </button>
-               <div className="flex flex-wrap justify-center gap-10 pt-10 opacity-60">
-                  <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"><ShieldCheck size={20}/> Checkout Blindado</div>
-                  <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"><CreditCard size={20}/> Liberação Imediata</div>
-                  <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"><Bot size={20}/> Setup IA Incluso</div>
-               </div>
+               
+               <p className="pt-20 text-[10px] font-black uppercase tracking-[0.5em] opacity-40">Isso não é uma ferramenta. É o fim da improvisação.</p>
             </div>
          </div>
       </section>
 
-      {/* RODAPÉ MASTER COLORIDO */}
-      <footer className="pt-32 pb-16 px-6 bg-slate-950 text-white relative overflow-hidden border-t border-white/5">
-         <div className="absolute bottom-0 right-0 w-[800px] h-[400px] bg-gradient-to-t from-indigo-600/20 via-purple-600/10 to-transparent blur-[120px] pointer-events-none"></div>
-         <div className="max-w-7xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-16 mb-32">
-               <div className="space-y-8">
-                  <ZLogoHero branding={branding} />
-                  <p className="text-xs font-bold text-slate-500 uppercase leading-relaxed tracking-widest italic">{branding.appName} is the world-leading SDR automation platform. Driven by neural algorithms.</p>
-                  <div className="flex gap-4">
-                     {['facebook', 'instagram', 'linkedin'].map(social => <div key={social} className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10 hover:border-indigo-500 transition-all cursor-pointer"><Globe2 size={20} className="text-slate-400" /></div>)}
-                  </div>
-               </div>
-               <div className="space-y-8">
-                  <h4 className="text-sm font-black uppercase tracking-[0.3em] text-indigo-500">Links Master</h4>
-                  <ul className="space-y-4">
-                     {['Recursos', 'Preços', 'FAQ', 'API Docs'].map(l => <li key={l} className="text-[11px] font-black text-slate-400 uppercase tracking-widest hover:text-white transition-colors cursor-pointer">{l}</li>)}
-                  </ul>
-               </div>
-               <div className="space-y-8">
-                  <h4 className="text-sm font-black uppercase tracking-[0.3em] text-indigo-500">Legal Core</h4>
-                  <ul className="space-y-4">
-                     {['Termos de Uso', 'Privacidade', 'Cookies', 'Compliance'].map(l => <li key={l} className="text-[11px] font-black text-slate-400 uppercase tracking-widest hover:text-white transition-colors cursor-pointer">{l}</li>)}
-                  </ul>
-               </div>
-               <div className="space-y-8">
-                  <h4 className="text-sm font-black uppercase tracking-[0.3em] text-indigo-500">Status da Rede</h4>
-                  <div className="p-6 bg-white/5 rounded-[2rem] border border-white/10">
-                     <div className="flex items-center gap-3 mb-4">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                        <span className="text-[10px] font-black uppercase tracking-widest">Todos Sistemas Online</span>
-                     </div>
-                     <p className="text-[9px] font-bold text-slate-500 uppercase italic">Uptime Global: 99.98%</p>
-                  </div>
-               </div>
-            </div>
-            <div className="flex flex-col md:flex-row justify-between items-center gap-10 pt-16 border-t border-white/10 opacity-40">
-               <p className="text-[10px] font-black uppercase tracking-[0.3em]">© 2024 {branding.appName} SaaS Authority • All Rights Reserved.</p>
-               <div className="flex gap-10">
-                  <ShieldCheck size={28} />
-                  <CreditCard size={28} />
-                  <QrCode size={28} />
-               </div>
-            </div>
+      {/* RODAPÉ */}
+      <footer className="pt-20 pb-10 px-6 bg-white dark:bg-slate-950 text-slate-900 dark:text-white border-t border-slate-100 dark:border-slate-800">
+         <div className="max-w-7xl mx-auto text-center space-y-8">
+            <ZLogoHero branding={branding} className="justify-center grayscale opacity-50 hover:opacity-100 hover:grayscale-0 transition-all" />
+            <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">© 2024 Z-Prospector Operations Method.</p>
          </div>
       </footer>
 
