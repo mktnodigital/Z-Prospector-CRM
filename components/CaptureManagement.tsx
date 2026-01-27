@@ -10,7 +10,7 @@ import {
   ExternalLink, Layers, Terminal, Radio, Shield, Square, CheckSquare,
   FileText, Table as TableIcon, FileJson, Edit3, Filter, ChevronRight,
   MoreVertical, Share2, Mail, LayoutGrid, List,
-  Building2, Webhook, Link as LinkIcon, Power, History, Cpu
+  Building2, Webhook, Link as LinkIcon, Power, History, Cpu, Instagram, Map
 } from 'lucide-react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { Lead, LeadStatus, PipelineStage } from '../types';
@@ -69,22 +69,23 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
   const [editingLead, setEditingLead] = useState<ExtractedLead | null>(null);
 
   const sources = [
-    { id: 'google_maps', label: 'Google Maps', icon: MapPin, color: 'bg-emerald-500', desc: 'Negócios Locais' },
-    { id: 'google_search', label: 'Google Search', icon: Search, color: 'bg-blue-500', desc: 'Sites & Notícias' },
-    { id: 'instagram', label: 'Instagram', icon: Globe, color: 'bg-pink-500', desc: 'Perfis & Influencers' },
-    { id: 'linkedin', label: 'LinkedIn', icon: Linkedin, color: 'bg-indigo-600', desc: 'Decisores B2B' },
-    { id: 'cnpj', label: 'Radar CNPJ', icon: Hash, color: 'bg-amber-500', desc: 'Dados Oficiais' },
-    { id: 'web_scraper', label: 'Web Scraper', icon: Monitor, color: 'bg-slate-700', desc: 'Deep Web Search' },
+    { id: 'google_maps', label: 'Google Maps', icon: MapPin, color: 'bg-emerald-500', text: 'text-emerald-600', border: 'border-emerald-200', desc: 'Negócios Locais' },
+    { id: 'google_search', label: 'Google Search', icon: Search, color: 'bg-blue-500', text: 'text-blue-600', border: 'border-blue-200', desc: 'Sites & Notícias' },
+    { id: 'instagram', label: 'Instagram', icon: Instagram, color: 'bg-pink-500', text: 'text-pink-600', border: 'border-pink-200', desc: 'Perfis & Influencers' },
+    { id: 'linkedin', label: 'LinkedIn', icon: Linkedin, color: 'bg-indigo-600', text: 'text-indigo-600', border: 'border-indigo-200', desc: 'Decisores B2B' },
+    { id: 'cnpj', label: 'Radar CNPJ', icon: Hash, color: 'bg-amber-500', text: 'text-amber-600', border: 'border-amber-200', desc: 'Dados Fiscais' },
+    { id: 'web_scraper', label: 'Web Scraper', icon: Globe, color: 'bg-slate-700', text: 'text-slate-600', border: 'border-slate-200', desc: 'Deep Search' },
   ];
 
-  const steps = [
-    "Abrindo Tunel Socket com Clikai Core...",
-    "Ignorando Captchas de Proteção...",
-    "Escaneando DOM de Resultados...",
-    "Extraindo Metadados de Contato...",
-    "Validando Veracidade via Gemini 3.0...",
-    "Finalizando Enriquecimento..."
-  ];
+  const getSourceSteps = (source: ExtractionSource) => {
+    switch(source) {
+      case 'google_maps': return ["Iniciando Geo-fencing...", "Varrendo Quadrantes...", "Extraindo Reviews...", "Validando Telefones..."];
+      case 'instagram': return ["Bypassing Login...", "Scraping Followers...", "Analisando Bio...", "Extraindo Contatos DM..."];
+      case 'linkedin': return ["Conectando Sales Nav...", "Filtrando Decisores...", "Enriquecendo Emails...", "Validando Cargos..."];
+      case 'cnpj': return ["Consultando Receita Federal...", "Cruzando Sócios...", "Verificando Capital Social...", "Validando CNAE..."];
+      default: return ["Abrindo Tunel Socket...", "Ignorando Captchas...", "Escaneando DOM...", "Validando Dados..."];
+    }
+  };
 
   // --- ACTIONS: EXTRAÇÃO VIA GEMINI ---
   const startExtraction = async () => {
@@ -96,23 +97,44 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
     setIsExtracting(true);
     setExtractionProgress(0);
     
+    const currentSteps = getSourceSteps(selectedSource);
     let stepIdx = 0;
     const stepInterval = setInterval(() => {
-      setExtractionStep(steps[stepIdx]);
-      stepIdx = (stepIdx + 1) % steps.length;
-    }, 1000);
+      setExtractionStep(currentSteps[stepIdx % currentSteps.length]);
+      stepIdx++;
+    }, 1200);
 
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-      const prompt = `Aja como um Agente de Inteligência Comercial Profissional. 
-      Sua missão é buscar leads reais para o nicho "${searchNiche}" em "${searchLocation}" usando a fonte "${selectedSource}".
-      Gere 8 resultados de alta qualidade.
-      REGRAS: 
-      - Phone: (XX) 9XXXX-XXXX (Brasil)
-      - Email: válido baseado no nome da empresa.
-      - Detail: Ponto de dor ou observação comercial (ex: "Sem site ativo", "Usa WhatsApp Business").
-      - Relevance: 0-100.
-      Retorne APENAS o JSON ARRAY puro: 
+      
+      let specificPrompt = "";
+      switch(selectedSource) {
+        case 'google_maps':
+          specificPrompt = `Retorne empresas locais com endereço físico. 'Detail' deve conter a nota de avaliação (ex: 4.8 estrelas) e endereço.`;
+          break;
+        case 'instagram':
+          specificPrompt = `Retorne perfis comerciais ou influencers. 'Detail' deve conter número de seguidores e resumo da bio. Phone deve ser simulado como contato de bio/linktree.`;
+          break;
+        case 'linkedin':
+          specificPrompt = `Retorne decisores (CEOs, Diretores) de empresas. 'Detail' deve conter o Cargo e tamanho da empresa.`;
+          break;
+        case 'cnpj':
+          specificPrompt = `Retorne empresas com dados fiscais. 'Detail' deve conter Capital Social estimado e CNAE principal. Phone deve ser fixo ou móvel empresarial.`;
+          break;
+        default:
+          specificPrompt = `Busque leads gerais na web. 'Detail' deve conter a fonte da informação (ex: site institucional).`;
+      }
+
+      const prompt = `Aja como um Scraper de Dados Reais.
+      Busque 6 leads para o nicho "${searchNiche}" em "${searchLocation || 'Brasil'}" usando a lógica do canal "${selectedSource}".
+      ${specificPrompt}
+      
+      REGRAS RÍGIDAS:
+      - Phone: Formato brasileiro (XX) 9XXXX-XXXX ou fixo.
+      - Email: Corporativo preferencialmente.
+      - Relevance: 0-100 baseado na afinidade com o nicho.
+      
+      Retorne APENAS JSON ARRAY: 
       Array<{ "business": string, "phone": string, "email": string, "detail": string, "relevance": number }>`;
 
       const response = await ai.models.generateContent({
@@ -140,9 +162,9 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
       const results = JSON.parse(response.text || '[]');
       
       // Simulação de Progresso Visual
-      for (let i = 0; i <= 100; i += 5) {
+      for (let i = 0; i <= 100; i += 10) {
         setExtractionProgress(i);
-        await new Promise(r => setTimeout(r, 100));
+        await new Promise(r => setTimeout(r, 150));
       }
 
       const mapped = results.map((r: any) => ({
@@ -153,9 +175,9 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
       }));
 
       setExtractionResults(mapped);
-      notify(`${mapped.length} Leads Estratégicos Localizados!`);
+      notify(`${mapped.length} Leads extraídos via ${selectedSource}!`);
     } catch (e) {
-      notify('Erro na Engine de Extração. Verifique a API Key.');
+      notify('Erro na Engine de Extração. Tente novamente.');
     } finally {
       clearInterval(stepInterval);
       setIsExtracting(false);
@@ -227,7 +249,7 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
         email: r.email,
         status: r.relevance > 80 ? LeadStatus.HOT : LeadStatus.WARM,
         stage: PipelineStage.NEW,
-        lastInteraction: `[PROSPECÇÃO ATIVA]: ${r.detail}`,
+        lastInteraction: `[PROSPECÇÃO ATIVA - ${r.source.toUpperCase()}]: ${r.detail}`,
         value: 0,
         source: `Extração: ${r.source}`
       });
@@ -253,7 +275,7 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `leads_extraidos_${Date.now()}.csv`;
+    link.download = `leads_extraidos_${selectedSource}_${Date.now()}.csv`;
     link.click();
     notify('Relatório CSV gerado!');
   };
@@ -360,25 +382,28 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
       {activeTab === 'outbound' && (
         <div className="space-y-10 animate-in slide-in-from-right-10">
           
-          {/* SELETOR DE CANAIS VIBRANTE */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          {/* SELETOR DE CANAIS VIBRANTE E PROPORCIONAL */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
             {sources.map(src => (
               <button
                 key={src.id}
                 onClick={() => setSelectedSource(src.id as any)}
-                className={`p-6 rounded-[2.5rem] border-2 transition-all flex flex-col items-center gap-3 text-center group relative overflow-hidden ${
+                className={`flex flex-col items-center justify-center gap-4 p-4 rounded-[2.5rem] border-2 transition-all group relative overflow-hidden aspect-square ${
                   selectedSource === src.id 
-                  ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 shadow-2xl scale-105' 
+                  ? `${src.border} ${src.color} bg-opacity-10 dark:bg-opacity-20 shadow-2xl scale-105` 
                   : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-200 shadow-sm'
                 }`}
               >
-                <div className={`p-4 rounded-2xl ${src.color} text-white shadow-lg group-hover:rotate-12 transition-transform`}>
-                  <src.icon size={22} />
+                <div className={`p-5 rounded-2xl ${src.color} text-white shadow-lg group-hover:rotate-12 transition-transform scale-110`}>
+                  <src.icon size={28} />
                 </div>
-                <div>
-                   <p className="text-[10px] font-black uppercase tracking-tight leading-none mb-1">{src.label}</p>
+                <div className="text-center">
+                   <p className={`text-[10px] font-black uppercase tracking-tight leading-none mb-1.5 ${selectedSource === src.id ? src.text : 'text-slate-700 dark:text-slate-200'}`}>{src.label}</p>
                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest italic">{src.desc}</p>
                 </div>
+                {selectedSource === src.id && (
+                  <div className={`absolute bottom-3 w-1.5 h-1.5 rounded-full ${src.color} animate-pulse`}></div>
+                )}
               </button>
             ))}
           </div>
@@ -408,7 +433,7 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
                   <button 
                     onClick={startExtraction}
                     disabled={isExtracting}
-                    className="w-full py-8 bg-indigo-600 text-white font-black rounded-[2.5rem] shadow-2xl hover:bg-indigo-700 transition-all uppercase text-[11px] tracking-[0.3em] flex items-center justify-center gap-4 group"
+                    className="w-full py-8 bg-indigo-600 text-white font-black rounded-[2.5rem] shadow-2xl hover:bg-indigo-700 transition-all uppercase text-[11px] tracking-[0.3em] flex items-center justify-center gap-4 group disabled:opacity-70 disabled:cursor-not-allowed"
                   >
                     {isExtracting ? <Loader2 className="animate-spin" size={24} /> : <Zap size={22} className="group-hover:rotate-12 transition-transform" />}
                     {isExtracting ? 'Vasculhando...' : 'Ligar Scraper Neural'}
