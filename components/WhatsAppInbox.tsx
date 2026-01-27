@@ -228,7 +228,7 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                     <div className="space-y-10 animate-in zoom-in-95">
                        <div className="space-y-2">
                           <h3 className="text-3xl font-black italic uppercase tracking-tight text-slate-800 dark:text-white">Aguardando Scan</h3>
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Abra o WhatsApp > Aparelhos Conectados > Conectar</p>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Abra o WhatsApp &gt; Aparelhos Conectados &gt; Conectar</p>
                        </div>
 
                        <div className="relative group">
@@ -316,9 +316,10 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                   <div>
                     <h3 className="text-xl font-black tracking-tight italic uppercase text-slate-800 dark:text-white">{activeChat.name}</h3>
                     <div className="flex items-center gap-3">
-                       <p className="text-[9px] text-emerald-500 font-black uppercase tracking-widest flex items-center gap-1.5">
-                          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div> Atendimento via IA
-                       </p>
+                       <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-full border border-emerald-100 dark:border-emerald-800/40">
+                          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div> 
+                          <span className="text-[9px] font-black uppercase tracking-widest">Atendimento via IA</span>
+                       </div>
                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">• {activeChat.phone}</span>
                     </div>
                   </div>
@@ -327,7 +328,6 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                   <button className="p-4 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-indigo-600 rounded-2xl transition-all shadow-sm"><Activity size={20}/></button>
                   <button className="p-4 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-rose-500 rounded-2xl transition-all shadow-sm"><MoreVertical size={20}/></button>
                   <button className="flex items-center gap-3 px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl">
-                    {/* Fixed: Added missing Calendar icon to lucide-react imports */}
                     <Calendar size={16} /> Agendar
                   </button>
                 </div>

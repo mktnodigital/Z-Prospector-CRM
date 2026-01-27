@@ -43,7 +43,7 @@ const MASTER_BLUEPRINTS: FlowBlueprint[] = [
     nodes: [
       { id: '1', type: 'trigger', label: 'Nova Conversa Evolution', description: 'Gatilho via socket clikai.com.br', icon: Zap },
       { id: '2', type: 'ai', label: 'Análise de Sentimento Gemini', description: 'Identifica urgência e perfil', icon: Brain },
-      { id: '3', type: 'condition', label: 'Score > 80?', description: 'Filtro de leads quentes', icon: Split },
+      { id: '3', type: 'condition', label: 'Score &gt; 80?', description: 'Filtro de leads quentes', icon: Split },
       { id: '4', type: 'action', label: 'Notificar Unidade', description: 'Alerta push para o vendedor', icon: Smartphone }
     ]
   },

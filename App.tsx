@@ -23,6 +23,7 @@ import { PaymentManager } from './components/PaymentManager';
 import { UserProfile } from './components/UserProfile';
 import { AISearchModal } from './components/AISearchModal';
 import { N8nManager } from './components/N8nManager';
+import { FollowUpAutomation } from './components/FollowUpAutomation';
 import { LeadStatus, Lead, AppModule, Appointment, BrandingConfig, EvolutionConfig, AppNotification } from './types';
 
 const API_URL = '/api/core.php';
@@ -120,6 +121,7 @@ const App: React.FC = () => {
     { id: 'capture', label: 'Captação', icon: Radar, color: 'text-cyan-600' },
     { id: 'prospecting', label: 'Funil CRM', icon: Kanban, color: 'text-violet-600' },
     { id: 'inbox', label: 'Chat Inbox', icon: MessageSquare, color: 'text-emerald-600' },
+    { id: 'followup', label: 'Flow Builder', icon: Zap, color: 'text-yellow-500' },
     { id: 'n8n', label: 'N8n Flows', icon: Code2, color: 'text-indigo-500' },
     { id: 'scheduling', label: 'Agenda IA', icon: Calendar, color: 'text-pink-600' },
     { id: 'broadcast', label: 'Disparos', icon: Megaphone, color: 'text-rose-600' },
@@ -127,7 +129,7 @@ const App: React.FC = () => {
     { id: 'payments', label: 'Financeiro', icon: CreditCard, color: 'text-emerald-600' },
   ];
 
-  if (isLoading) return <div className="fixed inset-0 flex items-center justify-center bg-slate-950 text-white font-black uppercase tracking-widest"><Loader2 className="animate-spin text-indigo-500 mr-4" /> Sincronizando Rede...</div>;
+  if (isLoading) return <div className="fixed inset-0 flex items-center justify-center bg-slate-955 text-white font-black uppercase tracking-widest"><Loader2 className="animate-spin text-indigo-500 mr-4" /> Sincronizando Rede...</div>;
   if (!isLoggedIn) return <OfferPage branding={branding} onLogin={() => setIsLoggedIn(true)} />;
 
   return (
@@ -147,32 +149,32 @@ const App: React.FC = () => {
            </button>
         </div>
 
-        <nav className="flex-1 px-4 py-2 space-y-2 overflow-y-auto no-scrollbar">
+        <nav className="flex-1 px-4 py-2 space-y-1 overflow-y-auto no-scrollbar">
           {menuItems.map((m) => (
             <button 
               key={m.id} 
               onClick={() => setActiveModule(m.id as AppModule)} 
-              className={`w-full flex items-center ${isSidebarOpen ? 'gap-5 px-6' : 'justify-center'} py-5 rounded-[2rem] transition-all relative ${
+              className={`w-full flex items-center ${isSidebarOpen ? 'gap-5 px-6' : 'justify-center'} py-4 rounded-2xl transition-all relative ${
                 activeModule === m.id 
                   ? (m.special ? 'bg-orange-50 dark:bg-orange-900/20 shadow-sm' : 'bg-slate-50 dark:bg-slate-800 shadow-sm') 
                   : 'text-slate-500 hover:bg-slate-50/50'
               }`}
             >
-              {activeModule === m.id && <div className={`absolute left-0 w-2 h-10 ${m.special ? 'bg-orange-500' : 'bg-indigo-600'} rounded-r-full`}></div>}
-              <m.icon size={isSidebarOpen ? 24 : 34} className={`${activeModule === m.id ? m.color : 'text-slate-400'} transition-all`} /> 
-              {isSidebarOpen && <span className={`text-sm font-black uppercase tracking-wider ${activeModule === m.id ? (m.special ? 'text-orange-700' : 'text-slate-900 dark:text-white') : 'text-slate-500 opacity-80'}`}>{m.label}</span>}
+              {activeModule === m.id && <div className={`absolute left-0 w-1.5 h-8 ${m.special ? 'bg-orange-500' : 'bg-indigo-600'} rounded-r-full`}></div>}
+              <m.icon size={isSidebarOpen ? 22 : 28} className={`${activeModule === m.id ? m.color : 'text-slate-400'} transition-all`} /> 
+              {isSidebarOpen && <span className={`text-[11px] font-black uppercase tracking-wider ${activeModule === m.id ? (m.special ? 'text-orange-700' : 'text-slate-900 dark:text-white') : 'text-slate-500 opacity-80'}`}>{m.label}</span>}
             </button>
           ))}
         </nav>
 
         <div className="p-6 border-t border-slate-50 dark:border-slate-800 space-y-2">
-          <button onClick={() => setActiveModule('profile')} className={`w-full flex items-center ${isSidebarOpen ? 'gap-5 px-6' : 'justify-center'} py-5 rounded-2xl transition-all ${activeModule === 'profile' ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'text-slate-500'}`}>
-             <UserCog size={isSidebarOpen ? 24 : 34} />
-             {isSidebarOpen && <span className="text-sm font-black uppercase tracking-wider">Meu Perfil</span>}
+          <button onClick={() => setActiveModule('profile')} className={`w-full flex items-center ${isSidebarOpen ? 'gap-5 px-6' : 'justify-center'} py-4 rounded-2xl transition-all ${activeModule === 'profile' ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'text-slate-500'}`}>
+             <UserCog size={isSidebarOpen ? 22 : 28} />
+             {isSidebarOpen && <span className="text-[11px] font-black uppercase tracking-wider">Meu Perfil</span>}
           </button>
-          <button onClick={handleLogout} className={`w-full flex items-center ${isSidebarOpen ? 'gap-5 px-6' : 'justify-center'} py-5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-2xl transition-all`}>
-            <LogOut size={24} /> 
-            {isSidebarOpen && <span className="text-sm font-black uppercase tracking-wider">Deslogar</span>}
+          <button onClick={handleLogout} className={`w-full flex items-center ${isSidebarOpen ? 'gap-5 px-6' : 'justify-center'} py-4 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-2xl transition-all`}>
+            <LogOut size={22} /> 
+            {isSidebarOpen && <span className="text-[11px] font-black uppercase tracking-wider">Deslogar</span>}
           </button>
         </div>
       </aside>
@@ -274,6 +276,7 @@ const App: React.FC = () => {
               notify={(msg) => { notify(msg); addNotification({ type: 'INBOX', title: 'Mensagem Recebida', description: msg }); }} 
             />
           )}
+          {activeModule === 'followup' && <FollowUpAutomation />}
           {activeModule === 'n8n' && <N8nManager notify={(msg) => { notify(msg); addNotification({ type: 'N8N', title: 'Infra n8n Alerta', description: msg }); }} />}
           {activeModule === 'products' && <ProductManager notify={notify} />}
           {activeModule === 'scheduling' && <ScheduleManager appointments={appointments} onAddAppointment={(a) => { setAppointments([...appointments, a]); addNotification({ type: 'APPOINTMENT', title: 'Novo Agendamento', description: `${a.lead} agendou ${a.service}` }); }} onUpdateAppointment={(a) => setAppointments(appointments.map(i => i.id === a.id ? a : i))} onDeleteAppointment={(id) => setAppointments(appointments.filter(i => i.id !== id))} />}
