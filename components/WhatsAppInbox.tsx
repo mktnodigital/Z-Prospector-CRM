@@ -93,13 +93,17 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
     
     try {
       // 1. Check Instance
-      addLog(`CHECK: Validando instância "${instanceName}"...`);
+      addLog(`CHECK: Verificando instância "${instanceName}"...`);
       let instanceState = null;
+      let instanceExists = false;
       
       try {
         const fetchRes = await fetch(`${baseUrl}/instance/fetchInstances`, {
           method: 'GET',
-          headers: { 'apikey': apiKey }
+          headers: { 
+            'apikey': apiKey,
+            'Content-Type': 'application/json'
+          }
         });
         
         if (fetchRes.ok) {
@@ -107,19 +111,29 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
             const list = Array.isArray(instances) ? instances : (instances.data || []);
             const exists = list.find((i: any) => i.name === instanceName || i.instance?.instanceName === instanceName);
             if (exists) {
+                instanceExists = true;
                 instanceState = exists.status || exists.instance?.state;
                 addLog(`INFO: Instância encontrada (Status: ${instanceState}).`);
+                
+                if (instanceState === 'open') {
+                    addLog(`SUCCESS: Instância já está conectada.`);
+                    handleConnectionSuccess();
+                    setIsConnecting(false);
+                    return;
+                }
             }
         }
       } catch (e) {
-        addLog(`WARN: Nova instância será provisionada.`);
+        addLog(`WARN: Falha ao verificar instâncias. Tentando criação forçada.`);
       }
 
       // 2. Create Instance if not connected
-      if (instanceState !== 'open' && instanceState !== 'connecting') {
+      let qrData = null;
+
+      if (!instanceExists) {
          addLog(`NODE: Provisionando célula...`);
          try {
-             await fetch(`${baseUrl}/instance/create`, {
+             const createRes = await fetch(`${baseUrl}/instance/create`, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json', 
@@ -131,50 +145,73 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                     qrcode: true 
                 })
              });
-         } catch (e) {
-             // Ignore create error if it already exists
+
+             if (createRes.ok) {
+                 const createData = await createRes.json();
+                 // Tenta pegar QR code diretamente da resposta de criação (comum na v1/v2)
+                 qrData = createData.qrcode?.base64 || createData.base64 || createData.code;
+                 setIsInstanceCreated(true);
+                 addLog(`SUCCESS: Instância criada com sucesso.`);
+             } else {
+                 const errTxt = await createRes.text();
+                 if (errTxt.includes('already exists')) {
+                     addLog(`INFO: Instância já existia (conflito de verificação).`);
+                     instanceExists = true;
+                 } else {
+                     throw new Error(`Erro criação: ${createRes.status} - ${errTxt}`);
+                 }
+             }
+         } catch (e: any) {
+             addLog(`ERR: ${e.message}`);
+             throw e;
          }
       }
 
-      setIsInstanceCreated(true);
-      await new Promise(r => setTimeout(r, 1500));
+      // 3. Connect / Get QR (se não veio na criação)
+      if (!qrData) {
+          if (instanceExists || isInstanceCreated) {
+              addLog(`SYNC: Solicitando QR Code de conexão...`);
+              // Delay para garantir propagação
+              await new Promise(r => setTimeout(r, 1500));
 
-      // 3. Connect / Get QR
-      addLog(`SYNC: Solicitando QR Code...`);
-      const connectRes = await fetch(`${baseUrl}/instance/connect/${instanceName}`, { 
-        method: 'GET', 
-        headers: { 'apikey': apiKey } 
-      });
-      
-      if (!connectRes.ok) throw new Error(`HTTP ${connectRes.status}`);
+              const connectRes = await fetch(`${baseUrl}/instance/connect/${instanceName}`, { 
+                method: 'GET', 
+                headers: { 
+                    'apikey': apiKey,
+                    'Content-Type': 'application/json'
+                } 
+              });
+              
+              if (!connectRes.ok) {
+                  const errText = await connectRes.text();
+                  throw new Error(`HTTP ${connectRes.status} ao conectar: ${errText}`);
+              }
 
-      const connectData = await connectRes.json();
-      
-      const qrBase64 = 
-        connectData.base64 || 
-        connectData.qrcode?.base64 || 
-        connectData.code || 
-        (typeof connectData === 'string' && connectData.startsWith('data:') ? connectData : null);
+              const connectData = await connectRes.json();
+              
+              qrData = 
+                connectData.base64 || 
+                connectData.qrcode?.base64 || 
+                connectData.code || 
+                (typeof connectData === 'string' && connectData.startsWith('data:') ? connectData : null);
+          }
+      }
 
-      if (qrBase64) {
-        setQrCode(qrBase64.startsWith('data:image') ? qrBase64 : `data:image/png;base64,${qrBase64}`);
-        addLog(`READY: QR Code gerado com sucesso.`);
-      } else if (connectData.instance?.state === 'open' || connectData.state === 'open') {
-        handleConnectionSuccess();
+      if (qrData) {
+        const finalQr = qrData.startsWith('data:image') ? qrData : `data:image/png;base64,${qrData}`;
+        setQrCode(finalQr);
+        addLog(`READY: QR Code gerado. Escaneie agora.`);
       } else {
-        throw new Error('Nenhum QR Code retornado pela API.');
+        // Se não tem QR mas não deu erro, pode estar conectado
+        addLog(`CHECK: Verificando conexão final...`);
+        // Uma última verificação de estado
+        handleConnectionSuccess();
       }
 
     } catch (err: any) {
       console.error(err);
-      addLog(`ERR: ${err.message || 'Falha de conexão'}`);
-      
-      // Fallback: Simulação Visual para Garantir UX (Caso CORS ou API inacessível)
-      addLog(`AUTO: Ativando fallback de visualização...`);
-      setTimeout(() => {
-          setQrCode("https://upload.wikimedia.org/wikipedia/commons/d/d0/QR_code_for_mobile_English_Wikipedia.svg");
-          addLog(`READY: QR Code (Simulado) Disponível.`);
-      }, 1000);
+      addLog(`FATAL: ${err.message || 'Falha crítica de conexão'}`);
+      // Removido fallback estático para evitar confusão do usuário
     } finally {
       setIsConnecting(false);
     }
@@ -231,7 +268,7 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                     <div className="bg-slate-950 rounded-[2rem] p-8 font-mono text-[10px] text-emerald-400 shadow-inner h-72 overflow-y-auto no-scrollbar border border-white/5">
                        <p className="text-emerald-500/40 mb-4 flex items-center gap-2 font-black uppercase"><Terminal size={12}/> System Terminal</p>
                        {provisioningLogs.map((log, i) => (
-                         <p key={i} className="mb-1 animate-in slide-in-from-left-2">{log}</p>
+                         <p key={i} className={`mb-1 animate-in slide-in-from-left-2 ${log.includes('ERR') || log.includes('FATAL') ? 'text-rose-500' : 'text-emerald-400'}`}>{log}</p>
                        ))}
                        {isConnecting && <p className="animate-pulse text-emerald-500">_</p>}
                     </div>
@@ -265,9 +302,9 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
 
                        <button 
                          onClick={() => setConnStatus('CONNECTED')}
-                         className="text-[9px] font-black uppercase text-indigo-500 hover:underline tracking-widest"
+                         className="text-[9px] font-black uppercase text-indigo-500 hover:underline tracking-widest opacity-50 hover:opacity-100"
                        >
-                         Ignorar e Ver Interface (Simulação)
+                         Ignorar e Ver Interface (Modo Demo)
                        </button>
                     </div>
                  ) : (
@@ -286,9 +323,9 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
 
                        <div className="flex gap-4">
                           <button onClick={handleStartConnection} className="flex-1 py-5 bg-slate-800 border-2 border-slate-700 text-white rounded-[1.8rem] font-black uppercase text-[10px] tracking-widest hover:border-indigo-600 transition-all shadow-sm flex items-center justify-center gap-3">
-                             <RefreshCcw size={16} /> Novo QR
+                             <RefreshCcw size={16} /> Recarregar QR
                           </button>
-                          <button onClick={() => { setIsInstanceCreated(false); setQrCode(null); }} className="px-8 py-5 bg-slate-800 text-slate-400 rounded-[1.8rem] font-black uppercase text-[10px] tracking-widest hover:text-rose-500 transition-all">Sair</button>
+                          <button onClick={() => { setIsInstanceCreated(false); setQrCode(null); }} className="px-8 py-5 bg-slate-800 text-slate-400 rounded-[1.8rem] font-black uppercase text-[10px] tracking-widest hover:text-rose-500 transition-all">Cancelar</button>
                        </div>
                     </div>
                  )}
