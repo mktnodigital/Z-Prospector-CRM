@@ -9,7 +9,7 @@ import {
   Settings, Building2, UserCog, Cpu, Shield, Fingerprint, Palette,
   ChevronLeft, ChevronRight, Megaphone, Search, CreditCard, ChevronLast, ChevronFirst,
   Bell, BellDot, ShoppingCart, TrendingUp, Workflow, Code2, Gauge, Menu as MenuIcon,
-  Info
+  Info, Flame
 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { CRMKanban } from './components/CRMKanban';
@@ -180,18 +180,49 @@ const App: React.FC = () => {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const menuItems = [
-    { id: 'admin', label: 'Central do Operador', icon: ShieldCheck, color: 'text-orange-500', activeGradient: 'from-orange-500 to-red-500' },
-    { id: 'results', label: 'Painel de Resultado', icon: Gauge, color: 'text-indigo-500', activeGradient: 'from-indigo-600 to-violet-600' },
-    { id: 'capture', label: 'Fonte de Oportunidades', icon: Radar, color: 'text-cyan-500', activeGradient: 'from-cyan-500 to-blue-500' },
-    { id: 'prospecting', label: 'Pipeline de Conversão', icon: Kanban, color: 'text-violet-500', activeGradient: 'from-violet-600 to-fuchsia-600' },
-    { id: 'inbox', label: 'Central de Conversas', icon: MessageSquare, color: 'text-emerald-500', activeGradient: 'from-emerald-500 to-teal-500' },
-    { id: 'followup', label: 'Cadências que Vendem', icon: Zap, color: 'text-yellow-500', activeGradient: 'from-yellow-500 to-amber-500' },
-    { id: 'n8n', label: 'Fluxos de Receita (n8n)', icon: Workflow, color: 'text-blue-500', activeGradient: 'from-blue-600 to-indigo-600' },
-    { id: 'scheduling', label: 'Agenda Cheia', icon: Calendar, color: 'text-pink-500', activeGradient: 'from-pink-500 to-rose-500' },
-    { id: 'broadcast', label: 'Reativação de Base', icon: Megaphone, color: 'text-rose-500', activeGradient: 'from-rose-500 to-red-500' },
-    { id: 'products', label: 'Oferta Irresistível', icon: Package, color: 'text-amber-500', activeGradient: 'from-amber-500 to-orange-500' },
-    { id: 'payments', label: 'Caixa & Recebimentos', icon: Wallet, color: 'text-emerald-400', activeGradient: 'from-emerald-400 to-green-500' },
+  // MENU REESTRUTURADO POR FASES
+  const menuCategories = [
+    {
+      label: 'Operação Central',
+      items: [
+        { id: 'results', label: 'Painel de Resultado', icon: Gauge, color: 'text-indigo-500', activeGradient: 'from-indigo-600 to-violet-600' },
+        { id: 'admin', label: 'Command Center', icon: ShieldCheck, color: 'text-orange-500', activeGradient: 'from-orange-500 to-red-500' },
+      ]
+    },
+    {
+      label: 'Fase 1: ATRAIR',
+      items: [
+        { id: 'capture', label: 'Fontes de Captação', icon: Radar, color: 'text-cyan-500', activeGradient: 'from-cyan-500 to-blue-500' },
+        { id: 'broadcast', label: 'Reativação de Base', icon: Megaphone, color: 'text-rose-500', activeGradient: 'from-rose-500 to-red-500' },
+      ]
+    },
+    {
+      label: 'Fase 2: CONVERSAR',
+      items: [
+        { id: 'inbox', label: 'Central de Conversas', icon: MessageSquare, color: 'text-emerald-500', activeGradient: 'from-emerald-500 to-teal-500' },
+        { id: 'followup', label: 'Cadências de Resposta', icon: Zap, color: 'text-yellow-500', activeGradient: 'from-yellow-500 to-amber-500' },
+      ]
+    },
+    {
+      label: 'Fase 3: QUALIFICAR',
+      items: [
+        { id: 'prospecting', label: 'Pipeline / Kanban', icon: Kanban, color: 'text-violet-500', activeGradient: 'from-violet-600 to-fuchsia-600' },
+        { id: 'n8n', label: 'Inteligência Neural', icon: Workflow, color: 'text-blue-500', activeGradient: 'from-blue-600 to-indigo-600' },
+      ]
+    },
+    {
+      label: 'Fase 4: AGENDAR',
+      items: [
+        { id: 'scheduling', label: 'Agenda Cheia', icon: Calendar, color: 'text-pink-500', activeGradient: 'from-pink-500 to-rose-500' },
+      ]
+    },
+    {
+      label: 'Fase 5: FECHAR',
+      items: [
+        { id: 'products', label: 'Catálogo de Ofertas', icon: Package, color: 'text-amber-500', activeGradient: 'from-amber-500 to-orange-500' },
+        { id: 'payments', label: 'Caixa & Recebíveis', icon: Wallet, color: 'text-emerald-400', activeGradient: 'from-emerald-400 to-green-500' },
+      ]
+    }
   ];
 
   if (isLoading) return <div className="fixed inset-0 flex items-center justify-center bg-slate-950 text-white font-black uppercase tracking-widest z-[9999]"><Loader2 className="animate-spin text-indigo-500 mr-4" /> Iniciando Motor de Vendas...</div>;
@@ -254,27 +285,41 @@ const App: React.FC = () => {
            )}
         </div>
 
-        <nav className="flex-1 px-4 py-4 space-y-3 overflow-y-auto no-scrollbar">
-          {menuItems.map((m) => (
-            <button 
-              key={m.id} 
-              onClick={() => { setActiveModule(m.id as AppModule); if(isMobile) setIsSidebarOpen(false); }} 
-              className={`w-full flex items-center ${isSidebarOpen ? 'gap-4 px-6' : 'justify-center'} py-4 rounded-[1.5rem] transition-all relative group/item overflow-hidden ${
-                activeModule === m.id 
-                  ? `bg-gradient-to-r ${m.activeGradient} text-white shadow-lg shadow-${m.color.split('-')[1]}-500/30 scale-[1.02]`
-                  : performanceMode 
-                    ? 'text-slate-400 hover:bg-slate-800/50 hover:text-white' 
-                    : 'text-slate-500 hover:bg-white hover:text-indigo-600 hover:shadow-md'
-              }`}
-            >
-              <m.icon size={isSidebarOpen ? 20 : 24} className={`${activeModule === m.id ? 'text-white' : m.color} transition-colors`} /> 
-              
+        <nav className="flex-1 px-4 py-4 space-y-8 overflow-y-auto no-scrollbar pb-20">
+          {menuCategories.map((category, catIdx) => (
+            <div key={catIdx} className="space-y-2">
               {isSidebarOpen && (
-                <span className="text-[11px] font-black uppercase tracking-widest truncate">
-                  {m.label}
-                </span>
+                <div className="px-6 mb-2 flex items-center gap-2 opacity-40">
+                  <span className="text-[8px] font-black uppercase tracking-[0.3em] whitespace-nowrap text-slate-500 dark:text-slate-400">
+                    {category.label}
+                  </span>
+                  <div className="h-px bg-slate-200 dark:bg-slate-800 flex-1"></div>
+                </div>
               )}
-            </button>
+              <div className="space-y-1">
+                {category.items.map((m) => (
+                  <button 
+                    key={m.id} 
+                    onClick={() => { setActiveModule(m.id as AppModule); if(isMobile) setIsSidebarOpen(false); }} 
+                    className={`w-full flex items-center ${isSidebarOpen ? 'gap-4 px-6' : 'justify-center'} py-3.5 rounded-[1.2rem] transition-all relative group/item overflow-hidden ${
+                      activeModule === m.id 
+                        ? `bg-gradient-to-r ${m.activeGradient} text-white shadow-lg shadow-${m.color.split('-')[1]}-500/30 scale-[1.02]`
+                        : performanceMode 
+                          ? 'text-slate-400 hover:bg-slate-800/50 hover:text-white' 
+                          : 'text-slate-500 hover:bg-white hover:text-indigo-600 hover:shadow-md'
+                    }`}
+                  >
+                    <m.icon size={isSidebarOpen ? 18 : 22} className={`${activeModule === m.id ? 'text-white' : m.color} transition-colors`} /> 
+                    
+                    {isSidebarOpen && (
+                      <span className="text-[10px] font-black uppercase tracking-widest truncate">
+                        {m.label}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
 
