@@ -43,6 +43,58 @@ interface WebhookInbound {
   hits: number;
 }
 
+// MAPEAMENTO DE TEMAS POR CANAL
+const SOURCE_THEMES: Record<ExtractionSource, { border: string, bg: string, ring: string, text: string, button: string, progress: string }> = {
+  google_maps: { 
+    border: 'border-emerald-500/30', 
+    bg: 'bg-emerald-50/50 dark:bg-emerald-950/20', 
+    ring: 'ring-emerald-500/10',
+    text: 'text-emerald-600',
+    button: 'bg-emerald-600 hover:bg-emerald-700',
+    progress: 'bg-emerald-600'
+  },
+  google_search: { 
+    border: 'border-blue-500/30', 
+    bg: 'bg-blue-50/50 dark:bg-blue-950/20', 
+    ring: 'ring-blue-500/10',
+    text: 'text-blue-600',
+    button: 'bg-blue-600 hover:bg-blue-700',
+    progress: 'bg-blue-600'
+  },
+  instagram: { 
+    border: 'border-pink-500/30', 
+    bg: 'bg-pink-50/50 dark:bg-pink-950/20', 
+    ring: 'ring-pink-500/10',
+    text: 'text-pink-600',
+    button: 'bg-pink-600 hover:bg-pink-700',
+    progress: 'bg-pink-600'
+  },
+  linkedin: { 
+    border: 'border-indigo-500/30', 
+    bg: 'bg-indigo-50/50 dark:bg-indigo-950/20', 
+    ring: 'ring-indigo-500/10',
+    text: 'text-indigo-600',
+    button: 'bg-indigo-600 hover:bg-indigo-700',
+    progress: 'bg-indigo-600'
+  },
+  cnpj: { 
+    border: 'border-amber-500/30', 
+    bg: 'bg-amber-50/50 dark:bg-amber-950/20', 
+    ring: 'ring-amber-500/10',
+    text: 'text-amber-600',
+    button: 'bg-amber-600 hover:bg-amber-700',
+    progress: 'bg-amber-600'
+  },
+  web_scraper: { 
+    border: 'border-slate-500/30', 
+    bg: 'bg-slate-50/50 dark:bg-slate-950/20', 
+    ring: 'ring-slate-500/10',
+    text: 'text-slate-600',
+    button: 'bg-slate-700 hover:bg-slate-800',
+    progress: 'bg-slate-600'
+  }
+};
+
 export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
   const [activeTab, setActiveTab] = useState<'outbound' | 'inbound'>('outbound');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -64,6 +116,8 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingLead, setEditingLead] = useState<ExtractedLead | null>(null);
+
+  const currentTheme = SOURCE_THEMES[selectedSource];
 
   const sources = [
     { id: 'google_maps', label: 'Google Maps', icon: MapPin, color: 'bg-emerald-500', text: 'text-emerald-600', border: 'border-emerald-200', desc: 'Negócios Locais' },
@@ -152,7 +206,6 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
 
       let jsonStr = response.text || '[]';
       
-      // Limpeza de Markdown caso o modelo retorne por engano
       if (jsonStr.includes('```json')) {
         jsonStr = jsonStr.split('```json')[1].split('```')[0].trim();
       } else if (jsonStr.includes('```')) {
@@ -161,7 +214,6 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
 
       const results = JSON.parse(jsonStr);
       
-      // Simulação de Progresso Visual acelerada após resposta da IA
       for (let i = 20; i <= 100; i += 20) {
         setExtractionProgress(i);
         await new Promise(r => setTimeout(r, 100));
@@ -241,6 +293,18 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
     setSelectedIds(next);
   };
 
+  const allSelected = extractionResults.length > 0 && selectedIds.size === extractionResults.length;
+
+  const handleToggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+      notify('Seleção limpa.');
+    } else {
+      setSelectedIds(new Set(extractionResults.map(r => r.id)));
+      notify(`Todos os ${extractionResults.length} leads selecionados.`);
+    }
+  };
+
   const handleBulkTransfer = () => {
     const toTransfer = extractionResults.filter(r => selectedIds.has(r.id));
     toTransfer.forEach(r => {
@@ -316,7 +380,7 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
                       <input value={editingLead.email} onChange={e => setEditingLead({...editingLead, email: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold border-none outline-none focus:ring-4 ring-indigo-500/10 dark:text-white" />
                     </div>
                  </div>
-                 <button type="submit" className="w-full py-6 bg-indigo-600 text-white font-black rounded-3xl shadow-xl uppercase text-xs tracking-widest hover:bg-indigo-700 transition-all">Salvar Alterações</button>
+                 <button type="submit" className={`w-full py-6 text-white font-black rounded-3xl shadow-xl uppercase text-xs tracking-widest transition-all ${currentTheme.button}`}>Salvar Alterações</button>
               </form>
            </div>
         </div>
@@ -365,8 +429,8 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-10">
         <div className="space-y-2">
           <div className="flex items-center gap-4">
-             <div className="p-4 bg-indigo-600 text-white rounded-2xl shadow-xl animate-pulse"><Radar size={32} /></div>
-             <h1 className="text-4xl font-black italic uppercase tracking-tighter">Captação <span className="text-indigo-600">Neural</span></h1>
+             <div className={`p-4 ${currentTheme.button} text-white rounded-2xl shadow-xl animate-pulse transition-all duration-500`}><Radar size={32} /></div>
+             <h1 className="text-4xl font-black italic uppercase tracking-tighter">Captação <span className={currentTheme.text}>Neural</span></h1>
           </div>
           <p className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px]">Agente de Inteligência de Dados v3.1 • clikai.com.br</p>
         </div>
@@ -410,29 +474,30 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-            <div className="lg:col-span-1 bg-white dark:bg-slate-900 p-10 rounded-[4rem] border-2 border-slate-100 dark:border-slate-800 shadow-sm space-y-10 h-fit sticky top-10">
+            {/* SETUP DE BUSCA DINAMICO */}
+            <div className={`lg:col-span-1 p-10 rounded-[4rem] border-2 transition-all duration-500 shadow-sm space-y-10 h-fit sticky top-10 ${currentTheme.bg} ${currentTheme.border}`}>
                <div className="flex items-center gap-5">
-                  <div className="p-4 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-2xl"><Bot size={32} /></div>
+                  <div className={`p-4 rounded-2xl transition-all ${currentTheme.button} text-white`}><Bot size={32} /></div>
                   <div>
                     <h3 className="text-xl font-black italic uppercase tracking-tight text-slate-800 dark:text-slate-200">Setup de Busca</h3>
-                    <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">Powered by Gemini 3.0</p>
+                    <p className={`text-[9px] font-black uppercase tracking-widest ${currentTheme.text}`}>Canal Ativo: {selectedSource.replace('_', ' ')}</p>
                   </div>
                </div>
                
                <div className="space-y-6">
                   <div className="space-y-2">
                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4">Nicho Comercial</label>
-                     <input value={searchNiche} onChange={e => setSearchNiche(e.target.value)} placeholder="Ex: Escritórios de Advocacia" className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 border-none rounded-3xl font-bold outline-none focus:ring-4 ring-indigo-500/10 shadow-inner italic dark:text-white" />
+                     <input value={searchNiche} onChange={e => setSearchNiche(e.target.value)} placeholder="Ex: Escritórios de Advocacia" className={`w-full px-8 py-5 bg-white dark:bg-slate-800 border-none rounded-3xl font-bold outline-none focus:ring-4 ${currentTheme.ring} shadow-inner italic dark:text-white`} />
                   </div>
                   <div className="space-y-2">
                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4">Cidade / Região</label>
-                     <input value={searchLocation} onChange={e => setSearchLocation(e.target.value)} placeholder="Ex: Curitiba, PR" className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 border-none rounded-3xl font-bold outline-none focus:ring-4 ring-indigo-500/10 shadow-inner italic dark:text-white" />
+                     <input value={searchLocation} onChange={e => setSearchLocation(e.target.value)} placeholder="Ex: Curitiba, PR" className={`w-full px-8 py-5 bg-white dark:bg-slate-800 border-none rounded-3xl font-bold outline-none focus:ring-4 ${currentTheme.ring} shadow-inner italic dark:text-white`} />
                   </div>
 
                   <button 
                     onClick={startExtraction}
                     disabled={isExtracting}
-                    className="w-full py-8 bg-indigo-600 text-white font-black rounded-[2.5rem] shadow-2xl hover:bg-indigo-700 transition-all uppercase text-[11px] tracking-[0.3em] flex items-center justify-center gap-4 group disabled:opacity-70 disabled:cursor-not-allowed"
+                    className={`w-full py-8 text-white font-black rounded-[2.5rem] shadow-2xl transition-all uppercase text-[11px] tracking-[0.3em] flex items-center justify-center gap-4 group disabled:opacity-70 disabled:cursor-not-allowed ${currentTheme.button}`}
                   >
                     {isExtracting ? <Loader2 className="animate-spin" size={24} /> : <Zap size={22} className="group-hover:rotate-12 transition-transform" />}
                     {isExtracting ? 'Vasculhando...' : 'Ligar Scraper Neural'}
@@ -443,21 +508,22 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
                  <div className="pt-6 space-y-4 animate-in fade-in">
                     <div className="flex justify-between items-end">
                        <div className="space-y-1">
-                          <p className="text-[8px] font-black uppercase text-indigo-600 animate-pulse italic">Protocolo: SSL SECURE</p>
+                          <p className={`text-[8px] font-black uppercase animate-pulse italic ${currentTheme.text}`}>Protocolo: SSL SECURE</p>
                           <p className="text-[10px] font-black uppercase text-slate-500">{extractionStep}</p>
                        </div>
-                       <span className="text-xl font-black text-indigo-600 italic">{extractionProgress}%</span>
+                       <span className={`text-xl font-black italic ${currentTheme.text}`}>{extractionProgress}%</span>
                     </div>
                     <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden border border-slate-200 dark:border-slate-700 p-1">
-                       <div className="h-full bg-indigo-600 rounded-full transition-all duration-300 shadow-[0_0_15px_rgba(79,70,229,0.5)]" style={{width: `${extractionProgress}%`}}></div>
+                       <div className={`h-full rounded-full transition-all duration-300 shadow-xl ${currentTheme.progress}`} style={{width: `${extractionProgress}%`}}></div>
                     </div>
                  </div>
                )}
             </div>
 
             <div className="lg:col-span-2 space-y-8">
-               <div className="bg-white dark:bg-slate-900 rounded-[4.5rem] border-2 border-slate-50 dark:border-slate-800 shadow-sm flex flex-col overflow-hidden min-h-[600px]">
-                  <div className="p-10 border-b border-slate-50 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center bg-slate-50/50 dark:bg-slate-800/20 gap-8">
+               {/* EXTRAÇÃO ATIVA DINAMICA */}
+               <div className={`rounded-[4.5rem] border-2 transition-all duration-500 shadow-sm flex flex-col overflow-hidden min-h-[600px] bg-white dark:bg-slate-900 ${currentTheme.border}`}>
+                  <div className={`p-10 border-b flex flex-col md:flex-row justify-between items-center gap-8 ${currentTheme.bg} ${currentTheme.border}`}>
                      <div>
                        <h3 className="text-2xl font-black italic uppercase tracking-tight text-slate-800 dark:text-slate-100">Extração Ativa</h3>
                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic">Aguardando auditoria e transferência para o CRM</p>
@@ -466,8 +532,15 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
                      <div className="flex flex-wrap items-center gap-4">
                         {extractionResults.length > 0 && (
                           <div className="flex bg-white dark:bg-slate-800 p-1.5 rounded-[1.8rem] border border-slate-100 dark:border-slate-700 shadow-sm">
+                             <button 
+                                onClick={handleToggleSelectAll} 
+                                className={`p-4 transition-colors ${allSelected ? currentTheme.text : 'text-slate-400 hover:text-indigo-500'}`}
+                                title={allSelected ? "Desmarcar Todos" : "Selecionar Todos"}
+                             >
+                                {allSelected ? <CheckSquare size={20} /> : <Square size={20} />}
+                             </button>
                              <button onClick={handleExportCSV} className="p-4 text-slate-400 hover:text-emerald-500 transition-colors" title="Exportar CSV"><FileText size={20}/></button>
-                             <button onClick={handleBulkTransfer} disabled={selectedIds.size === 0} className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${selectedIds.size > 0 ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-300'}`}>
+                             <button onClick={handleBulkTransfer} disabled={selectedIds.size === 0} className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${selectedIds.size > 0 ? currentTheme.button + ' text-white shadow-lg' : 'text-slate-300'}`}>
                                 <UserPlus size={16} /> Enviar CRM ({selectedIds.size})
                              </button>
                              <button onClick={handleBulkDelete} disabled={selectedIds.size === 0} className={`p-4 ${selectedIds.size > 0 ? 'text-rose-500' : 'text-slate-300'} hover:scale-110 transition-transform`}><Trash2 size={20}/></button>
