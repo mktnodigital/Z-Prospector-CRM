@@ -47,7 +47,6 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
   const [activeTab, setActiveTab] = useState<'outbound' | 'inbound'>('outbound');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
-  // --- STATE: ENGINE DE EXTRAÇÃO ---
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionProgress, setExtractionProgress] = useState(0);
   const [extractionStep, setExtractionStep] = useState('');
@@ -56,7 +55,6 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
   const [searchLocation, setSearchLocation] = useState('');
   const [extractionResults, setExtractionResults] = useState<ExtractedLead[]>([]);
   
-  // --- STATE: WEBHOOKS ---
   const [webhooks, setWebhooks] = useState<WebhookInbound[]>([
     { id: 'wh_1', name: 'Facebook Lead Ads (Master)', url: 'https://api.clikai.com.br/wh/fb-leads-01', event: 'Novo Lead Ads', status: 'ACTIVE', lastHit: 'Há 5 min', hits: 124 },
     { id: 'wh_2', name: 'Formulário Site Institucional', url: 'https://api.clikai.com.br/wh/site-form-01', event: 'Contato Site', status: 'ACTIVE', lastHit: 'Há 1 hora', hits: 42 }
@@ -64,7 +62,6 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
   const [isWebhookModalOpen, setIsWebhookModalOpen] = useState(false);
   const [editingWebhook, setEditingWebhook] = useState<WebhookInbound | null>(null);
 
-  // Seleção e Edição
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingLead, setEditingLead] = useState<ExtractedLead | null>(null);
 
@@ -87,7 +84,6 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
     }
   };
 
-  // --- ACTIONS: EXTRAÇÃO VIA GEMINI ---
   const startExtraction = async () => {
     if (!searchNiche) {
       notify('Defina o nicho para prospecção estratégica.');
@@ -102,40 +98,35 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
     const stepInterval = setInterval(() => {
       setExtractionStep(currentSteps[stepIdx % currentSteps.length]);
       stepIdx++;
-    }, 1200);
+    }, 1000);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
       let specificPrompt = "";
       switch(selectedSource) {
         case 'google_maps':
-          specificPrompt = `Retorne empresas locais com endereço físico. 'Detail' deve conter a nota de avaliação (ex: 4.8 estrelas) e endereço.`;
+          specificPrompt = `Retorne empresas reais desse nicho com telefone e endereço. No campo 'detail', inclua o status da avaliação (ex: 4.5 estrelas).`;
           break;
         case 'instagram':
-          specificPrompt = `Retorne perfis comerciais ou influencers. 'Detail' deve conter número de seguidores e resumo da bio. Phone deve ser simulado como contato de bio/linktree.`;
+          specificPrompt = `Retorne perfis comerciais. No campo 'detail', inclua o número aproximado de seguidores e nicho da bio.`;
           break;
         case 'linkedin':
-          specificPrompt = `Retorne decisores (CEOs, Diretores) de empresas. 'Detail' deve conter o Cargo e tamanho da empresa.`;
-          break;
-        case 'cnpj':
-          specificPrompt = `Retorne empresas com dados fiscais. 'Detail' deve conter Capital Social estimado e CNAE principal. Phone deve ser fixo ou móvel empresarial.`;
+          specificPrompt = `Retorne decisores de empresas (CEOs, Diretores). No campo 'detail', inclua o cargo e segmento.`;
           break;
         default:
-          specificPrompt = `Busque leads gerais na web. 'Detail' deve conter a fonte da informação (ex: site institucional).`;
+          specificPrompt = `Extraia leads genéricos da web.`;
       }
 
-      const prompt = `Aja como um Scraper de Dados Reais.
-      Busque 6 leads para o nicho "${searchNiche}" em "${searchLocation || 'Brasil'}" usando a lógica do canal "${selectedSource}".
+      const prompt = `Aja como um motor de scraping neural de alta precisão.
+      Localize 6 leads potenciais para o nicho "${searchNiche}" em "${searchLocation || 'Brasil'}" via canal "${selectedSource}".
       ${specificPrompt}
       
-      REGRAS RÍGIDAS:
-      - Phone: Formato brasileiro (XX) 9XXXX-XXXX ou fixo.
-      - Email: Corporativo preferencialmente.
-      - Relevance: 0-100 baseado na afinidade com o nicho.
-      
-      Retorne APENAS JSON ARRAY: 
-      Array<{ "business": string, "phone": string, "email": string, "detail": string, "relevance": number }>`;
+      REGRAS DE FORMATAÇÃO:
+      - Phone: (XX) 9XXXX-XXXX
+      - Relevance: 0-100 (score de afinidade)
+      - Retorne APENAS um array JSON de objetos.
+      `;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
@@ -159,12 +150,21 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
         }
       });
 
-      const results = JSON.parse(response.text || '[]');
+      let jsonStr = response.text || '[]';
       
-      // Simulação de Progresso Visual
-      for (let i = 0; i <= 100; i += 10) {
+      // Limpeza de Markdown caso o modelo retorne por engano
+      if (jsonStr.includes('```json')) {
+        jsonStr = jsonStr.split('```json')[1].split('```')[0].trim();
+      } else if (jsonStr.includes('```')) {
+        jsonStr = jsonStr.split('```')[1].split('```')[0].trim();
+      }
+
+      const results = JSON.parse(jsonStr);
+      
+      // Simulação de Progresso Visual acelerada após resposta da IA
+      for (let i = 20; i <= 100; i += 20) {
         setExtractionProgress(i);
-        await new Promise(r => setTimeout(r, 150));
+        await new Promise(r => setTimeout(r, 100));
       }
 
       const mapped = results.map((r: any) => ({
@@ -175,13 +175,15 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
       }));
 
       setExtractionResults(mapped);
-      notify(`${mapped.length} Leads extraídos via ${selectedSource}!`);
+      notify(`${mapped.length} Leads extraídos e qualificados via ${selectedSource}!`);
     } catch (e) {
-      notify('Erro na Engine de Extração. Tente novamente.');
+      console.error("Scraper Error:", e);
+      notify('Falha na Engine Neural. Verifique sua conexão e tente novamente.');
     } finally {
       clearInterval(stepInterval);
       setIsExtracting(false);
       setExtractionStep('');
+      setExtractionProgress(0);
     }
   };
 
@@ -221,7 +223,7 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
   };
 
   const handleDeleteWebhook = (id: string) => {
-    if (confirm('Deseja destruir este webhook de captação? Isso cortará a sincronização externa imediatamente.')) {
+    if (confirm('Deseja destruir este webhook?')) {
       setWebhooks(prev => prev.filter(w => w.id !== id));
       notify('Webhook removido.');
     }
@@ -249,21 +251,21 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
         email: r.email,
         status: r.relevance > 80 ? LeadStatus.HOT : LeadStatus.WARM,
         stage: PipelineStage.NEW,
-        lastInteraction: `[PROSPECÇÃO ATIVA - ${r.source.toUpperCase()}]: ${r.detail}`,
+        lastInteraction: `[EXTRAÇÃO ${r.source.toUpperCase()}]: ${r.detail}`,
         value: 0,
-        source: `Extração: ${r.source}`
+        source: `Scraper: ${r.source}`
       });
     });
     setExtractionResults(prev => prev.filter(r => !selectedIds.has(r.id)));
     setSelectedIds(new Set());
-    notify(`${toTransfer.length} Leads provisionados no CRM!`);
+    notify(`${toTransfer.length} Leads enviados ao Pipeline!`);
   };
 
   const handleBulkDelete = () => {
-    if (confirm(`Deseja descartar ${selectedIds.size} leads?`)) {
+    if (confirm(`Descartar ${selectedIds.size} leads?`)) {
       setExtractionResults(prev => prev.filter(r => !selectedIds.has(r.id)));
       setSelectedIds(new Set());
-      notify('Leads descartados com sucesso.');
+      notify('Leads descartados.');
     }
   };
 
@@ -275,9 +277,9 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `leads_extraidos_${selectedSource}_${Date.now()}.csv`;
+    link.download = `scraper_leads_${Date.now()}.csv`;
     link.click();
-    notify('Relatório CSV gerado!');
+    notify('CSV gerado com sucesso!');
   };
 
   const handleSaveEdit = (e: React.FormEvent) => {
@@ -285,7 +287,7 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
     if (!editingLead) return;
     setExtractionResults(prev => prev.map(r => r.id === editingLead.id ? { ...editingLead, status: 'Editado' } : r));
     setEditingLead(null);
-    notify('Dados do lead atualizados.');
+    notify('Lead atualizado.');
   };
 
   return (
@@ -331,7 +333,7 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
               <form onSubmit={handleSaveWebhook} className="space-y-6">
                  <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase text-slate-400 px-2">Nome do Identificador</label>
-                    <input name="whName" defaultValue={editingWebhook?.name} required placeholder="Ex: Meta Ads - Campanha Novembro" className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold border-none outline-none focus:ring-4 ring-indigo-500/10 dark:text-white italic uppercase" />
+                    <input name="whName" defaultValue={editingWebhook?.name} required placeholder="Ex: Meta Ads Nov/24" className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold border-none outline-none focus:ring-4 ring-indigo-500/10 dark:text-white italic uppercase" />
                  </div>
                  <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase text-slate-400 px-2">Evento de Entrada</label>
@@ -366,12 +368,12 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
              <div className="p-4 bg-indigo-600 text-white rounded-2xl shadow-xl animate-pulse"><Radar size={32} /></div>
              <h1 className="text-4xl font-black italic uppercase tracking-tighter">Captação <span className="text-indigo-600">Neural</span></h1>
           </div>
-          <p className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px]">Agente de Inteligência de Dados v3.0 • clikai.com.br</p>
+          <p className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px]">Agente de Inteligência de Dados v3.1 • clikai.com.br</p>
         </div>
 
         <div className="flex bg-slate-100 dark:bg-slate-900 p-2.5 rounded-[2.5rem] shadow-inner border border-slate-200 dark:border-slate-800 gap-1">
            <button onClick={() => setActiveTab('outbound')} className={`flex items-center gap-4 px-9 py-5 rounded-[1.8rem] text-xs font-black uppercase tracking-wider transition-all ${activeTab === 'outbound' ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-xl' : 'text-slate-500 hover:text-slate-700'}`}>
-             <Crosshair size={20} /> Scraper
+             <Crosshair size={20} /> Scraper IA
            </button>
            <button onClick={() => setActiveTab('inbound')} className={`flex items-center gap-4 px-9 py-5 rounded-[1.8rem] text-xs font-black uppercase tracking-wider transition-all ${activeTab === 'inbound' ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-xl' : 'text-slate-500 hover:text-slate-700'}`}>
              <Download size={20} /> Webhooks
@@ -382,7 +384,6 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
       {activeTab === 'outbound' && (
         <div className="space-y-10 animate-in slide-in-from-right-10">
           
-          {/* SELETOR DE CANAIS VIBRANTE E PROPORCIONAL */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
             {sources.map(src => (
               <button
@@ -409,25 +410,23 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-            
-            {/* PAINEL DE CONTROLE ENGINE */}
             <div className="lg:col-span-1 bg-white dark:bg-slate-900 p-10 rounded-[4rem] border-2 border-slate-100 dark:border-slate-800 shadow-sm space-y-10 h-fit sticky top-10">
                <div className="flex items-center gap-5">
                   <div className="p-4 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-2xl"><Bot size={32} /></div>
                   <div>
                     <h3 className="text-xl font-black italic uppercase tracking-tight text-slate-800 dark:text-slate-200">Setup de Busca</h3>
-                    <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">Parametrização via Gemini 3.0</p>
+                    <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">Powered by Gemini 3.0</p>
                   </div>
                </div>
                
                <div className="space-y-6">
                   <div className="space-y-2">
                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4">Nicho Comercial</label>
-                     <input value={searchNiche} onChange={e => setSearchNiche(e.target.value)} placeholder="Ex: Barbearias Premium" className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 border-none rounded-3xl font-bold outline-none focus:ring-4 ring-indigo-500/10 shadow-inner italic dark:text-white" />
+                     <input value={searchNiche} onChange={e => setSearchNiche(e.target.value)} placeholder="Ex: Escritórios de Advocacia" className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 border-none rounded-3xl font-bold outline-none focus:ring-4 ring-indigo-500/10 shadow-inner italic dark:text-white" />
                   </div>
                   <div className="space-y-2">
-                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4">Localização (Opcional)</label>
-                     <input value={searchLocation} onChange={e => setSearchLocation(e.target.value)} placeholder="Ex: São Paulo, SP" className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 border-none rounded-3xl font-bold outline-none focus:ring-4 ring-indigo-500/10 shadow-inner italic dark:text-white" />
+                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4">Cidade / Região</label>
+                     <input value={searchLocation} onChange={e => setSearchLocation(e.target.value)} placeholder="Ex: Curitiba, PR" className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 border-none rounded-3xl font-bold outline-none focus:ring-4 ring-indigo-500/10 shadow-inner italic dark:text-white" />
                   </div>
 
                   <button 
@@ -456,7 +455,6 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
                )}
             </div>
 
-            {/* LISTAGEM DE RESULTADOS COM OPERAÇÕES EM MASSA */}
             <div className="lg:col-span-2 space-y-8">
                <div className="bg-white dark:bg-slate-900 rounded-[4.5rem] border-2 border-slate-50 dark:border-slate-800 shadow-sm flex flex-col overflow-hidden min-h-[600px]">
                   <div className="p-10 border-b border-slate-50 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center bg-slate-50/50 dark:bg-slate-800/20 gap-8">
@@ -503,7 +501,7 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
                                      <div>
                                         <h4 className="font-black text-lg italic uppercase tracking-tight truncate max-w-[180px] dark:text-white">{res.business}</h4>
                                         <div className="flex items-center gap-2">
-                                          <span className="text-[8px] font-black uppercase text-indigo-500 bg-indigo-100 dark:bg-indigo-900/40 px-2 py-0.5 rounded-lg">ROI: {res.relevance}%</span>
+                                          <span className="text-[8px] font-black uppercase text-indigo-500 bg-indigo-100 dark:bg-indigo-900/40 px-2 py-0.5 rounded-lg">Score: {res.relevance}%</span>
                                           <span className="text-[8px] font-black uppercase text-slate-400 italic">via {res.source}</span>
                                         </div>
                                      </div>
@@ -537,23 +535,10 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
                           </div>
                           <div className="text-center space-y-3">
                              <p className="text-2xl font-black uppercase tracking-[0.4em]">Engine em Standby</p>
-                             <p className="text-[10px] font-bold uppercase tracking-widest italic">Inicie uma varredura para localizar prospecções estratégicas.</p>
+                             <p className="text-[10px] font-bold uppercase tracking-widest italic">Inicie uma busca neural para povoar sua base de leads.</p>
                           </div>
                        </div>
                      )}
-                  </div>
-               </div>
-               
-               {/* BANNER DE EXPORTAÇÃO RÁPIDA */}
-               <div className="bg-gradient-to-br from-slate-900 to-indigo-950 p-12 rounded-[4rem] text-white flex flex-col md:flex-row items-center justify-between gap-10 shadow-2xl relative overflow-hidden group">
-                  <Database className="absolute -bottom-10 -right-10 w-64 h-64 opacity-5 rotate-12 group-hover:scale-110 transition-transform duration-1000" />
-                  <div className="relative z-10 space-y-4 text-center md:text-left">
-                     <h4 className="text-3xl font-black italic uppercase tracking-tighter">Central de Exportação</h4>
-                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest italic">Integre os dados extraídos com qualquer planilha ou sistema externo.</p>
-                  </div>
-                  <div className="flex gap-4 relative z-10">
-                     <button onClick={handleExportCSV} className="flex items-center gap-3 px-10 py-5 bg-white text-slate-900 rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl text-slate-900"><TableIcon size={18}/> Planilha Excel</button>
-                     <button onClick={() => notify('PDF Gerado com Sucesso!')} className="flex items-center gap-3 px-10 py-5 bg-indigo-600 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl"><FileText size={18}/> Relatório PDF</button>
                   </div>
                </div>
             </div>
@@ -568,13 +553,13 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
                 <h2 className="text-2xl font-black italic uppercase tracking-tight flex items-center gap-4 text-slate-800 dark:text-slate-100">
                   <Webhook size={32} className="text-indigo-600" /> Gateway de <span className="text-indigo-600">Webhooks</span>
                 </h2>
-                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Conecte Meta Ads, Typeform, GHL e outros diretamente no CRM</p>
+                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Conecte Meta Ads e Formulários Externos diretamente</p>
               </div>
               <button 
                 onClick={handleOpenAddWebhook}
                 className="flex items-center gap-3 px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all hover:scale-105 shadow-xl shadow-indigo-200 dark:shadow-none"
               >
-                <Plus size={18} /> Provisionar Endpoint
+                <Plus size={18} /> Novo Endpoint
               </button>
            </div>
 
@@ -609,76 +594,22 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
                    <div className="flex items-center justify-between mb-8">
                       <div className="flex items-center gap-6">
                          <div>
-                            <p className="text-[8px] font-black text-slate-400 uppercase">Hits Totais</p>
+                            <p className="text-[8px] font-black text-slate-400 uppercase">Hits</p>
                             <p className="text-sm font-black text-indigo-600">{wh.hits}</p>
                          </div>
                          <div>
-                            <p className="text-[8px] font-black text-slate-400 uppercase">Último Evento</p>
+                            <p className="text-[8px] font-black text-slate-400 uppercase">Último</p>
                             <p className="text-[10px] font-black text-slate-800 dark:text-slate-200">{wh.lastHit || 'Aguardando...'}</p>
                          </div>
                       </div>
                    </div>
 
                    <div className="flex gap-2 relative z-10 border-t border-slate-50 dark:border-slate-800 pt-6">
-                      <button onClick={() => handleOpenEditWebhook(wh)} className="flex-1 py-3 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-indigo-600 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all">Editar Setup</button>
-                      <button className="p-3 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-indigo-600 rounded-xl transition-all"><History size={16}/></button>
+                      <button onClick={() => handleOpenEditWebhook(wh)} className="flex-1 py-3 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-indigo-600 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all">Editar</button>
                       <button onClick={() => handleDeleteWebhook(wh.id)} className="p-3 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-rose-500 rounded-xl transition-all"><Trash2 size={16}/></button>
                    </div>
                 </div>
               ))}
-
-              {/* WEBHOOK EXAMPLES (EMPTY STATE CARDS) */}
-              {webhooks.length < 6 && (
-                <div className="bg-slate-50/50 dark:bg-slate-900/30 p-8 rounded-[3rem] border-2 border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center text-center group hover:border-indigo-300 transition-all cursor-pointer" onClick={handleOpenAddWebhook}>
-                   <Plus size={40} className="text-slate-300 group-hover:text-indigo-400 group-hover:rotate-90 transition-all mb-4" />
-                   <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Novo Endpoint de Ingestão</p>
-                </div>
-              )}
-           </div>
-
-           {/* WEBHOOK LIBRARY / EXAMPLES SECTION */}
-           <div className="bg-white dark:bg-slate-900 p-12 rounded-[4.5rem] border-2 border-slate-50 dark:border-slate-800 shadow-sm">
-              <div className="flex items-center gap-6 mb-12">
-                 <div className="p-5 bg-indigo-50 text-indigo-600 rounded-[2rem]"><History size={32}/></div>
-                 <div>
-                    <h3 className="text-2xl font-black italic uppercase tracking-tight text-slate-800 dark:text-slate-100">Biblioteca de Conectores</h3>
-                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Exemplos de integração master para acelerar seu setup</p>
-                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                 {[
-                   { name: 'Meta Ads', icon: Facebook, color: 'text-blue-600', desc: 'Sincronize Leads de Formulários Instantâneos do FB/Instagram.' },
-                   { name: 'Contact Form 7', icon: Globe, color: 'text-emerald-600', desc: 'Capture leads direto do seu WordPress para o ZapFlow.' },
-                   { name: 'Typeform / Jotform', icon: FileJson, color: 'text-orange-600', desc: 'Passe dados de pesquisas e formulários de qualificação.' },
-                   { name: 'n8n / Make', icon: Cpu, color: 'text-indigo-600', desc: 'Integre com fluxos de automação de alta complexidade.' }
-                 ].map((ex, i) => (
-                   <div key={i} className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-700 group hover:shadow-xl transition-all">
-                      <div className={`w-12 h-12 rounded-xl bg-white dark:bg-slate-800 ${ex.color} flex items-center justify-center mb-6 shadow-sm group-hover:scale-110 transition-transform`}>
-                         <ex.icon size={24}/>
-                      </div>
-                      <h4 className="text-sm font-black uppercase italic text-slate-800 dark:text-slate-100 mb-2">{ex.name}</h4>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase leading-relaxed mb-6 italic tracking-tight">{ex.desc}</p>
-                      <button 
-                        onClick={() => {
-                          const newWh: WebhookInbound = {
-                            id: `wh_${Date.now()}`,
-                            name: `${ex.name} Sync`,
-                            url: `https://api.clikai.com.br/wh/${Math.random().toString(36).substr(2, 8)}`,
-                            event: 'Ingestão Automática',
-                            status: 'ACTIVE',
-                            hits: 0
-                          };
-                          setWebhooks([...webhooks, newWh]);
-                          notify(`${ex.name} configurado como exemplo!`);
-                        }}
-                        className="text-[9px] font-black text-indigo-600 uppercase hover:underline flex items-center gap-1"
-                      >
-                         <Plus size={10}/> Ativar este conector
-                      </button>
-                   </div>
-                 ))}
-              </div>
            </div>
         </div>
       )}
