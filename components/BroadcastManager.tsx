@@ -18,37 +18,10 @@ interface BroadcastManagerProps {
   notify: (msg: string) => void;
 }
 
-const MOCK_CAMPAIGNS: Campaign[] = [
-  {
-    id: 'camp_1',
-    name: 'Lançamento Verão - Quentes',
-    targetStatus: LeadStatus.HOT,
-    productId: 'prod_1',
-    productName: 'Combo Premium Barbearia',
-    template: 'Olá {nome}, identificamos que você tem interesse no nosso Combo Premium. Temos uma oferta especial hoje!',
-    scheduledAt: 'Hoje, 14:00',
-    status: 'COMPLETED',
-    totalLeads: 45,
-    sentLeads: 45,
-    conversions: 12
-  },
-  {
-    id: 'camp_2',
-    name: 'Reaquecimento Base Fria',
-    targetStatus: LeadStatus.COLD,
-    productId: 'prod_2',
-    productName: 'Mentoria Business IA',
-    template: 'Oi {nome}, faz tempo que não nos falamos. Sabia que a IA pode mudar seu negócio?',
-    scheduledAt: 'Amanhã, 09:00',
-    status: 'IDLE',
-    totalLeads: 120,
-    sentLeads: 0,
-    conversions: 0
-  }
-];
+const API_URL = '/api/core.php';
 
 export const BroadcastManager: React.FC<BroadcastManagerProps> = ({ leads, isWhatsAppConnected, onNavigate, notify }) => {
-  const [campaigns, setCampaigns] = useState<Campaign[]>(MOCK_CAMPAIGNS);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isGeneratingIA, setIsGeneratingIA] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -67,6 +40,22 @@ export const BroadcastManager: React.FC<BroadcastManagerProps> = ({ leads, isWha
     sentLeads: 0,
     conversions: 0
   });
+
+  // Load Campaigns from API
+  useEffect(() => {
+    const fetchCampaigns = async () => {
+      try {
+        const res = await fetch(`${API_URL}?action=get-campaigns`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) setCampaigns(data);
+        }
+      } catch (e) {
+        console.error("Failed to fetch campaigns");
+      }
+    };
+    fetchCampaigns();
+  }, []);
 
   // Cálculo de audiência em tempo real
   const audienceCount = useMemo(() => {
@@ -101,25 +90,44 @@ export const BroadcastManager: React.FC<BroadcastManagerProps> = ({ leads, isWha
     setIsModalOpen(true);
   };
 
-  const handleSaveCampaign = (e: React.FormEvent) => {
+  const handleSaveCampaign = async (e: React.FormEvent) => {
     e.preventDefault();
     const finalForm = { ...form, totalLeads: audienceCount } as Campaign;
+    let newCampaignList = [...campaigns];
 
     if (editingId) {
-      setCampaigns(prev => prev.map(c => c.id === editingId ? finalForm : c));
+      newCampaignList = campaigns.map(c => c.id === editingId ? finalForm : c);
       notify('Estratégia de disparo atualizada!');
     } else {
       const newCampaign = { ...finalForm, id: `camp_${Date.now()}` };
-      setCampaigns([newCampaign, ...campaigns]);
+      newCampaignList = [newCampaign, ...campaigns];
       notify('Campanha injetada na rede de disparos!');
     }
+    
+    setCampaigns(newCampaignList);
+    
+    // Save to API
+    try {
+      await fetch(`${API_URL}?action=save-campaign`, {
+        method: 'POST',
+        body: JSON.stringify(editingId ? finalForm : newCampaignList[0])
+      });
+    } catch(e) { console.error(e); }
+
     setIsModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Deseja destruir esta campanha? Todos os logs de entrega serão perdidos.')) {
       setCampaigns(prev => prev.filter(c => c.id !== id));
       notify('Campanha removida da infraestrutura.');
+      
+      try {
+        await fetch(`${API_URL}?action=delete-campaign`, {
+          method: 'POST',
+          body: JSON.stringify({ id })
+        });
+      } catch(e) { console.error(e); }
     }
   };
 
@@ -128,20 +136,37 @@ export const BroadcastManager: React.FC<BroadcastManagerProps> = ({ leads, isWha
       notify('ERRO: WhatsApp desconectado. Pareie no Inbox antes de disparar.');
       return;
     }
-    setCampaigns(prev => prev.map(c => c.id === id ? { ...c, status: 'SENDING' } : c));
+    
+    // Optimistic Update
+    const updatedCampaigns = campaigns.map(c => c.id === id ? { ...c, status: 'SENDING' as const } : c);
+    setCampaigns(updatedCampaigns);
     notify('Disparos Master iniciados via Evolution Socket!');
     
-    // Simulação de progresso
-    let progress = 0;
+    const camp = updatedCampaigns.find(c => c.id === id);
+    if(camp) {
+        // Sync Status to API
+        fetch(`${API_URL}?action=save-campaign`, { method: 'POST', body: JSON.stringify(camp) });
+    }
+    
+    // Simulação de progresso (em prod real isso seria atualizado via webhook do n8n)
+    let progress = camp ? camp.sentLeads : 0;
+    const total = camp ? camp.totalLeads : 100;
+    
     const interval = setInterval(() => {
+      progress = Math.min(progress + Math.floor(Math.random() * 5), total);
+      
       setCampaigns(prev => prev.map(c => {
         if (c.id === id) {
-          const nextSent = Math.min(c.sentLeads + Math.floor(Math.random() * 5), c.totalLeads);
-          if (nextSent >= c.totalLeads) {
-            clearInterval(interval);
-            return { ...c, sentLeads: c.totalLeads, status: 'COMPLETED' as any };
+          const isDone = progress >= total;
+          const newStatus = isDone ? 'COMPLETED' : 'SENDING';
+          const updatedC = { ...c, sentLeads: progress, status: newStatus as any };
+          
+          if (isDone) {
+             clearInterval(interval);
+             // Final Sync
+             fetch(`${API_URL}?action=save-campaign`, { method: 'POST', body: JSON.stringify(updatedC) });
           }
-          return { ...c, sentLeads: nextSent };
+          return updatedC;
         }
         return c;
       }));

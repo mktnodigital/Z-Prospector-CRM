@@ -3,16 +3,21 @@
 
 Este guia detalha como configurar o **Master Cluster** de automação. O objetivo é conectar a entrada de mensagens (WhatsApp/Evolution), o processamento de inteligência (Gemini AI) e a gestão de dados (Z-Prospector Backend).
 
+> **IMPORTANTE:** A arquitetura do sistema utiliza endpoints HTTP (API REST) para todas as integrações com o n8n. Não há conexão direta com banco de dados MySQL nos fluxos de automação, garantindo maior segurança e desacoplamento.
+
 ---
 
-## 1. Arquitetura do Fluxo
+## 1. Arquitetura do Fluxo (Stateless API)
 
-O sistema opera em um ciclo fechado de eventos:
+O sistema opera em um ciclo fechado de eventos HTTP:
 
 1.  **Entrada:** Cliente envia mensagem no WhatsApp -> **Evolution API** recebe.
-2.  **Gatilho:** Evolution API envia webhook para o **N8n**.
-3.  **Processamento:** N8n processa a mensagem, consulta o histórico e envia para o **Gemini AI**.
-4.  **Ação:** N8n decide se responde o cliente (via Evolution) ou atualiza o CRM (via API Z-Prospector).
+2.  **Gatilho:** Evolution API envia webhook (POST) para o **N8n**.
+3.  **Processamento:** N8n processa a mensagem, consulta o Gemini AI e toma decisões.
+4.  **Ação de Dados:** N8n chama a API do Z-Prospector (`core.php`) para salvar/atualizar leads.
+5.  **Ação de Resposta:** N8n chama a Evolution API para responder ao cliente.
+
+**NENHUM NÓ MYSQL DEVE SER USADO NO N8N.** Use sempre `HTTP Request` apontando para `https://zprospector.com.br/api/core.php`.
 
 ---
 
@@ -31,38 +36,36 @@ Para que o N8n receba as mensagens, você deve configurar o Webhook na sua inst�
 
 ---
 
-## 3. Workflows Essenciais (JSON)
+## 3. Workflows Essenciais (JSON Prontos)
 
-Você pode baixar estes arquivos diretamente pelo painel do **Z-Prospector > Módulo N8n**, mas aqui estão as definições lógicas.
+Você pode baixar estes arquivos diretamente pelo painel do **Z-Prospector > Módulo N8n > Download Blueprint**.
 
-### Fluxo 1: Sincronização de Leads (Entrada) & Boas Vindas
-**Objetivo:** Receber dados de formulários (Facebook/Site), salvar no banco do Z-Prospector e enviar mensagem de boas-vindas.
+### Fluxo 1: Sincronização de Leads (Meta Ads -> API)
+**Objetivo:** Receber dados do Facebook e salvar via API.
 
-*   **Node 1 (Webhook):** Método POST, Path `/lead-entry`.
-*   **Node 2 (HTTP Request):** POST para `https://seu-zprospector.com/api/core.php?action=save-lead`.
-*   **Node 3 (HTTP Request):** POST para Evolution API `/message/sendText` para dar oi ao cliente.
+*   **Node 1 (Webhook):** Método POST, Path `/meta-lead-entry`.
+*   **Node 2 (HTTP Request):** POST para `.../api/core.php?action=save-lead`.
+    *   Campos: `name`, `phone`, `email`, `source`, `status`.
+*   **Node 3 (HTTP Request):** POST para Evolution API `/message/sendText` (Boas vindas).
 
-### Fluxo 2: AI Sales Development Rep (SDR)
-**Objetivo:** Ler mensagens do WhatsApp, usar IA para qualificar e responder.
+### Fluxo 2: AI SDR - Qualificação Neural
+**Objetivo:** Ler mensagens, classificar com Gemini e atualizar status via API.
 
 *   **Node 1 (Webhook):** Recebe `MESSAGES_UPSERT` da Evolution.
-*   **Node 2 (Filter):** Ignora mensagens enviadas por `me` (você) e grupos.
-*   **Node 3 (Google Gemini):**
-    *   *Prompt:* "Analise a mensagem: '{{message}}'. O cliente tem interesse de compra? Responda JSON: { 'score': 0-100, 'intent': 'buy/info/complaint', 'reply_suggestion': 'texto' }".
-*   **Node 4 (Switch):**
-    *   Se `score > 80`: Marca como **HOT** no CRM.
-    *   Se `intent == 'buy'`: Envia link de pagamento.
-*   **Node 5 (Evolution API):** Envia a `reply_suggestion` para o cliente.
+*   **Node 2 (Google Gemini):** Classifica intenção (COMPRA/DUVIDA).
+*   **Node 3 (Switch):** Se `COMPRA`, segue.
+*   **Node 4 (HTTP Request):** POST para `.../api/core.php?action=update-lead-stage`.
+    *   Define lead como **HOT**.
 
 ---
 
 ## 4. System Core Workflows (Infraestrutura)
 
-Além dos fluxos de operação (vendas/atendimento), existem fluxos críticos de sistema disponíveis para download na **Central do Operador > Infra**.
+Disponíveis em **Central do Operador > Infra**. Estes fluxos usam endpoints administrativos (`sys-*`).
 
-1.  **Sys - Tenant Provisioning Master:** Disparado quando uma nova unidade é criada. Conecta na Evolution API e cria a instância `instanceName` automaticamente, além de rodar os scripts de banco de dados.
-2.  **Sys - Global Billing Sync:** Ouve eventos do Stripe (pagamento realizado) e libera/bloqueia o acesso do tenant mudando o status para `ONLINE` ou `OFFLINE` no banco de dados.
-3.  **Sys - Health Monitor:** Roda a cada 5 minutos (Cron) para verificar se a API da Evolution e o Banco de Dados estão respondendo. Se falhar, envia um alerta.
+1.  **Sys - Tenant Provisioning:** `POST /api/core.php?action=sys-provision-tenant`
+2.  **Sys - Global Billing:** `POST /api/core.php?action=sys-update-tenant-status`
+3.  **Sys - Health Monitor:** `GET /api/core.php?action=sys-db-latency`
 
 ---
 
@@ -70,19 +73,14 @@ Além dos fluxos de operação (vendas/atendimento), existem fluxos críticos de
 
 1.  No arquivo `components/App.tsx`, certifique-se de que a `API_KEY` do Gemini está no `.env`.
 2.  No módulo **N8n Automator** do sistema:
-    *   Clique em "Testar Cluster" para verificar se seu N8n está online.
-    *   Use o botão "Download" nos cards para pegar o `.json` pronto.
-    *   No N8n, clique em "Import from File" e selecione o arquivo baixado.
+    *   Clique no botão de **Download** (ícone de seta) nos cards de workflow para baixar o JSON atualizado.
+    *   No N8n, clique em "Import from File" e selecione o arquivo.
 
 ## 6. Variáveis de Ambiente no N8n
 
 Para os fluxos funcionarem, configure estas credenciais no N8n:
 
 *   `EVOLUTION_API_URL`: URL da sua API (ex: `https://api.clikai.com.br`)
-*   `EVOLUTION_API_KEY`: Sua chave global (`f292e7c5...`)
-*   `ZPROSPECTOR_API_URL`: URL do seu frontend/backend (`https://zprospector.com.br/api/core.php`)
+*   `EVOLUTION_API_KEY`: Sua chave global.
+*   `ZPROSPECTOR_API_URL`: `https://zprospector.com.br/api/core.php`
 *   `GOOGLE_PALM_API_KEY`: Chave do Google AI Studio.
-
----
-
-**Nota de Segurança:** Nunca compartilhe os arquivos JSON de workflow publicamente se eles contiverem chaves de API "hardcoded". O sistema de exportação do Z-Prospector remove credenciais sensíveis antes do download.

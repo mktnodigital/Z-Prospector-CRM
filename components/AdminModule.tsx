@@ -25,10 +25,10 @@ interface AdminModuleProps {
 
 type AdminSubTab = 'infra' | 'branding' | 'tenants' | 'payments' | 'security';
 
-// BLUEPRINTS DE SISTEMA (CORE INFRASTRUCTURE)
+// BLUEPRINTS DE SISTEMA (CORE INFRASTRUCTURE) - 100% VIA API
 const SYSTEM_WORKFLOWS = {
   provisioning: {
-    "name": "Sys - Tenant Provisioning Master v1",
+    "name": "Sys - Tenant Provisioning Master v3 (API)",
     "nodes": [
       { 
         "name": "Webhook - New Tenant", 
@@ -37,19 +37,24 @@ const SYSTEM_WORKFLOWS = {
         "position": [100, 300]
       },
       { 
-        "name": "Create Evolution Instance", 
+        "name": "API: Create Evolution Instance", 
         "type": "n8n-nodes-base.httpRequest", 
         "parameters": { 
           "url": "https://api.clikai.com.br/instance/create", 
           "method": "POST",
-          "bodyParameters": { "parameters": [{ "name": "instanceName", "value": "={{$json.body.instanceName}}" }, { "name": "token", "value": "={{$json.body.token}}" }] }
+          "bodyParameters": { "parameters": [{ "name": "instanceName", "value": "={{$json.body.instanceName}}" }, { "name": "token", "value": "={{$json.body.token}}" }] },
+          "headerParameters": { "parameters": [{ "name": "apikey", "value": "MASTER_KEY" }] }
         },
         "position": [300, 300] 
       },
       { 
-        "name": "Setup Database Schema", 
-        "type": "n8n-nodes-base.mySql", 
-        "parameters": { "operation": "executeQuery", "query": "CALL create_tenant_schema('{{$json.body.tenant_id}}');" },
+        "name": "API: Setup Tenant Core", 
+        "type": "n8n-nodes-base.httpRequest", 
+        "parameters": { 
+          "url": "https://zprospector.com.br/api/core.php?action=sys-provision-tenant", 
+          "method": "POST",
+          "bodyParameters": { "parameters": [{ "name": "tenant_id", "value": "={{$json.body.tenant_id}}" }] } 
+        },
         "position": [500, 300] 
       },
       {
@@ -60,30 +65,30 @@ const SYSTEM_WORKFLOWS = {
       }
     ],
     "connections": { 
-      "Webhook - New Tenant": { "main": [[{ "node": "Create Evolution Instance", "type": "main", "index": 0 }]] },
-      "Create Evolution Instance": { "main": [[{ "node": "Setup Database Schema", "type": "main", "index": 0 }]] },
-      "Setup Database Schema": { "main": [[{ "node": "Send Welcome Email", "type": "main", "index": 0 }]] }
+      "Webhook - New Tenant": { "main": [[{ "node": "API: Create Evolution Instance", "type": "main", "index": 0 }]] },
+      "API: Create Evolution Instance": { "main": [[{ "node": "API: Setup Tenant Core", "type": "main", "index": 0 }]] },
+      "API: Setup Tenant Core": { "main": [[{ "node": "Send Welcome Email", "type": "main", "index": 0 }]] }
     }
   },
   billing: {
-    "name": "Sys - Global Billing Sync v1",
+    "name": "Sys - Global Billing Sync v3 (API)",
     "nodes": [
       { "name": "Stripe Trigger", "type": "n8n-nodes-base.stripeTrigger", "parameters": { "event": ["charge.succeeded", "invoice.payment_failed"] }, "position": [100, 300] },
       { "name": "Switch Status", "type": "n8n-nodes-base.switch", "position": [300, 300] },
-      { "name": "Activate Tenant", "type": "n8n-nodes-base.mySql", "parameters": { "query": "UPDATE tenants SET status='ONLINE'..." }, "position": [500, 200] },
-      { "name": "Suspend Tenant", "type": "n8n-nodes-base.mySql", "parameters": { "query": "UPDATE tenants SET status='OFFLINE'..." }, "position": [500, 400] }
+      { "name": "API: Unlock Tenant", "type": "n8n-nodes-base.httpRequest", "parameters": { "url": "https://zprospector.com.br/api/core.php?action=sys-update-tenant-status", "method": "POST", "bodyParameters": { "parameters": [{ "name": "status", "value": "ONLINE" }, { "name": "tenant_id", "value": "={{$json.body.client_reference_id}}" }] } }, "position": [500, 200] },
+      { "name": "API: Lock Tenant", "type": "n8n-nodes-base.httpRequest", "parameters": { "url": "https://zprospector.com.br/api/core.php?action=sys-update-tenant-status", "method": "POST", "bodyParameters": { "parameters": [{ "name": "status", "value": "OFFLINE" }, { "name": "tenant_id", "value": "={{$json.body.client_reference_id}}" }] } }, "position": [500, 400] }
     ],
     "connections": { "Stripe Trigger": { "main": [[{ "node": "Switch Status", "type": "main", "index": 0 }]] } }
   },
   monitoring: {
-    "name": "Sys - Health Check Monitor v1",
+    "name": "Sys - Health Check Monitor v3 (API)",
     "nodes": [
       { "name": "Cron 5min", "type": "n8n-nodes-base.cron", "parameters": { "triggerTimes": { "item": [{ "mode": "everyMinute", "value": 5 }] } }, "position": [100, 300] },
-      { "name": "Ping Evolution API", "type": "n8n-nodes-base.httpRequest", "parameters": { "url": "https://api.clikai.com.br/instance/fetchInstances" }, "position": [300, 300] },
-      { "name": "Check DB Latency", "type": "n8n-nodes-base.mySql", "parameters": { "query": "SELECT 1" }, "position": [300, 500] },
-      { "name": "Report to Dashboard", "type": "n8n-nodes-base.httpRequest", "parameters": { "url": "https://zprospector.com.br/api/health", "method": "POST" }, "position": [600, 400] }
+      { "name": "API: Ping Evolution", "type": "n8n-nodes-base.httpRequest", "parameters": { "url": "https://api.clikai.com.br/instance/fetchInstances", "headerParameters": { "parameters": [{ "name": "apikey", "value": "MASTER_KEY" }] } }, "position": [300, 300] },
+      { "name": "API: Check DB Latency", "type": "n8n-nodes-base.httpRequest", "parameters": { "url": "https://zprospector.com.br/api/core.php?action=sys-db-latency", "method": "GET" }, "position": [300, 500] },
+      { "name": "API: Report Dashboard", "type": "n8n-nodes-base.httpRequest", "parameters": { "url": "https://zprospector.com.br/api/health", "method": "POST" }, "position": [600, 400] }
     ],
-    "connections": { "Cron 5min": { "main": [[{ "node": "Ping Evolution API", "type": "main", "index": 0 }, { "node": "Check DB Latency", "type": "main", "index": 0 }]] } }
+    "connections": { "Cron 5min": { "main": [[{ "node": "API: Ping Evolution", "type": "main", "index": 0 }, { "node": "API: Check DB Latency", "type": "main", "index": 0 }]] } }
   }
 };
 
@@ -514,7 +519,7 @@ export const AdminModule: React.FC<AdminModuleProps> = ({ branding, onBrandingCh
                <div className="p-8 bg-slate-50 dark:bg-slate-800 rounded-[3rem] border border-slate-100 dark:border-slate-700">
                   <div className="flex items-center gap-4 mb-8">
                      <Layers size={24} className="text-slate-400" />
-                     <h4 className="text-lg font-black italic uppercase tracking-tight text-slate-800 dark:text-slate-200">Core System Workflows</h4>
+                     <h4 className="text-lg font-black italic uppercase tracking-tight text-slate-800 dark:text-slate-200">Core System Workflows (API-Only)</h4>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                      <button onClick={() => handleDownloadSystemWorkflow('provisioning')} className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 flex flex-col items-center text-center hover:border-orange-500 transition-all group">

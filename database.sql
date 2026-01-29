@@ -7,6 +7,19 @@ CREATE TABLE IF NOT EXISTS `branding` (
   PRIMARY KEY (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Tabela de Usuários (Perfil Master)
+CREATE TABLE IF NOT EXISTS `users` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `tenant_id` int(11) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `role` varchar(50) DEFAULT 'SUPER_ADMIN',
+  `avatar` longtext,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_user_tenant` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Tabela de Leads
 CREATE TABLE IF NOT EXISTS `leads` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -38,7 +51,7 @@ CREATE TABLE IF NOT EXISTS `transactions` (
   KEY `idx_trans_tenant` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Tabela de Agendamentos (NOVO)
+-- Tabela de Agendamentos
 CREATE TABLE IF NOT EXISTS `appointments` (
   `id` varchar(50) NOT NULL,
   `tenant_id` int(11) NOT NULL,
@@ -57,7 +70,7 @@ CREATE TABLE IF NOT EXISTS `appointments` (
   KEY `idx_appt_tenant` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Tabela de Produtos (NOVO)
+-- Tabela de Produtos
 CREATE TABLE IF NOT EXISTS `products` (
   `id` varchar(50) NOT NULL,
   `tenant_id` int(11) NOT NULL,
@@ -73,6 +86,55 @@ CREATE TABLE IF NOT EXISTS `products` (
   KEY `idx_prod_tenant` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Inserir Branding Padrão (Tenant ID 0 ou 1)
-INSERT INTO `branding` (`tenant_id`, `config_json`) VALUES (1, '{"appName":"Z-Prospector","fullLogo":"Logotipo%20Z_Prospector.png","fullLogoDark":"Logotipo%20Z_Prospector.png","iconLogo":"Logotipo%20Z_Prospector_Icon.png","iconLogoDark":"Logotipo%20Z_Prospector_Icon.png","favicon":"Logotipo%20Z_Prospector_Icon.png","salesPageLogo":"Logotipo%20Z_Prospector.png"}') 
-ON DUPLICATE KEY UPDATE tenant_id=tenant_id;
+-- Tabela de Campanhas
+CREATE TABLE IF NOT EXISTS `campaigns` (
+  `id` varchar(50) NOT NULL,
+  `tenant_id` int(11) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `target_status` varchar(50) NOT NULL,
+  `product_id` varchar(50) DEFAULT NULL,
+  `product_name` varchar(255) DEFAULT NULL,
+  `template` text,
+  `scheduled_at` varchar(50) DEFAULT NULL,
+  `status` enum('IDLE','SENDING','COMPLETED','PAUSED') DEFAULT 'IDLE',
+  `total_leads` int(11) DEFAULT 0,
+  `sent_leads` int(11) DEFAULT 0,
+  `conversions` int(11) DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_camp_tenant` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Tabela de Integrações (Gateways de Pagamento e APIs)
+CREATE TABLE IF NOT EXISTS `integrations` (
+  `id` varchar(50) NOT NULL,
+  `tenant_id` int(11) NOT NULL,
+  `provider` varchar(50) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `config_json` longtext NOT NULL, -- Armazena chaves criptografadas/JSON
+  `status` enum('CONNECTED','DISCONNECTED') DEFAULT 'CONNECTED',
+  `last_sync` varchar(50) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_int_tenant` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Tabela de Webhooks Inbound (Captação)
+CREATE TABLE IF NOT EXISTS `webhooks` (
+  `id` varchar(50) NOT NULL,
+  `tenant_id` int(11) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `url` varchar(255) NOT NULL,
+  `event` varchar(100) NOT NULL,
+  `status` enum('ACTIVE','PAUSED') DEFAULT 'ACTIVE',
+  `hits` int(11) DEFAULT 0,
+  `last_hit` varchar(50) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_wh_tenant` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Inserir Dados Iniciais Obrigatórios
+INSERT INTO `branding` (`tenant_id`, `config_json`) VALUES (1, '{"appName":"Z-Prospector","fullLogo":"Logotipo%20Z_Prospector.png","fullLogoDark":"Logotipo%20Z_Prospector.png","iconLogo":"Logotipo%20Z_Prospector_Icon.png","iconLogoDark":"Logotipo%20Z_Prospector_Icon.png","favicon":"Logotipo%20Z_Prospector_Icon.png","salesPageLogo":"Logotipo%20Z_Prospector.png"}') ON DUPLICATE KEY UPDATE tenant_id=tenant_id;
+
+INSERT INTO `users` (`tenant_id`, `name`, `email`, `role`) VALUES (1, 'Operador Master', 'admin@zprospector.com.br', 'SUPER_ADMIN') ON DUPLICATE KEY UPDATE tenant_id=tenant_id;

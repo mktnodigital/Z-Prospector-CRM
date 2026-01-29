@@ -106,7 +106,7 @@ const App: React.FC = () => {
 
   const [currentUser, setCurrentUser] = useState({ 
     name: 'Operador Master', 
-    email: 'master@zprospector.com', 
+    email: 'admin@zprospector.com', 
     role: 'SUPER_ADMIN', 
     avatar: null 
   });
@@ -158,7 +158,12 @@ const App: React.FC = () => {
         
         const lRes = await fetch(`${API_URL}?action=get-leads`);
         if (lRes.ok) setLeads(await lRes.json());
-        else throw new Error('API Offline'); 
+        
+        const uRes = await fetch(`${API_URL}?action=get-user`);
+        if (uRes.ok) {
+            const userData = await uRes.json();
+            setCurrentUser(userData);
+        }
       } catch (e) {
         console.warn("Backend offline. Iniciando modo Demonstração.");
         setLeads([
@@ -425,7 +430,7 @@ const App: React.FC = () => {
                   <p className="text-[8px] font-black text-indigo-500 uppercase tracking-widest italic">{currentUser.role}</p>
                 </div>
                 <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center font-black shadow-lg transform group-hover:rotate-6 transition-all overflow-hidden border-2 border-white/20">
-                  {currentUser.avatar ? <img src={currentUser.avatar} className="w-full h-full object-cover" /> : 'OP'}
+                  {currentUser.avatar ? <img src={currentUser.avatar} className="w-full h-full object-cover" /> : currentUser.name.charAt(0)}
                 </div>
              </div>
            </div>

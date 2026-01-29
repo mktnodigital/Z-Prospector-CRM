@@ -43,6 +43,8 @@ interface WebhookInbound {
   hits: number;
 }
 
+const API_URL = '/api/core.php';
+
 // MAPEAMENTO DE TEMAS POR CANAL
 const SOURCE_THEMES: Record<ExtractionSource, { border: string, bg: string, ring: string, text: string, button: string, progress: string }> = {
   google_maps: { 
@@ -107,10 +109,7 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
   const [searchLocation, setSearchLocation] = useState('');
   const [extractionResults, setExtractionResults] = useState<ExtractedLead[]>([]);
   
-  const [webhooks, setWebhooks] = useState<WebhookInbound[]>([
-    { id: 'wh_1', name: 'Facebook Lead Ads (Master)', url: 'https://api.clikai.com.br/wh/fb-leads-01', event: 'Novo Lead Ads', status: 'ACTIVE', lastHit: 'Há 5 min', hits: 124 },
-    { id: 'wh_2', name: 'Formulário Site Institucional', url: 'https://api.clikai.com.br/wh/site-form-01', event: 'Contato Site', status: 'ACTIVE', lastHit: 'Há 1 hora', hits: 42 }
-  ]);
+  const [webhooks, setWebhooks] = useState<WebhookInbound[]>([]);
   const [isWebhookModalOpen, setIsWebhookModalOpen] = useState(false);
   const [editingWebhook, setEditingWebhook] = useState<WebhookInbound | null>(null);
 
@@ -118,6 +117,20 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
   const [editingLead, setEditingLead] = useState<ExtractedLead | null>(null);
 
   const currentTheme = SOURCE_THEMES[selectedSource];
+
+  // Fetch Webhooks
+  useEffect(() => {
+    const fetchWebhooks = async () => {
+      try {
+        const res = await fetch(`${API_URL}?action=get-webhooks`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) setWebhooks(data);
+        }
+      } catch (e) { console.error("Failed to load webhooks"); }
+    };
+    fetchWebhooks();
+  }, []);
 
   const sources = [
     { id: 'google_maps', label: 'Google Maps', icon: MapPin, color: 'bg-emerald-500', text: 'text-emerald-600', border: 'border-emerald-200', desc: 'Negócios Locais' },
@@ -239,17 +252,20 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
     }
   };
 
-  const handleSaveWebhook = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSaveWebhook = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const whName = formData.get('whName') as string;
     const whEvent = formData.get('whEvent') as string;
 
+    let whToSave: WebhookInbound;
+
     if (editingWebhook) {
-      setWebhooks(prev => prev.map(w => w.id === editingWebhook.id ? { ...w, name: whName, event: whEvent } : w));
+      whToSave = { ...editingWebhook, name: whName, event: whEvent };
+      setWebhooks(prev => prev.map(w => w.id === editingWebhook.id ? whToSave : w));
       notify('Webhook atualizado!');
     } else {
-      const newWh: WebhookInbound = {
+      whToSave = {
         id: `wh_${Date.now()}`,
         name: whName,
         url: `https://api.clikai.com.br/wh/${Math.random().toString(36).substr(2, 8)}`,
@@ -257,9 +273,17 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
         status: 'ACTIVE',
         hits: 0
       };
-      setWebhooks([...webhooks, newWh]);
+      setWebhooks([...webhooks, whToSave]);
       notify('Webhook de captação provisionado!');
     }
+
+    try {
+        await fetch(`${API_URL}?action=save-webhook`, {
+            method: 'POST',
+            body: JSON.stringify(whToSave)
+        });
+    } catch(e) { console.error(e); }
+
     setIsWebhookModalOpen(false);
     setEditingWebhook(null);
   };
@@ -274,9 +298,15 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
     setIsWebhookModalOpen(true);
   };
 
-  const handleDeleteWebhook = (id: string) => {
+  const handleDeleteWebhook = async (id: string) => {
     if (confirm('Deseja destruir este webhook?')) {
       setWebhooks(prev => prev.filter(w => w.id !== id));
+      try {
+        await fetch(`${API_URL}?action=delete-webhook`, {
+            method: 'POST',
+            body: JSON.stringify({ id })
+        });
+      } catch(e) { console.error(e); }
       notify('Webhook removido.');
     }
   };
@@ -660,7 +690,7 @@ export const CaptureManagement: React.FC<Props> = ({ onAddLead, notify }) => {
                       
                       <div className="mt-6 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center justify-between group/link">
                          <code className="text-[10px] font-mono text-slate-500 truncate mr-4">{wh.url}</code>
-                         <button onClick={() => copyToClipboard(wh.url)} className="p-2 bg-white dark:bg-slate-700 rounded-lg text-slate-400 hover:text-indigo-600 shadow-sm transition-all"><Copy size={12}/></button>
+                         <button onClick={() => copyToClipboard(wh.url)} className="p-2 bg-white dark:bg-slate-700 rounded-lg shadow-sm text-slate-400 hover:text-indigo-600 transition-colors"><Copy size={12}/></button>
                       </div>
                    </div>
 

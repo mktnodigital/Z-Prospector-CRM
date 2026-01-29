@@ -8,6 +8,8 @@ import {
   Fingerprint, Rocket, ShieldAlert, History, CreditCard as CardIcon
 } from 'lucide-react';
 
+const API_URL = '/api/core.php';
+
 interface UserProfileProps {
   user: { name: string; email: string; role: string; avatar?: string | null };
   onUpdate: (data: any) => void;
@@ -34,24 +36,41 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onLogo
       }
       
       const reader = new FileReader();
-      reader.onloadend = () => {
+      reader.onloadend = async () => {
         const base64String = reader.result as string;
-        onUpdate({ avatar: base64String });
-        notify('Avatar Master atualizado!');
+        
+        try {
+            await fetch(`${API_URL}?action=update-user`, {
+                method: 'POST',
+                body: JSON.stringify({ avatar: base64String })
+            });
+            onUpdate({ avatar: base64String });
+            notify('Avatar Master atualizado!');
+        } catch(e) {
+            notify('Erro ao salvar avatar.');
+        }
       };
       reader.onerror = () => notify('Erro ao ler o arquivo.');
       reader.readAsDataURL(file);
     }
   };
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setTimeout(() => {
-      onUpdate({ name, email });
-      setIsLoading(false);
-      notify('Perfil Master sincronizado!');
-    }, 1200);
+    
+    try {
+        await fetch(`${API_URL}?action=update-user`, {
+            method: 'POST',
+            body: JSON.stringify({ name, email })
+        });
+        onUpdate({ name, email });
+        notify('Perfil Master sincronizado!');
+    } catch (e) {
+        notify('Erro de conexão ao salvar perfil.');
+    } finally {
+        setIsLoading(false);
+    }
   };
 
   const activeCards = [

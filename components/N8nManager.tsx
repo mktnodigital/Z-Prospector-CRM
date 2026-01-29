@@ -13,18 +13,18 @@ interface N8nManagerProps {
   notify: (msg: string) => void;
 }
 
-// BLUEPRINTS REAIS PARA IMPORTAÇÃO NO N8N
+// BLUEPRINTS REAIS (API-ONLY ARCHITECTURE)
 const WORKFLOW_BLUEPRINTS = {
   wf_1: {
-    "name": "Sync Lead Ads to CRM",
+    "name": "Sync Lead Ads -> Z-Prospector API",
     "nodes": [
       {
         "parameters": {
-          "path": "meta-sync-01",
+          "path": "meta-lead-entry",
           "responseMode": "lastNode",
           "options": {}
         },
-        "name": "Webhook Inbound",
+        "name": "Webhook Inbound (Meta)",
         "type": "n8n-nodes-base.webhook",
         "typeVersion": 1,
         "position": [100, 300]
@@ -38,22 +38,48 @@ const WORKFLOW_BLUEPRINTS = {
             "parameters": [
               { "name": "name", "value": "={{$json.body.full_name}}" },
               { "name": "phone", "value": "={{$json.body.phone_number}}" },
-              { "name": "source", "value": "Meta Ads" }
+              { "name": "email", "value": "={{$json.body.email}}" },
+              { "name": "source", "value": "Meta Ads" },
+              { "name": "status", "value": "WARM" }
             ]
-          }
+          },
+          "options": {}
         },
-        "name": "Save to Z-Prospector",
+        "name": "API: Save Lead",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 3,
         "position": [300, 300]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.clikai.com.br/message/sendText/master_1",
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              { "name": "number", "value": "={{$json.body.phone_number}}" },
+              { "name": "text", "value": "Olá {{$json.body.full_name}}! Recebemos seu cadastro. Como podemos ajudar?" }
+            ]
+          },
+          "headerParameters": {
+            "parameters": [
+              { "name": "apikey", "value": "SUA_API_KEY_EVOLUTION" }
+            ]
+          }
+        },
+        "name": "API: Evolution WhatsApp",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 3,
+        "position": [500, 300]
       }
     ],
     "connections": {
-      "Webhook Inbound": { "main": [[{ "node": "Save to Z-Prospector", "type": "main", "index": 0 }]] }
+      "Webhook Inbound (Meta)": { "main": [[{ "node": "API: Save Lead", "type": "main", "index": 0 }]] },
+      "API: Save Lead": { "main": [[{ "node": "API: Evolution WhatsApp", "type": "main", "index": 0 }]] }
     }
   },
   wf_2: {
-    "name": "AI SDR - Qualification",
+    "name": "AI SDR - Qualification & API Update",
     "nodes": [
       {
         "parameters": { "path": "evolution-inbound", "httpMethod": "POST" },
@@ -64,15 +90,45 @@ const WORKFLOW_BLUEPRINTS = {
       {
         "parameters": {
           "modelId": "gemini-pro",
-          "prompt": "Analise a intenção do cliente: {{$json.body.data.message.conversation}}"
+          "prompt": "Analise a mensagem: '{{$json.body.data.message.conversation}}'. Classifique a intenção como 'COMPRA', 'DUVIDA' ou 'SUPORTE'. Retorne apenas a palavra."
         },
-        "name": "Google Gemini",
+        "name": "Google Gemini AI",
         "type": "n8n-nodes-base.googleGemini",
         "position": [300, 300]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "string": [
+              { "value1": "={{$json.text}}", "operation": "contains", "value2": "COMPRA" }
+            ]
+          }
+        },
+        "name": "IF: Intenção de Compra",
+        "type": "n8n-nodes-base.if",
+        "position": [500, 300]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://zprospector.com.br/api/core.php?action=update-lead-stage",
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              { "name": "id", "value": "LEAD_ID_VAR" },
+              { "name": "stage", "value": "HOT" }
+            ]
+          }
+        },
+        "name": "API: Update CRM (HOT)",
+        "type": "n8n-nodes-base.httpRequest",
+        "position": [700, 200]
       }
     ],
     "connections": {
-      "Evolution Webhook": { "main": [[{ "node": "Google Gemini", "type": "main", "index": 0 }]] }
+      "Evolution Webhook": { "main": [[{ "node": "Google Gemini AI", "type": "main", "index": 0 }]] },
+      "Google Gemini AI": { "main": [[{ "node": "IF: Intenção de Compra", "type": "main", "index": 0 }]] },
+      "IF: Intenção de Compra": { "main": [[{ "node": "API: Update CRM (HOT)", "type": "main", "index": 0 }]] }
     }
   }
 };
@@ -81,7 +137,7 @@ const INITIAL_WORKFLOWS: N8nWorkflow[] = [
   { 
     id: 'wf_1', 
     name: 'Sincronização Meta Ads -> CRM', 
-    webhookUrl: 'https://n8n.clikai.com.br/webhook/meta-sync-01', 
+    webhookUrl: 'https://n8n.clikai.com.br/webhook/meta-lead-entry', 
     event: 'LEAD_CREATED', 
     status: 'ACTIVE', 
     lastExecution: 'Há 2 min', 
@@ -90,7 +146,7 @@ const INITIAL_WORKFLOWS: N8nWorkflow[] = [
   { 
     id: 'wf_2', 
     name: 'Follow-up IA Pós-Venda', 
-    webhookUrl: 'https://n8n.clikai.com.br/webhook/followup-ia', 
+    webhookUrl: 'https://n8n.clikai.com.br/webhook/evolution-inbound', 
     event: 'STAGE_CHANGED', 
     status: 'PAUSED', 
     lastExecution: 'Há 1 dia', 
@@ -185,7 +241,7 @@ export const N8nManager: React.FC<N8nManagerProps> = ({ notify }) => {
     link.href = url;
     link.download = `n8n_workflow_${wf.id}_master.json`;
     link.click();
-    notify('Blueprint JSON baixado! Importe no seu n8n.');
+    notify('Blueprint JSON (API-Only) baixado! Importe no seu n8n.');
   };
 
   const handleTestConnection = () => {
@@ -210,7 +266,7 @@ export const N8nManager: React.FC<N8nManagerProps> = ({ notify }) => {
                  <Cpu size={12}/>
                  <span className="text-[8px] font-black uppercase tracking-widest">Cluster clikai.com.br</span>
               </div>
-              <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px] italic">Workflow Orchestration v4.0</p>
+              <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px] italic">Workflow Orchestration v4.0 (API Mode)</p>
            </div>
         </div>
 

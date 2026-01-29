@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Zap, Key, Webhook, Smartphone, CreditCard, CheckCircle2, AlertCircle, ExternalLink, ShieldCheck, Power, Trash2, Edit3, Plus, Loader2, Download, X, QrCode, Globe,
   Shield, Landmark, Wallet, Layers, Cpu, Code2, Bitcoin, Lock, ShoppingCart, DollarSign, RefreshCcw
@@ -14,6 +14,8 @@ interface GatewayConfig {
   keys: Record<string, string>;
   lastSync?: string;
 }
+
+const API_URL = '/api/core.php';
 
 // Fix: Moved Flame component definition before PROVIDER_METADATA to fix "used before declaration" error.
 const Flame = ({ size, className }: { size: number, className?: string }) => (
@@ -32,24 +34,8 @@ const PROVIDER_METADATA = {
 };
 
 export const IntegrationSettings: React.FC = () => {
-  const [gateways, setGateways] = useState<GatewayConfig[]>([
-    { 
-      id: 'gw_1', 
-      provider: 'mercadopago', 
-      name: 'Mercado Pago Principal', 
-      status: 'CONNECTED', 
-      keys: { 'Public Key': 'APP_USR-XXX', 'Access Token': 'APP_USR-YYY' },
-      lastSync: 'Há 5 min'
-    },
-    { 
-      id: 'gw_2', 
-      provider: 'pix', 
-      name: 'Pix CNPJ Unidade', 
-      status: 'CONNECTED', 
-      keys: { 'Chave Pix': '00.000.000/0001-00', 'Beneficiário': 'Empresa SaaS LTDA' },
-      lastSync: 'Há 12 min'
-    }
-  ]);
+  const [gateways, setGateways] = useState<GatewayConfig[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingGateway, setEditingGateway] = useState<GatewayConfig | null>(null);
@@ -59,6 +45,24 @@ export const IntegrationSettings: React.FC = () => {
   // Form states
   const [formName, setFormName] = useState('');
   const [formKeys, setFormKeys] = useState<Record<string, string>>({});
+
+  // Fetch Integrations on Load
+  useEffect(() => {
+    const fetchIntegrations = async () => {
+      try {
+        const res = await fetch(`${API_URL}?action=get-integrations`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) setGateways(data);
+        }
+      } catch (e) {
+        console.error("Erro ao carregar integrações", e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchIntegrations();
+  }, []);
 
   const handleOpenAdd = () => {
     setEditingGateway(null);
@@ -76,37 +80,63 @@ export const IntegrationSettings: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsProcessing(true);
     
-    setTimeout(() => {
-      if (editingGateway) {
-        setGateways(prev => prev.map(g => g.id === editingGateway.id ? { ...g, name: formName, keys: formKeys, provider: selectedProvider } : g));
-      } else {
-        const newGw: GatewayConfig = {
-          id: `gw_${Date.now()}`,
-          provider: selectedProvider,
-          name: formName || PROVIDER_METADATA[selectedProvider].label,
-          status: 'CONNECTED',
-          keys: formKeys,
-          lastSync: 'Agora'
-        };
-        setGateways([...gateways, newGw]);
-      }
-      setIsProcessing(false);
-      setIsModalOpen(false);
-    }, 1000);
+    let gwToSave: GatewayConfig;
+
+    if (editingGateway) {
+      gwToSave = { ...editingGateway, name: formName, keys: formKeys, provider: selectedProvider };
+      setGateways(prev => prev.map(g => g.id === editingGateway.id ? gwToSave : g));
+    } else {
+      gwToSave = {
+        id: `gw_${Date.now()}`,
+        provider: selectedProvider,
+        name: formName || PROVIDER_METADATA[selectedProvider].label,
+        status: 'CONNECTED',
+        keys: formKeys,
+        lastSync: 'Agora'
+      };
+      setGateways([...gateways, gwToSave]);
+    }
+
+    try {
+        await fetch(`${API_URL}?action=save-integration`, {
+            method: 'POST',
+            body: JSON.stringify(gwToSave)
+        });
+    } catch(e) { console.error(e); }
+
+    setIsProcessing(false);
+    setIsModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Remover este gateway da infraestrutura de pagamentos?')) {
       setGateways(prev => prev.filter(g => g.id !== id));
+      try {
+        await fetch(`${API_URL}?action=delete-integration`, {
+            method: 'POST',
+            body: JSON.stringify({ id })
+        });
+      } catch(e) { console.error(e); }
     }
   };
 
   const handleToggleStatus = (id: string) => {
-    setGateways(prev => prev.map(g => g.id === id ? { ...g, status: g.status === 'CONNECTED' ? 'DISCONNECTED' : 'CONNECTED' } : g));
+    const gw = gateways.find(g => g.id === id);
+    if (!gw) return;
+    
+    const newStatus = gw.status === 'CONNECTED' ? 'DISCONNECTED' : 'CONNECTED';
+    const updatedGw = { ...gw, status: newStatus as any };
+    
+    setGateways(prev => prev.map(g => g.id === id ? updatedGw : g));
+    
+    fetch(`${API_URL}?action=save-integration`, {
+        method: 'POST',
+        body: JSON.stringify(updatedGw)
+    });
   };
 
   const getColorClass = (color: string) => {
@@ -139,7 +169,12 @@ export const IntegrationSettings: React.FC = () => {
         </button>
       </div>
 
+      {isLoading && (
+         <div className="py-20 flex justify-center text-indigo-600"><Loader2 className="animate-spin" size={32} /></div>
+      )}
+
       {/* GRID DE GATEWAYS */}
+      {!isLoading && (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {gateways.map((gw) => {
           const meta = PROVIDER_METADATA[gw.provider];
@@ -206,6 +241,7 @@ export const IntegrationSettings: React.FC = () => {
           </div>
         )}
       </div>
+      )}
 
       {/* MODAL DE CONFIGURAÇÃO */}
       {isModalOpen && (
