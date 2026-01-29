@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { 
   CreditCard, Wallet, Landmark, QrCode, ArrowUpRight, CheckCircle2, 
   RefreshCcw, DollarSign, Download, Send, X, AlertCircle, History,
-  TrendingUp, Search, ShieldCheck
+  TrendingUp, Search, ShieldCheck, Banknote, ArrowDownCircle, Check
 } from 'lucide-react';
 
 interface Props {
@@ -22,6 +22,7 @@ interface Transaction {
   value: number;
   status: TransactionStatus;
   date: string;
+  isWithdraw?: boolean;
 }
 
 export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume }) => {
@@ -54,10 +55,7 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume })
     
     setTimeout(() => {
       try {
-        // Cabeçalhos do Relatório
         const headers = ['ID Transação', 'Unidade Origem', 'Tipo', 'Valor (R$)', 'Status', 'Data/Hora'];
-        
-        // Mapeamento das linhas baseado nos dados filtrados (Multi-tenant Isolation)
         const rows = filteredTransactions.map(t => [
           t.id,
           t.client,
@@ -67,48 +65,65 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume })
           t.date
         ]);
 
-        // Construção do conteúdo CSV
         const csvContent = [
           headers.join(';'),
           ...rows.map(row => row.join(';'))
         ].join('\n');
 
-        // Geração do Blob para Download
-        const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        
         const timestamp = new Date().toISOString().split('T')[0];
         link.setAttribute('href', url);
         link.setAttribute('download', `relatorio_financeiro_clikai_${filter.toLowerCase()}_${timestamp}.csv`);
         link.style.visibility = 'hidden';
-        
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
         setIsExporting(false);
       } catch (error) {
         console.error("Erro na exportação:", error);
         alert("Ocorreu um erro ao gerar o arquivo. Tente novamente.");
         setIsExporting(false);
       }
-    }, 1500); // Simula processamento de rede
+    }, 1500);
   };
 
   const handleWithdrawSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsProcessing(true);
     setTimeout(() => {
+      const newWithdrawal: Transaction = {
+        id: `WD-${Math.floor(Math.random() * 9000) + 1000}`,
+        client: 'Solicitação de Saque',
+        type: 'Transferência PIX',
+        typeId: 'PIX',
+        value: parseFloat(withdrawAmount),
+        status: 'PENDING',
+        date: 'Agora',
+        isWithdraw: true
+      };
+      
+      setTransactions(prev => [newWithdrawal, ...prev]);
       setIsProcessing(false);
       setShowSuccess(true);
+      
       setTimeout(() => {
         setIsWithdrawModalOpen(false);
         setShowSuccess(false);
         setWithdrawAmount('');
         setPixKey('');
-      }, 3000);
+      }, 4000);
     }, 2000);
+  };
+
+  const handleReleasePayment = (id: string) => {
+    if (!confirm('Deseja autorizar a liberação deste pagamento agora?')) return;
+    
+    setTransactions(prev => prev.map(t => 
+      t.id === id ? { ...t, status: 'PAID', date: 'Liberado Agora' } : t
+    ));
+    alert('Pagamento liberado com sucesso no cluster financeiro!');
   };
 
   const loadMoreHistory = () => {
@@ -130,7 +145,7 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume })
       
       {/* Modal de Saque */}
       {isWithdrawModalOpen && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-md animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[3.5rem] shadow-2xl border border-slate-200 dark:border-slate-800 p-12 relative">
             <button onClick={() => setIsWithdrawModalOpen(false)} className="absolute top-10 right-10 p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl text-slate-400 hover:text-rose-500 transition-all">
               <X size={24} />
@@ -138,11 +153,14 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume })
 
             {showSuccess ? (
               <div className="text-center py-10 space-y-6 animate-in zoom-in-95">
-                <div className="w-24 h-24 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-xl">
-                  <CheckCircle2 size={48} />
+                <div className="w-24 h-24 bg-orange-100 dark:bg-orange-900/30 text-orange-600 rounded-full flex items-center justify-center mx-auto shadow-xl">
+                  <ShieldCheck size={48} />
                 </div>
-                <h3 className="text-3xl font-black italic tracking-tight uppercase">Saque Solicitado!</h3>
-                <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">O valor será creditado na sua chave PIX em até 2 horas.</p>
+                <h3 className="text-3xl font-black italic tracking-tight uppercase">Saque Pendente!</h3>
+                <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] leading-relaxed">Sua solicitação foi enviada para a fila de <br/> <span className="text-indigo-600 font-black">Auditoria do Administrador Master</span>.</p>
+                <div className="pt-4">
+                   <span className="text-[9px] font-black uppercase text-slate-300 bg-slate-100 dark:bg-slate-800 px-6 py-2 rounded-full">Protocolo: {Math.random().toString(36).substr(2, 9).toUpperCase()}</span>
+                </div>
               </div>
             ) : (
               <form onSubmit={handleWithdrawSubmit} className="space-y-8">
@@ -151,29 +169,29 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume })
                     <TrendingUp size={32} />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-black italic uppercase tracking-tight">Solicitar Saque</h3>
+                    <h3 className="text-2xl font-black italic uppercase tracking-tight text-slate-800 dark:text-slate-100">Solicitar Saque</h3>
                     <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Disponível: R$ {(totalVolume * 0.95).toLocaleString('pt-BR')}</p>
                   </div>
                 </div>
 
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-400 px-2">Valor do Saque (R$)</label>
+                    <label className="text-[10px] font-black uppercase text-slate-400 px-2 tracking-widest">Valor do Saque (R$)</label>
                     <input 
                       required 
                       type="number"
                       placeholder="0,00" 
-                      className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl outline-none focus:ring-4 ring-indigo-500/20 font-black text-2xl tracking-tighter"
+                      className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl outline-none focus:ring-4 ring-indigo-500/20 font-black text-2xl tracking-tighter dark:text-white"
                       value={withdrawAmount}
                       onChange={e => setWithdrawAmount(e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-400 px-2">Chave PIX (CPF/CNPJ/Email)</label>
+                    <label className="text-[10px] font-black uppercase text-slate-400 px-2 tracking-widest">Chave PIX (CPF/CNPJ/Email)</label>
                     <input 
                       required 
                       placeholder="Sua chave pix aqui" 
-                      className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl outline-none focus:ring-4 ring-indigo-500/20 font-bold"
+                      className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl outline-none focus:ring-4 ring-indigo-500/20 font-bold dark:text-white"
                       value={pixKey}
                       onChange={e => setPixKey(e.target.value)}
                     />
@@ -183,7 +201,7 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume })
                 <div className="p-6 bg-amber-50 dark:bg-amber-900/20 rounded-3xl border border-amber-100 dark:border-amber-800/50 flex gap-4">
                    <AlertCircle className="text-amber-600 flex-shrink-0" size={20} />
                    <p className="text-[10px] text-amber-700 dark:text-amber-400 font-bold leading-relaxed uppercase tracking-widest">
-                     As taxas de transferência (R$ 4,50) serão descontadas do valor líquido final solicitado.
+                     O saque será liberado após conferência manual do Administrador Master para garantir a segurança da operação.
                    </p>
                 </div>
 
@@ -192,8 +210,8 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume })
                   type="submit" 
                   className="w-full py-6 bg-indigo-600 text-white font-black rounded-[2rem] shadow-2xl hover:bg-indigo-700 transition-all uppercase text-xs tracking-[0.2em] disabled:opacity-50 flex items-center justify-center gap-3"
                 >
-                  {isProcessing ? <RefreshCcw size={20} className="animate-spin" /> : <Send size={20} />}
-                  {isProcessing ? 'Processando...' : 'Confirmar Saque Agora'}
+                  {isProcessing ? <RefreshCcw size={20} className="animate-spin" /> : <Banknote size={20} />}
+                  {isProcessing ? 'Enviando Protocolo...' : 'Solicitar Aprovação Master'}
                 </button>
               </form>
             )}
@@ -207,7 +225,7 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume })
           <h1 className="text-3xl font-black tracking-tight uppercase italic flex items-center gap-4">
             <Landmark className="text-indigo-600" /> Fluxo Financeiro SaaS
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 font-bold tracking-[0.1em] uppercase text-xs mt-1">Isolamento multi-tenant de transações e recebíveis</p>
+          <p className="text-slate-500 dark:text-slate-400 font-bold tracking-[0.1em] uppercase text-xs mt-1">Gestão de Auditoria Master & Conciliação</p>
         </div>
         <div className="flex gap-3">
           <button 
@@ -216,13 +234,13 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume })
             className="flex items-center gap-3 px-8 py-4 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-3xl font-black text-xs uppercase tracking-widest hover:border-indigo-600 transition-all shadow-sm disabled:opacity-60"
           >
             {isExporting ? <RefreshCcw size={16} className="animate-spin text-indigo-600" /> : <Download size={16} className="text-indigo-600" />}
-            {isExporting ? 'Processando CSV...' : 'Exportar Dados'}
+            {isExporting ? 'Relatório...' : 'Exportar CSV'}
           </button>
           <button 
             onClick={() => setIsWithdrawModalOpen(true)}
             className="px-8 py-4 bg-indigo-600 text-white font-black rounded-3xl shadow-xl hover:bg-indigo-700 transition-all text-xs uppercase tracking-widest transform hover:scale-105 active:scale-95 flex items-center justify-center gap-3"
           >
-            <DollarSign size={18} /> Solicitar Saque
+            <Banknote size={18} /> Solicitar Saque
           </button>
         </div>
       </div>
@@ -236,17 +254,17 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume })
               <stat.icon size={28} />
             </div>
             <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-2 relative z-10">{stat.label}</p>
-            <h3 className="text-3xl font-black tracking-tighter italic relative z-10">{stat.value}</h3>
+            <h3 className="text-3xl font-black tracking-tighter italic relative z-10 dark:text-white">{stat.value}</h3>
           </div>
         ))}
       </div>
 
-      {/* Tabela de Transações com Filtros Funcionais */}
+      {/* Tabela de Transações com Auditoria Master */}
       <div className="bg-white dark:bg-slate-900 rounded-[3.5rem] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
         <div className="p-10 border-b border-slate-100 dark:border-slate-800 flex flex-col lg:flex-row justify-between lg:items-center bg-slate-50/30 dark:bg-slate-800/20 gap-6">
           <div>
-            <h3 className="text-xl font-black tracking-tight italic uppercase">Relatório de Conciliação Automática</h3>
-            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Sincronizado com gateways Evolution & Stripe</p>
+            <h3 className="text-xl font-black tracking-tight italic uppercase text-slate-800 dark:text-slate-100">Auditoria Financeira Master</h3>
+            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Conferência de saques e liquidação manual de transações</p>
           </div>
           <div className="flex gap-3">
              <div className="flex bg-slate-200/50 dark:bg-slate-800 p-1.5 rounded-2xl shadow-inner">
@@ -276,19 +294,19 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume })
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="bg-slate-50/50 dark:bg-slate-800/30 text-[10px] font-black text-slate-500 uppercase tracking-[0.15em] border-b border-slate-100 dark:border-slate-800">
-                <th className="px-12 py-8">ID / Unidade Origem</th>
-                <th className="px-12 py-8 text-right">Valor Líquido</th>
-                <th className="px-12 py-8 text-center">Status Processamento</th>
-                <th className="px-12 py-8 text-right">Data/Hora</th>
+                <th className="px-12 py-8">ID / Fluxo de Caixa</th>
+                <th className="px-12 py-8 text-right">Valor Operação</th>
+                <th className="px-12 py-8 text-center">Status de Auditoria</th>
+                <th className="px-12 py-8 text-right">Ações Master</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredTransactions.map(t => (
-                <tr key={t.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-all group animate-in slide-in-from-bottom-2">
+                <tr key={t.id} className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-all group animate-in slide-in-from-bottom-2 ${t.isWithdraw ? 'bg-indigo-50/20 dark:bg-indigo-900/5' : ''}`}>
                   <td className="px-12 py-10">
                     <div className="flex items-center gap-4">
-                      <div className={`p-3 rounded-xl ${t.typeId === 'PIX' ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'} shadow-sm`}>
-                        {t.typeId === 'PIX' ? <QrCode size={18}/> : <CreditCard size={18}/>}
+                      <div className={`p-3 rounded-xl ${t.isWithdraw ? 'bg-rose-50 text-rose-600' : t.typeId === 'PIX' ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'} shadow-sm`}>
+                        {t.isWithdraw ? <ArrowDownCircle size={18}/> : t.typeId === 'PIX' ? <QrCode size={18}/> : <CreditCard size={18}/>}
                       </div>
                       <div>
                         <p className="font-black text-slate-900 dark:text-white tracking-tight uppercase italic">{t.client}</p>
@@ -298,8 +316,8 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume })
                       </div>
                     </div>
                   </td>
-                  <td className="px-12 py-10 text-right font-black text-slate-900 dark:text-white text-xl tracking-tighter">
-                    R$ {t.value.toLocaleString('pt-BR')}
+                  <td className={`px-12 py-10 text-right font-black text-xl tracking-tighter ${t.isWithdraw ? 'text-rose-500' : 'text-slate-900 dark:text-white'}`}>
+                    {t.isWithdraw ? '-' : '+'} R$ {t.value.toLocaleString('pt-BR')}
                   </td>
                   <td className="px-12 py-10">
                     <div className="flex items-center justify-center">
@@ -309,11 +327,22 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume })
                         'text-rose-500 bg-rose-50/50 border-rose-100 dark:bg-rose-900/10 dark:border-rose-800/50'
                       }`}>
                         {t.status === 'PAID' ? <CheckCircle2 size={12} /> : t.status === 'PENDING' ? <RefreshCcw size={12} className="animate-spin" /> : <AlertCircle size={12} />}
-                        {t.status === 'PAID' ? 'Liquidado' : t.status === 'PENDING' ? 'Aguardando Banco' : 'Falha no Pgto'}
+                        {t.status === 'PAID' ? 'Liquidado' : t.status === 'PENDING' ? 'Aguardando Master' : 'Falha no Pgto'}
                       </div>
                     </div>
                   </td>
-                  <td className="px-12 py-10 text-right text-slate-400 font-bold text-xs tabular-nums">{t.date}</td>
+                  <td className="px-12 py-10 text-right">
+                    {t.status === 'PENDING' ? (
+                       <button 
+                         onClick={() => handleReleasePayment(t.id)}
+                         className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg flex items-center gap-2 ml-auto"
+                       >
+                         <Check size={14} /> Liberar Pagamento
+                       </button>
+                    ) : (
+                       <span className="text-slate-400 font-bold text-xs tabular-nums italic">{t.date}</span>
+                    )}
+                  </td>
                 </tr>
               ))}
               {filteredTransactions.length === 0 && (
@@ -321,7 +350,7 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume })
                   <td colSpan={4} className="py-20 text-center">
                      <div className="flex flex-col items-center gap-4 text-slate-300">
                         <History size={48} opacity={0.3} />
-                        <p className="text-[10px] font-black uppercase tracking-widest">Nenhuma transação encontrada neste filtro</p>
+                        <p className="text-[10px] font-black uppercase tracking-widest">Nenhuma transação financeira detectada</p>
                      </div>
                   </td>
                 </tr>
@@ -335,37 +364,37 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume })
              onClick={loadMoreHistory}
              className="flex items-center gap-3 text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:bg-indigo-50 dark:hover:bg-indigo-900/20 px-8 py-4 rounded-2xl transition-all border border-transparent hover:border-indigo-100"
            >
-              <History size={16} /> Ver Histórico Completo de Transações
+              <History size={16} /> Ver Histórico Completo da Operação
            </button>
         </div>
       </div>
 
-      {/* Footer / Resumo Adicional */}
+      {/* Resumo Rodapé */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pb-10">
          <div className="bg-white dark:bg-slate-900 p-10 rounded-[3rem] border border-slate-200 dark:border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-6">
                <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center"><Landmark size={28}/></div>
                <div>
-                  <h4 className="font-black text-lg italic tracking-tight uppercase">Conta Principal Connect</h4>
-                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Sincronizado com Banco SaaS Cloud</p>
+                  <h4 className="font-black text-lg italic tracking-tight uppercase dark:text-white">Custódia do Cluster</h4>
+                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Monitoramento HostGator Finance</p>
                </div>
             </div>
             <div className="text-right">
-               <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Último Saque</p>
-               <p className="font-black text-slate-900 dark:text-white">R$ 1.250,00</p>
+               <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Última Auditoria</p>
+               <p className="font-black text-emerald-500 uppercase text-[10px]">Realizada Hoje</p>
             </div>
          </div>
          <div className="bg-white dark:bg-slate-900 p-10 rounded-[3rem] border border-slate-200 dark:border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-6">
-               <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center"><ShieldCheck size={28}/></div>
+               <div className="w-14 h-14 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center"><ShieldCheck size={28}/></div>
                <div>
-                  <h4 className="font-black text-lg italic tracking-tight uppercase">Gateway de Segurança</h4>
-                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Proteção Antifraude Ativa</p>
+                  <h4 className="font-black text-lg italic tracking-tight uppercase dark:text-white">Antifraude Ativo</h4>
+                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Protocolo TLS 1.3 Seguro</p>
                </div>
             </div>
             <div className="text-right">
-               <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Status</p>
-               <p className="font-black text-emerald-500 uppercase text-xs tracking-widest">Verificado</p>
+               <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Score Segurança</p>
+               <p className="font-black text-indigo-600 uppercase text-xs">A+ Excelência</p>
             </div>
          </div>
       </div>

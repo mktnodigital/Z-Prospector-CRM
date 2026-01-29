@@ -52,7 +52,9 @@ export const ScheduleManager: React.FC<Props> = ({ appointments, onAddAppointmen
   const handlePrevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
   const handleNextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
 
-  const handleOpenAddModal = () => {
+  // Função centralizada para abrir o modal de adição
+  const handleOpenAddModal = (day?: number) => {
+    if (day !== undefined) setSelectedDay(day);
     setEditingAppointment(null);
     setFormName('');
     setFormTime('');
@@ -137,7 +139,7 @@ export const ScheduleManager: React.FC<Props> = ({ appointments, onAddAppointmen
   return (
     <div className="p-10 space-y-10 animate-in fade-in relative pb-40">
       
-      {/* MODAL HÍBRIDO */}
+      {/* MODAL HÍBRIDO - SINCRONIZAÇÃO DE VENDA MASTER */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[3.5rem] shadow-2xl p-12 relative border border-white/10 overflow-hidden">
@@ -146,14 +148,14 @@ export const ScheduleManager: React.FC<Props> = ({ appointments, onAddAppointmen
              <div className="flex items-center gap-5 mb-10">
                 <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl shadow-inner"><CalendarIcon size={28}/></div>
                 <div>
-                   <h3 className="text-2xl font-black italic uppercase tracking-tight">{editingAppointment ? 'Refinar Horário' : `Agendar: Dia ${selectedDay}`}</h3>
-                   <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Sincronização de Venda Master</p>
+                   <h3 className="text-2xl font-black italic uppercase tracking-tight text-slate-800 dark:text-slate-100">Sincronização de Venda Master</h3>
+                   <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{editingAppointment ? 'Refinar Horário' : `Agendar: Dia ${selectedDay}`}</p>
                 </div>
              </div>
              <form onSubmit={handleSaveAppointment} className="space-y-6">
                 <div className="space-y-1">
                    <label className="text-[9px] font-black uppercase text-slate-400 px-4">Identificação do Cliente</label>
-                   <input required value={formName} onChange={e => setFormName(e.target.value)} placeholder="Ex: Rodrigo Matos" className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold border-none outline-none focus:ring-4 ring-indigo-500/10" />
+                   <input required value={formName} onChange={e => setFormName(e.target.value)} placeholder="Ex: Rodrigo Matos" className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold border-none outline-none focus:ring-4 ring-indigo-500/10 dark:text-white" />
                 </div>
                 
                 <div className="space-y-1">
@@ -164,7 +166,7 @@ export const ScheduleManager: React.FC<Props> = ({ appointments, onAddAppointmen
                           key={srv.id}
                           type="button"
                           onClick={() => setFormServiceId(srv.id)}
-                          className={`flex items-center justify-between px-6 py-4 rounded-2xl border-2 transition-all ${formServiceId === srv.id ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20' : 'border-slate-50 dark:border-slate-800'}`}
+                          className={`flex items-center justify-between px-6 py-4 rounded-2xl border-2 transition-all ${formServiceId === srv.id ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600' : 'border-slate-50 dark:border-slate-800 text-slate-500'}`}
                         >
                            <div className="flex items-center gap-3">
                               <ShoppingCart size={14} className={formServiceId === srv.id ? 'text-indigo-600' : 'text-slate-400'} />
@@ -178,7 +180,7 @@ export const ScheduleManager: React.FC<Props> = ({ appointments, onAddAppointmen
 
                 <div className="space-y-1">
                    <label className="text-[9px] font-black uppercase text-slate-400 px-4">Horário</label>
-                   <input required type="time" value={formTime} onChange={e => setFormTime(e.target.value)} className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold border-none outline-none focus:ring-4 ring-indigo-500/10" />
+                   <input required type="time" value={formTime} onChange={e => setFormTime(e.target.value)} className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold border-none outline-none focus:ring-4 ring-indigo-500/10 dark:text-white" />
                 </div>
 
                 <button type="submit" className="w-full py-7 bg-indigo-600 text-white font-black rounded-[2.5rem] shadow-2xl hover:bg-indigo-700 transition-all uppercase text-xs tracking-widest">Sincronizar Agendamento</button>
@@ -245,7 +247,7 @@ export const ScheduleManager: React.FC<Props> = ({ appointments, onAddAppointmen
                     return (
                       <div 
                         key={day} 
-                        onClick={() => setSelectedDay(day)}
+                        onClick={() => handleOpenAddModal(day)}
                         onMouseEnter={() => hasEvents && setHoveredDay(day)}
                         onMouseLeave={() => setHoveredDay(null)}
                         className={`aspect-square flex flex-col items-center justify-center rounded-[2.2rem] border-2 transition-all cursor-pointer relative group/cell ${
@@ -261,6 +263,11 @@ export const ScheduleManager: React.FC<Props> = ({ appointments, onAddAppointmen
                               <div className="w-2.5 h-2.5 rounded-full bg-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.6)] animate-pulse"></div>
                            </div>
                          )}
+
+                         {/* Botão de adição visual rápido no hover */}
+                         <div className="absolute top-2 left-2 opacity-0 group-hover/cell:opacity-100 transition-opacity">
+                            <Plus size={14} className={isSelected ? "text-white" : "text-indigo-500"} />
+                         </div>
 
                          {hoveredDay === day && !isSelected && (
                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-6 w-72 bg-slate-950/95 backdrop-blur-2xl p-8 rounded-[3rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.6)] z-[100] border border-white/10 animate-in slide-in-from-bottom-2 duration-300">
@@ -367,10 +374,10 @@ export const ScheduleManager: React.FC<Props> = ({ appointments, onAddAppointmen
            <div className="bg-white dark:bg-slate-900 p-10 rounded-[3.5rem] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col min-h-[400px]">
               <div className="flex items-center justify-between mb-10">
                  <div>
-                    <h3 className="text-xl font-black italic uppercase tracking-tight">Timeline: Dia {selectedDay}</h3>
+                    <h3 className="text-xl font-black italic uppercase tracking-tight text-slate-800 dark:text-slate-100">Timeline: Dia {selectedDay}</h3>
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic">{dailyAppointments.length} Compromissos</p>
                  </div>
-                 <button onClick={handleOpenAddModal} className="p-4 bg-slate-50 dark:bg-slate-800 text-slate-400 rounded-[1.5rem] hover:text-indigo-600 hover:scale-110 transition-all shadow-sm"><Plus size={22} /></button>
+                 <button onClick={() => handleOpenAddModal()} className="p-4 bg-slate-50 dark:bg-slate-800 text-slate-400 rounded-[1.5rem] hover:text-indigo-600 hover:scale-110 transition-all shadow-sm"><Plus size={22} /></button>
               </div>
 
               <div className="flex-1 space-y-6 overflow-y-auto no-scrollbar max-h-[500px]">

@@ -106,9 +106,40 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
   };
 
   const plans = [
-    { id: 'start', name: 'INICIAÇÃO', tagline: 'Para quem está montando a rotina.', monthlyPrice: 97, annualTotal: 931, features: ['Pipeline Visual de Conversão', 'Central de Conversas Unificada', 'Até 1.000 Oportunidades/mês'], cta: 'ATIVAR OPERAÇÃO', color: 'indigo', lightColor: 'bg-indigo-50 text-indigo-600' },
-    { id: 'growth', name: 'TRAÇÃO', tagline: 'Para quem quer ritmo constante.', monthlyPrice: 197, annualTotal: 1891, features: ['Cadências Automáticas de Resposta', 'Co-piloto de Vendas (IA)', 'Recuperação de Agenda'], cta: 'ACELERAR RITMO', popular: true, color: 'violet', lightColor: 'bg-violet-50 text-violet-600' },
-    { id: 'scale', name: 'DOMÍNIO', tagline: 'Para operações de alto volume.', monthlyPrice: 397, annualTotal: 3811, features: ['Visão Multi-operação', 'Inteligência de Dados Master', 'Motor de Escala Total'], cta: 'ESCALAR AGORA', color: 'slate', lightColor: 'bg-slate-100 text-slate-600' }
+    { 
+      id: 'start', 
+      name: 'Essencial', 
+      tagline: 'Para quem está montando a rotina.', 
+      monthlyPrice: 34, 
+      annualTotal: 326, // 34 * 12 * 0.8 = ~326
+      features: ['Pipeline Visual de Conversão', 'Central de Conversas Unificada', 'Até 1.000 Oportunidades/mês'], 
+      cta: 'ATIVAR OPERAÇÃO', 
+      color: 'indigo', 
+      lightColor: 'bg-indigo-50 text-indigo-600' 
+    },
+    { 
+      id: 'growth', 
+      name: 'Avançado', 
+      tagline: 'Para quem quer ritmo constante.', 
+      monthlyPrice: 134, 
+      annualTotal: 1286, // 134 * 12 * 0.8 = ~1286
+      features: ['Cadências Automáticas de Resposta', 'Co-piloto de Vendas (IA)', 'Recuperação de Agenda'], 
+      cta: 'ACELERAR RITMO', 
+      popular: true, 
+      color: 'violet', 
+      lightColor: 'bg-violet-50 text-violet-600' 
+    },
+    { 
+      id: 'scale', 
+      name: 'Elite', 
+      tagline: 'Para operações de alto volume.', 
+      monthlyPrice: 297, 
+      annualTotal: 2851, // 297 * 12 * 0.8 = ~2851
+      features: ['Visão Multi-operação', 'Inteligência de Dados Master', 'Motor de Escala Total'], 
+      cta: 'ESCALAR AGORA', 
+      color: 'slate', 
+      lightColor: 'bg-slate-100 text-slate-600' 
+    }
   ];
 
   const scrollToSection = (id: string) => {
