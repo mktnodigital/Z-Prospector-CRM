@@ -1,3 +1,4 @@
+
 -- Tabela de Branding (Configurações Visuais Master)
 CREATE TABLE IF NOT EXISTS `branding` (
   `tenant_id` int(11) NOT NULL,
@@ -20,6 +21,56 @@ CREATE TABLE IF NOT EXISTS `leads` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `idx_tenant` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Tabela de Transações Financeiras
+CREATE TABLE IF NOT EXISTS `transactions` (
+  `id` varchar(50) NOT NULL,
+  `tenant_id` int(11) NOT NULL,
+  `client` varchar(255) NOT NULL,
+  `type` varchar(100) NOT NULL,
+  `type_id` enum('PIX','CREDIT_CARD') NOT NULL,
+  `value` decimal(10,2) NOT NULL,
+  `status` enum('PAID','PENDING','FAILED') DEFAULT 'PENDING',
+  `is_withdraw` tinyint(1) DEFAULT 0,
+  `created_at` datetime DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_trans_tenant` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Tabela de Agendamentos (NOVO)
+CREATE TABLE IF NOT EXISTS `appointments` (
+  `id` varchar(50) NOT NULL,
+  `tenant_id` int(11) NOT NULL,
+  `lead_name` varchar(255) NOT NULL,
+  `time` varchar(10) NOT NULL,
+  `date` int(11) NOT NULL,
+  `month` int(11) NOT NULL,
+  `year` int(11) NOT NULL,
+  `service` varchar(255) NOT NULL,
+  `service_id` varchar(50) DEFAULT NULL,
+  `value` decimal(10,2) DEFAULT 0.00,
+  `status` varchar(20) DEFAULT 'CONFIRMED',
+  `ia_scheduled` tinyint(1) DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_appt_tenant` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Tabela de Produtos (NOVO)
+CREATE TABLE IF NOT EXISTS `products` (
+  `id` varchar(50) NOT NULL,
+  `tenant_id` int(11) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `price` decimal(10,2) NOT NULL,
+  `category` varchar(50) NOT NULL,
+  `description` text,
+  `image_url` longtext,
+  `views` int(11) DEFAULT 0,
+  `sales` int(11) DEFAULT 0,
+  `active` tinyint(1) DEFAULT 1,
+  PRIMARY KEY (`id`),
+  KEY `idx_prod_tenant` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Inserir Branding Padrão (Tenant ID 0 ou 1)

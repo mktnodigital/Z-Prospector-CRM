@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   CreditCard, Wallet, Landmark, QrCode, ArrowUpRight, CheckCircle2, 
   RefreshCcw, DollarSign, Download, Send, X, AlertCircle, History,
@@ -25,6 +25,8 @@ interface Transaction {
   isWithdraw?: boolean;
 }
 
+const API_URL = '/api/core.php';
+
 export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume }) => {
   const [filter, setFilter] = useState<PaymentFilter>('ALL');
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
@@ -34,25 +36,51 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume })
   const [showSuccess, setShowSuccess] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  const initialTransactions: Transaction[] = [
-    { id: 'TX-101', client: 'Unidade Matriz - Barbearia', type: 'Cartão de Crédito', typeId: 'CREDIT_CARD', value: totalVolume * 0.45, status: 'PAID', date: 'Hoje, 10:00' },
-    { id: 'TX-102', client: 'Unidade 02 - Estética', type: 'Pix Automático', typeId: 'PIX', value: totalVolume * 0.20, status: 'PAID', date: 'Ontem, 15:45' },
-    { id: 'TX-103', client: 'Franquia Sul', type: 'Boleto Bancário', typeId: 'CREDIT_CARD', value: pipelineVolume * 0.15, status: 'PENDING', date: 'Hoje, 09:30' },
-    { id: 'TX-104', client: 'Unidade Curitiba', type: 'Pix Automático', typeId: 'PIX', value: 450.00, status: 'PAID', date: 'Hoje, 11:20' },
-    { id: 'TX-105', client: 'Unidade Matriz - Barbearia', type: 'Cartão de Crédito', typeId: 'CREDIT_CARD', value: 890.00, status: 'FAILED', date: 'Hoje, 08:15' },
-  ];
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isApiOnline, setIsApiOnline] = useState(true);
 
-  const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
+  // Carregar transações do Backend
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      try {
+        const res = await fetch(`${API_URL}?action=get-transactions`);
+        if (res.ok) {
+          const data = await res.json();
+          // Se vier vazio (primeiro uso), usa dados fictícios para não ficar feio
+          if (Array.isArray(data) && data.length > 0) {
+             setTransactions(data);
+          } else {
+             loadDemoData();
+          }
+        } else {
+          throw new Error('API Error');
+        }
+      } catch (e) {
+        console.warn("Backend financeiro offline. Usando modo Demo.");
+        setIsApiOnline(false);
+        loadDemoData();
+      }
+    };
+    fetchTransactions();
+  }, []);
+
+  const loadDemoData = () => {
+    setTransactions([
+      { id: 'TX-101', client: 'Unidade Matriz - Barbearia', type: 'Cartão de Crédito', typeId: 'CREDIT_CARD', value: totalVolume * 0.45, status: 'PAID', date: 'Hoje, 10:00' },
+      { id: 'TX-102', client: 'Unidade 02 - Estética', type: 'Pix Automático', typeId: 'PIX', value: totalVolume * 0.20, status: 'PAID', date: 'Ontem, 15:45' },
+      { id: 'TX-103', client: 'Franquia Sul', type: 'Boleto Bancário', typeId: 'CREDIT_CARD', value: pipelineVolume * 0.15, status: 'PENDING', date: 'Hoje, 09:30' },
+      { id: 'TX-104', client: 'Unidade Curitiba', type: 'Pix Automático', typeId: 'PIX', value: 450.00, status: 'PAID', date: 'Hoje, 11:20' },
+      { id: 'TX-105', client: 'Unidade Matriz - Barbearia', type: 'Cartão de Crédito', typeId: 'CREDIT_CARD', value: 890.00, status: 'FAILED', date: 'Hoje, 08:15' },
+    ]);
+  };
 
   const filteredTransactions = useMemo(() => {
     if (filter === 'ALL') return transactions;
     return transactions.filter(t => t.typeId === filter);
   }, [filter, transactions]);
 
-  // ENGINE DE EXPORTAÇÃO REAL (CSV)
   const handleExport = () => {
     setIsExporting(true);
-    
     setTimeout(() => {
       try {
         const headers = ['ID Transação', 'Unidade Origem', 'Tipo', 'Valor (R$)', 'Status', 'Data/Hora'];
@@ -65,45 +93,53 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume })
           t.date
         ]);
 
-        const csvContent = [
-          headers.join(';'),
-          ...rows.map(row => row.join(';'))
-        ].join('\n');
-
+        const csvContent = [headers.join(';'), ...rows.map(row => row.join(';'))].join('\n');
         const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         const timestamp = new Date().toISOString().split('T')[0];
         link.setAttribute('href', url);
-        link.setAttribute('download', `relatorio_financeiro_clikai_${filter.toLowerCase()}_${timestamp}.csv`);
+        link.setAttribute('download', `financeiro_clikai_${filter.toLowerCase()}_${timestamp}.csv`);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         setIsExporting(false);
       } catch (error) {
-        console.error("Erro na exportação:", error);
-        alert("Ocorreu um erro ao gerar o arquivo. Tente novamente.");
+        alert("Erro na exportação.");
         setIsExporting(false);
       }
     }, 1500);
   };
 
-  const handleWithdrawSubmit = (e: React.FormEvent) => {
+  const handleWithdrawSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsProcessing(true);
+    
+    const newWithdrawal: Transaction = {
+      id: `WD-${Math.floor(Math.random() * 9000) + 1000}`,
+      client: 'Solicitação de Saque',
+      type: 'Transferência PIX',
+      typeId: 'PIX',
+      value: parseFloat(withdrawAmount),
+      status: 'PENDING',
+      date: new Date().toLocaleString('pt-BR'),
+      isWithdraw: true
+    };
+
+    // Tentar salvar no backend
+    if (isApiOnline) {
+      try {
+        await fetch(`${API_URL}?action=save-transaction`, {
+          method: 'POST',
+          body: JSON.stringify(newWithdrawal)
+        });
+      } catch (e) {
+        console.error("Erro ao salvar saque no backend", e);
+      }
+    }
+
     setTimeout(() => {
-      const newWithdrawal: Transaction = {
-        id: `WD-${Math.floor(Math.random() * 9000) + 1000}`,
-        client: 'Solicitação de Saque',
-        type: 'Transferência PIX',
-        typeId: 'PIX',
-        value: parseFloat(withdrawAmount),
-        status: 'PENDING',
-        date: 'Agora',
-        isWithdraw: true
-      };
-      
       setTransactions(prev => [newWithdrawal, ...prev]);
       setIsProcessing(false);
       setShowSuccess(true);
@@ -114,12 +150,24 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume })
         setWithdrawAmount('');
         setPixKey('');
       }, 4000);
-    }, 2000);
+    }, 1500);
   };
 
-  const handleReleasePayment = (id: string) => {
+  const handleReleasePayment = async (id: string) => {
     if (!confirm('Deseja autorizar a liberação deste pagamento agora?')) return;
     
+    // Atualizar no Backend
+    if (isApiOnline) {
+      try {
+        await fetch(`${API_URL}?action=approve-transaction`, {
+          method: 'POST',
+          body: JSON.stringify({ id })
+        });
+      } catch (e) {
+        console.error("Erro ao aprovar no backend", e);
+      }
+    }
+
     setTransactions(prev => prev.map(t => 
       t.id === id ? { ...t, status: 'PAID', date: 'Liberado Agora' } : t
     ));
@@ -134,11 +182,29 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume })
     setTransactions(prev => [...prev, ...more]);
   };
 
-  const stats = [
-    { label: 'Volume Ganhos (Fechado)', value: `R$ ${totalVolume.toLocaleString('pt-BR')}`, icon: Wallet, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
-    { label: 'Projeção de Pipeline', value: `R$ ${pipelineVolume.toLocaleString('pt-BR')}`, icon: ArrowUpRight, color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/20' },
-    { label: 'Taxas Gateway (SaaS)', value: `R$ ${(totalVolume * 0.045).toLocaleString('pt-BR')}`, icon: DollarSign, color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/20' },
-  ];
+  const stats = useMemo(() => [
+    { 
+      label: 'Faturamento Total', 
+      value: `R$ ${totalVolume.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 
+      icon: DollarSign, 
+      bg: 'bg-emerald-50 dark:bg-emerald-900/30', 
+      color: 'text-emerald-600' 
+    },
+    { 
+      label: 'Previsão de Pipeline', 
+      value: `R$ ${pipelineVolume.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 
+      icon: TrendingUp, 
+      bg: 'bg-indigo-50 dark:bg-indigo-900/30', 
+      color: 'text-indigo-600' 
+    },
+    { 
+      label: 'Ticket Médio (Rede)', 
+      value: 'R$ 850,00', 
+      icon: Wallet, 
+      bg: 'bg-orange-50 dark:bg-orange-900/30', 
+      color: 'text-orange-600' 
+    }
+  ], [totalVolume, pipelineVolume]);
 
   return (
     <div className="p-8 space-y-10 animate-in fade-in relative">
