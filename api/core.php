@@ -138,6 +138,28 @@ switch ($action) {
         echo json_encode(["success" => true]);
         break;
 
+    // --- CHAT MESSAGES (PERSISTENCE) ---
+    case 'get-messages':
+        $lead_id = $_GET['lead_id'] ?? 0;
+        $stmt = $pdo->prepare("SELECT id, sender, content as text, DATE_FORMAT(created_at, '%H:%i') as time FROM messages WHERE lead_id = ? AND tenant_id = ? ORDER BY created_at ASC");
+        $stmt->execute([$lead_id, $tenant_id]);
+        echo json_encode($stmt->fetchAll());
+        break;
+
+    case 'save-message':
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
+        $input = json_decode(file_get_contents('php://input'), true);
+        $stmt = $pdo->prepare("INSERT INTO messages (tenant_id, lead_id, sender, content, type) VALUES (:tid, :lid, :sender, :content, :type)");
+        $stmt->execute([
+            ':tid' => $tenant_id,
+            ':lid' => $input['lead_id'],
+            ':sender' => $input['sender'],
+            ':content' => $input['text'],
+            ':type' => 'text'
+        ]);
+        echo json_encode(["success" => true]);
+        break;
+
     // --- FINANCEIRO ---
     case 'get-transactions':
         $stmt = $pdo->prepare("SELECT * FROM transactions WHERE tenant_id = ? ORDER BY created_at DESC");
@@ -409,15 +431,22 @@ switch ($action) {
         echo json_encode(["success" => true]);
         break;
 
-    // --- SYSTEM / N8N ---
+    // --- SYSTEM / N8N CORE ENDPOINTS ---
     case 'sys-provision-tenant':
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
         $input = json_decode(file_get_contents('php://input'), true);
         $tId = $input['tenant_id'] ?? 0;
         if($tId) {
+             // 1. Criar/Atualizar Registro de Tenant
+             $stmt = $pdo->prepare("INSERT INTO tenants (id, name, status) VALUES (?, ?, 'ONLINE') ON DUPLICATE KEY UPDATE status='ONLINE'");
+             $tenantName = "Unidade " . $tId;
+             $stmt->execute([$tId, $tenantName]);
+
+             // 2. Configurar Branding Padrão
              $stmt = $pdo->prepare("INSERT IGNORE INTO branding (tenant_id, config_json) VALUES (?, ?)");
              $defaultConfig = '{"appName":"Nova Unidade","fullLogo":"Logotipo%20Z_Prospector.png","fullLogoDark":"Logotipo%20Z_Prospector.png","iconLogo":"Logotipo%20Z_Prospector_Icon.png","iconLogoDark":"Logotipo%20Z_Prospector_Icon.png","favicon":"Logotipo%20Z_Prospector_Icon.png","salesPageLogo":"Logotipo%20Z_Prospector.png"}';
              $stmt->execute([$tId, $defaultConfig]);
+             
              echo json_encode(["success" => true, "message" => "Tenant $tId provisionado com sucesso via API."]);
         } else {
              http_response_code(400);
@@ -428,7 +457,13 @@ switch ($action) {
     case 'sys-update-tenant-status':
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
         $input = json_decode(file_get_contents('php://input'), true);
-        echo json_encode(["success" => true, "message" => "Status do Tenant {$input['tenant_id']} atualizado para {$input['status']}"]);
+        $tId = $input['tenant_id'];
+        $status = $input['status'];
+        
+        $stmt = $pdo->prepare("UPDATE tenants SET status = ? WHERE id = ?");
+        $stmt->execute([$status, $tId]);
+        
+        echo json_encode(["success" => true, "message" => "Status do Tenant {$tId} atualizado para {$status}"]);
         break;
 
     case 'sys-db-latency':

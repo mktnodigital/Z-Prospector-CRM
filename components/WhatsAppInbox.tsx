@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Search, Send, Paperclip, Smile, CheckCheck, 
@@ -27,6 +28,8 @@ interface WhatsAppInboxProps {
   onConnectionChange?: (status: boolean) => void;
 }
 
+const API_URL = '/api/core.php';
+
 export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads, onSchedule, tenant, evolutionConfig, notify, onConnectionChange }) => {
   const [activeChat, setActiveChat] = useState<Lead | null>(activeLeads[0] || null);
   const [messageInput, setMessageInput] = useState('');
@@ -44,28 +47,51 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
   const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [chatHistories, setChatHistories] = useState<Record<string, Message[]>>({});
+  
+  // Real State for Messages
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+
+  // Efeito para carregar mensagens do chat ativo (Initial + Polling)
+  useEffect(() => {
+    if (activeChat) {
+      // 1. Initial Load
+      fetchMessages(activeChat.id, true);
+
+      // 2. Short Polling (3s) para sensação "Live"
+      const interval = setInterval(() => {
+        fetchMessages(activeChat.id, false);
+      }, 3000);
+
+      return () => clearInterval(interval);
+    }
+  }, [activeChat]);
+
+  const fetchMessages = async (leadId: string, showLoading = false) => {
+    if (showLoading) setIsLoadingMessages(true);
+    try {
+      const res = await fetch(`${API_URL}?action=get-messages&lead_id=${leadId}`);
+      if (res.ok) {
+        const data = await res.json();
+        // Simple comparison to avoid unnecessary re-renders if nothing changed
+        setMessages(prev => {
+            if (prev.length !== data.length) return data;
+            return prev;
+        });
+      }
+    } catch (e) {
+      console.error("Failed to load messages");
+    } finally {
+      if (showLoading) setIsLoadingMessages(false);
+    }
+  };
 
   // Efeito para Scroll Automático
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [chatHistories, activeChat]);
-
-  // Populando Histórico Fake para os Leads se estiver vazio
-  useEffect(() => {
-    if (activeLeads.length > 0 && Object.keys(chatHistories).length === 0) {
-      const initialHistory: Record<string, Message[]> = {};
-      activeLeads.forEach(lead => {
-        initialHistory[lead.id] = [
-          { id: '1', sender: 'lead', text: `Olá, vi o anúncio da ${niche} e gostaria de saber mais.`, time: '10:00' },
-          { id: '2', sender: 'ai', text: `Olá ${lead.name}! Que prazer atender você. A nossa unidade Master está com condições especiais hoje. Como posso te ajudar agora?`, time: '10:01' }
-        ];
-      });
-      setChatHistories(initialHistory);
-    }
-  }, [activeLeads, niche]);
+  }, [messages, activeChat]);
 
   const handleConnectionSuccess = () => {
     setConnStatus('CONNECTED');
@@ -217,25 +243,46 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
     }
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!activeChat || !messageInput.trim()) return;
 
     setIsSending(true);
     const newMessage: Message = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: `local_${Date.now()}`,
       sender: 'me',
       text: messageInput,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       status: 'sent'
     };
 
-    setChatHistories(prev => ({
-      ...prev,
-      [activeChat.id]: [...(prev[activeChat.id] || []), newMessage]
-    }));
-    
+    // Optimistic Update
+    setMessages(prev => [...prev, newMessage]);
+    const textToSend = messageInput;
     setMessageInput('');
-    setTimeout(() => setIsSending(false), 400);
+
+    try {
+      // 1. Save to Database
+      await fetch(`${API_URL}?action=save-message`, {
+        method: 'POST',
+        body: JSON.stringify({
+          lead_id: activeChat.id,
+          sender: 'me',
+          text: textToSend
+        })
+      });
+
+      // 2. Send via Evolution API (Simulated if not connected)
+      if (connStatus === 'CONNECTED') {
+         // Logic to call evolution sendText would go here.
+         // For now, persistence is key.
+      }
+
+    } catch (e) {
+      console.error("Failed to send message", e);
+      notify("Erro ao salvar mensagem.");
+    } finally {
+      setTimeout(() => setIsSending(false), 400);
+    }
   };
 
   return (
@@ -356,9 +403,7 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar pt-4 pb-10 space-y-1 px-4">
-            {activeLeads.length > 0 ? activeLeads.map((chat) => {
-              const lastMsg = chatHistories[chat.id]?.[chatHistories[chat.id].length - 1];
-              return (
+            {activeLeads.length > 0 ? activeLeads.map((chat) => (
                 <div 
                   key={chat.id} 
                   onClick={() => setActiveChat(chat)} 
@@ -370,17 +415,15 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-baseline mb-1">
                       <h4 className={`text-sm font-black truncate uppercase tracking-tight ${activeChat?.id === chat.id ? 'text-indigo-400' : 'text-slate-200'}`}>{chat.name}</h4>
-                      <span className="text-[8px] font-black text-slate-500 uppercase">{lastMsg?.time || 'Agora'}</span>
+                      <span className="text-[8px] font-black text-slate-500 uppercase">{chat.lastInteraction?.includes('Agora') ? 'Agora' : 'Recente'}</span>
                     </div>
                     <p className="text-[10px] text-slate-400 font-bold truncate tracking-widest italic opacity-70">
-                       {lastMsg?.sender === 'ai' && <Bot size={10} className="inline mr-1 text-indigo-500"/>}
-                       {lastMsg?.text || 'Sem mensagens recentes'}
+                       {chat.lastInteraction || 'Sem mensagens'}
                     </p>
                   </div>
                   {activeChat?.id === chat.id && <div className="w-1 h-8 bg-indigo-500 rounded-full absolute left-0 shadow-[0_0_10px_#6366f1]"></div>}
                 </div>
-              );
-            }) : (
+            )) : (
               <div className="flex flex-col items-center justify-center py-20 opacity-20 grayscale scale-75">
                  <Database size={48} className="mb-4 text-slate-500" />
                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nenhuma Conversa</p>
@@ -416,40 +459,41 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                 </div>
               </div>
 
-              {/* DICA FLUTUANTE DA IA */}
-              <div className="absolute top-32 left-1/2 -translate-x-1/2 z-30 animate-in slide-in-from-top-4 w-auto">
-                 <div className="bg-indigo-900/80 backdrop-blur-md border border-indigo-500/30 px-6 py-3 rounded-full flex items-center gap-3 shadow-2xl">
-                    <Brain size={16} className="text-indigo-300 animate-pulse"/>
-                    <p className="text-[10px] font-bold text-indigo-100 uppercase tracking-widest">
-                       Sugestão: "O cliente mostrou interesse no preço. Foque no valor agora."
-                    </p>
-                    <button className="text-[9px] font-black text-white bg-indigo-600 px-3 py-1 rounded-lg hover:bg-indigo-500">USAR</button>
-                 </div>
-              </div>
-
               <div ref={scrollRef} className="flex-1 overflow-y-auto p-10 space-y-8 custom-scrollbar bg-slate-950 scroll-smooth">
-                {chatHistories[activeChat.id]?.map((msg) => (
-                  <div key={msg.id} className={`flex flex-col ${msg.sender === 'me' ? 'items-end' : msg.sender === 'ai' ? 'items-end' : 'items-start'} animate-in slide-in-from-bottom-2`}>
-                    <div className={`max-w-[70%] p-8 rounded-[2.5rem] shadow-sm border relative ${
-                      msg.sender === 'me' 
-                        ? 'bg-indigo-600 text-white rounded-tr-none border-indigo-700 shadow-indigo-500/20' 
-                        : msg.sender === 'ai'
-                        ? 'bg-gradient-to-br from-violet-600 to-indigo-700 text-white rounded-tr-none border-violet-800 shadow-purple-500/20'
-                        : 'bg-slate-900 text-slate-100 rounded-tl-none border-slate-800'
-                    }`}>
-                      {msg.sender === 'ai' && (
-                        <div className="absolute -top-3 -left-3 bg-slate-800 p-2 rounded-xl shadow-lg border border-purple-500/30">
-                           <Sparkles size={12} className="text-purple-400 animate-pulse" />
-                        </div>
-                      )}
-                      <p className="text-sm font-medium leading-relaxed italic">{msg.text}</p>
+                {isLoadingMessages ? (
+                   <div className="flex flex-col items-center justify-center h-full text-indigo-500 gap-4">
+                      <Loader2 className="animate-spin" size={48} />
+                      <p className="text-[10px] font-black uppercase tracking-widest">Carregando Histórico Seguro...</p>
+                   </div>
+                ) : messages.length > 0 ? (
+                  messages.map((msg) => (
+                    <div key={msg.id} className={`flex flex-col ${msg.sender === 'me' ? 'items-end' : msg.sender === 'ai' ? 'items-end' : 'items-start'} animate-in slide-in-from-bottom-2`}>
+                      <div className={`max-w-[70%] p-8 rounded-[2.5rem] shadow-sm border relative ${
+                        msg.sender === 'me' 
+                          ? 'bg-indigo-600 text-white rounded-tr-none border-indigo-700 shadow-indigo-500/20' 
+                          : msg.sender === 'ai'
+                          ? 'bg-gradient-to-br from-violet-600 to-indigo-700 text-white rounded-tr-none border-violet-800 shadow-purple-500/20'
+                          : 'bg-slate-900 text-slate-100 rounded-tl-none border-slate-800'
+                      }`}>
+                        {msg.sender === 'ai' && (
+                          <div className="absolute -top-3 -left-3 bg-slate-800 p-2 rounded-xl shadow-lg border border-purple-500/30">
+                             <Sparkles size={12} className="text-purple-400 animate-pulse" />
+                          </div>
+                        )}
+                        <p className="text-sm font-medium leading-relaxed italic">{msg.text}</p>
+                      </div>
+                      <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mt-3 px-6 opacity-50 italic flex items-center gap-2">
+                         {msg.sender === 'ai' ? 'IA Coach' : msg.sender === 'me' ? 'Você' : 'Lead'} • {msg.time} 
+                         {(msg.sender === 'me' || msg.sender === 'ai') && <CheckCheck size={10} className="text-emerald-500"/>}
+                      </span>
                     </div>
-                    <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mt-3 px-6 opacity-50 italic flex items-center gap-2">
-                       {msg.sender === 'ai' ? 'IA Coach' : msg.sender === 'me' ? 'Você' : 'Lead'} • {msg.time} 
-                       {(msg.sender === 'me' || msg.sender === 'ai') && <CheckCheck size={10} className="text-emerald-500"/>}
-                    </span>
+                  ))
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-slate-600 opacity-30 select-none">
+                     <MessageSquare size={64} className="mb-4" />
+                     <p className="text-[10px] font-black uppercase tracking-widest">Inicie a conversa agora</p>
                   </div>
-                ))}
+                )}
               </div>
 
               <div className="bg-slate-900 border-t border-slate-800 p-8 z-10 shadow-2xl relative">

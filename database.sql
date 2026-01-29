@@ -1,4 +1,27 @@
 
+-- Tabela de Franquias (Matriz)
+CREATE TABLE IF NOT EXISTS `franchises` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `owner_email` varchar(255) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Tabela de Tenants (Unidades)
+CREATE TABLE IF NOT EXISTS `tenants` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `franchise_id` int(11) DEFAULT NULL,
+  `name` varchar(255) NOT NULL,
+  `document` varchar(50) DEFAULT NULL,
+  `status` enum('ONLINE','WARNING','OFFLINE') DEFAULT 'ONLINE',
+  `plan_id` varchar(50) DEFAULT 'START',
+  `next_billing` date DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_franchise` (`franchise_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Tabela de Branding (Configurações Visuais Master)
 CREATE TABLE IF NOT EXISTS `branding` (
   `tenant_id` int(11) NOT NULL,
@@ -34,6 +57,21 @@ CREATE TABLE IF NOT EXISTS `leads` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `idx_tenant` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Tabela de Mensagens (Chat Histórico)
+CREATE TABLE IF NOT EXISTS `messages` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `tenant_id` int(11) NOT NULL,
+  `lead_id` int(11) NOT NULL,
+  `sender` enum('me','lead','ai') NOT NULL,
+  `content` text,
+  `type` varchar(20) DEFAULT 'text',
+  `status` varchar(20) DEFAULT 'sent',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_msg_lead` (`lead_id`),
+  KEY `idx_msg_tenant` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Tabela de Transações Financeiras
@@ -135,6 +173,8 @@ CREATE TABLE IF NOT EXISTS `webhooks` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Inserir Dados Iniciais Obrigatórios
+INSERT INTO `tenants` (`id`, `name`, `status`) VALUES (1, 'Unidade Master', 'ONLINE') ON DUPLICATE KEY UPDATE id=id;
+
 INSERT INTO `branding` (`tenant_id`, `config_json`) VALUES (1, '{"appName":"Z-Prospector","fullLogo":"Logotipo%20Z_Prospector.png","fullLogoDark":"Logotipo%20Z_Prospector.png","iconLogo":"Logotipo%20Z_Prospector_Icon.png","iconLogoDark":"Logotipo%20Z_Prospector_Icon.png","favicon":"Logotipo%20Z_Prospector_Icon.png","salesPageLogo":"Logotipo%20Z_Prospector.png"}') ON DUPLICATE KEY UPDATE tenant_id=tenant_id;
 
 INSERT INTO `users` (`tenant_id`, `name`, `email`, `role`) VALUES (1, 'Operador Master', 'admin@zprospector.com.br', 'SUPER_ADMIN') ON DUPLICATE KEY UPDATE tenant_id=tenant_id;

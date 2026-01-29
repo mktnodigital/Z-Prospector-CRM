@@ -149,6 +149,32 @@ const App: React.FC = () => {
     setNotifications(prev => [newNotif, ...prev]);
   };
 
+  // FETCH CORE DATA (Sync Function)
+  const syncCoreData = async () => {
+    try {
+      // Branding check (Only needed occasionally, but kept for simplicity)
+      // const bRes = await fetch(`${API_URL}?action=get-branding`);
+      // if (bRes.ok) setBranding(await bRes.json());
+      
+      const lRes = await fetch(`${API_URL}?action=get-leads`);
+      if (lRes.ok) {
+        const newLeads = await lRes.json();
+        // Check for new leads to notify
+        if (newLeads.length > leads.length && leads.length > 0) {
+           addNotification({ type: 'INBOX', title: 'Novo Lead', description: 'Um novo cliente entrou no pipeline.' });
+        }
+        setLeads(newLeads);
+      }
+      
+      // Sync appointments in background
+      const aRes = await fetch(`${API_URL}?action=get-appointments`);
+      if (aRes.ok) setAppointments(await aRes.json());
+
+    } catch (e) {
+      // Silent fail on polling
+    }
+  };
+
   // Inicialização Robusta
   useEffect(() => {
     const syncInitial = async () => {
@@ -156,8 +182,7 @@ const App: React.FC = () => {
         const bRes = await fetch(`${API_URL}?action=get-branding`);
         if (bRes.ok) setBranding(await bRes.json());
         
-        const lRes = await fetch(`${API_URL}?action=get-leads`);
-        if (lRes.ok) setLeads(await lRes.json());
+        await syncCoreData(); // Initial Data Load
         
         const uRes = await fetch(`${API_URL}?action=get-user`);
         if (uRes.ok) {
@@ -174,6 +199,16 @@ const App: React.FC = () => {
     };
     syncInitial();
   }, []);
+
+  // Heartbeat System (Real-time Polling every 15s)
+  useEffect(() => {
+    if (isLoggedIn) {
+      const interval = setInterval(() => {
+        syncCoreData();
+      }, 15000); 
+      return () => clearInterval(interval);
+    }
+  }, [isLoggedIn, leads.length]); // Dependency on leads.length to track new items
 
   const handleLogout = () => {
     notify('Sessão encerrada. A operação continua rodando em background.');

@@ -71,14 +71,29 @@ const SYSTEM_WORKFLOWS = {
     }
   },
   billing: {
-    "name": "Sys - Global Billing Sync v3 (API)",
+    "name": "Sys - Multi-Gateway Billing Sync (Universal)",
     "nodes": [
-      { "name": "Stripe Trigger", "type": "n8n-nodes-base.stripeTrigger", "parameters": { "event": ["charge.succeeded", "invoice.payment_failed"] }, "position": [100, 300] },
-      { "name": "Switch Status", "type": "n8n-nodes-base.switch", "position": [300, 300] },
-      { "name": "API: Unlock Tenant", "type": "n8n-nodes-base.httpRequest", "parameters": { "url": "https://zprospector.com.br/api/core.php?action=sys-update-tenant-status", "method": "POST", "bodyParameters": { "parameters": [{ "name": "status", "value": "ONLINE" }, { "name": "tenant_id", "value": "={{$json.body.client_reference_id}}" }] } }, "position": [500, 200] },
-      { "name": "API: Lock Tenant", "type": "n8n-nodes-base.httpRequest", "parameters": { "url": "https://zprospector.com.br/api/core.php?action=sys-update-tenant-status", "method": "POST", "bodyParameters": { "parameters": [{ "name": "status", "value": "OFFLINE" }, { "name": "tenant_id", "value": "={{$json.body.client_reference_id}}" }] } }, "position": [500, 400] }
+      { 
+        "name": "Webhook - Global Payment Gateways", 
+        "type": "n8n-nodes-base.webhook", 
+        "parameters": { "path": "global-billing-sync", "httpMethod": "POST", "responseMode": "lastNode" }, 
+        "position": [100, 300],
+        "notes": "Receives payloads from Stripe, Hotmart, Eduzz, Kiwify & MercadoPago"
+      },
+      { 
+        "name": "Normalize Payload", 
+        "type": "n8n-nodes-base.function", 
+        "parameters": { "functionCode": "// Normalize payment status from different providers\nconst status = items[0].json.status;\n// Map 'paid', 'approved', 'succeeded' to PAID\n// Map 'failed', 'refused', 'cancelled' to FAILED\nreturn { ...items[0].json, unified_status: ['paid', 'approved', 'succeeded'].includes(status) ? 'PAID' : 'FAILED' };" },
+        "position": [300, 300] 
+      },
+      { "name": "Switch Status", "type": "n8n-nodes-base.switch", "position": [500, 300] },
+      { "name": "API: Unlock Tenant", "type": "n8n-nodes-base.httpRequest", "parameters": { "url": "https://zprospector.com.br/api/core.php?action=sys-update-tenant-status", "method": "POST", "bodyParameters": { "parameters": [{ "name": "status", "value": "ONLINE" }, { "name": "tenant_id", "value": "={{$json.tenant_id}}" }] } }, "position": [700, 200] },
+      { "name": "API: Lock Tenant", "type": "n8n-nodes-base.httpRequest", "parameters": { "url": "https://zprospector.com.br/api/core.php?action=sys-update-tenant-status", "method": "POST", "bodyParameters": { "parameters": [{ "name": "status", "value": "OFFLINE" }, { "name": "tenant_id", "value": "={{$json.tenant_id}}" }] } }, "position": [700, 400] }
     ],
-    "connections": { "Stripe Trigger": { "main": [[{ "node": "Switch Status", "type": "main", "index": 0 }]] } }
+    "connections": { 
+      "Webhook - Global Payment Gateways": { "main": [[{ "node": "Normalize Payload", "type": "main", "index": 0 }]] },
+      "Normalize Payload": { "main": [[{ "node": "Switch Status", "type": "main", "index": 0 }]] }
+    }
   },
   monitoring: {
     "name": "Sys - Health Check Monitor v3 (API)",
