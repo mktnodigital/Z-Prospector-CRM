@@ -269,7 +269,7 @@ const App: React.FC = () => {
   if (!isLoggedIn) return <OfferPage branding={branding} onLogin={() => setIsLoggedIn(true)} />;
 
   return (
-    <div className={`fixed inset-0 flex h-full w-full overflow-hidden transition-all duration-700 ${performanceMode ? 'dark bg-slate-950' : 'bg-slate-50'}`}>
+    <div className={`fixed inset-0 flex h-full w-full overflow-hidden transition-all duration-700 ${performanceMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
       
       {/* VIBRANT BACKGROUND MESH */}
       <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
@@ -330,10 +330,10 @@ const App: React.FC = () => {
             <div key={catIdx} className="space-y-2">
               {isSidebarOpen && (
                 <div className="px-6 mb-2 flex items-center gap-2 opacity-40">
-                  <span className="text-[8px] font-black uppercase tracking-[0.3em] whitespace-nowrap text-slate-500 dark:text-slate-400">
+                  <span className={`text-[8px] font-black uppercase tracking-[0.3em] whitespace-nowrap ${performanceMode ? 'text-slate-400' : 'text-slate-500'}`}>
                     {category.label}
                   </span>
-                  <div className="h-px bg-slate-200 dark:bg-slate-800 flex-1"></div>
+                  <div className={`h-px flex-1 ${performanceMode ? 'bg-slate-800' : 'bg-slate-200'}`}></div>
                 </div>
               )}
               <div className="space-y-1">
@@ -346,7 +346,7 @@ const App: React.FC = () => {
                         ? `bg-gradient-to-r ${m.activeGradient} text-white shadow-lg shadow-${m.color.split('-')[1]}-500/30 scale-[1.02]`
                         : performanceMode 
                           ? 'text-slate-400 hover:bg-slate-800/50 hover:text-white' 
-                          : 'text-slate-500 hover:bg-white hover:text-indigo-600 hover:shadow-md'
+                          : 'text-slate-600 hover:bg-white hover:text-indigo-600 hover:shadow-md'
                     }`}
                   >
                     <m.icon size={isSidebarOpen ? 18 : 22} className={`${activeModule === m.id ? 'text-white' : m.color} transition-colors`} /> 
@@ -368,7 +368,7 @@ const App: React.FC = () => {
              <div className={`w-2.5 h-2.5 rounded-full ${isWhatsAppConnected ? 'bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]' : 'bg-rose-500'}`}></div>
              {isSidebarOpen && (
                <div>
-                 <p className="text-[9px] font-black uppercase tracking-widest opacity-60">Status do Motor</p>
+                 <p className={`text-[9px] font-black uppercase tracking-widest opacity-60 ${performanceMode ? 'text-slate-400' : 'text-slate-500'}`}>Status do Motor</p>
                  <p className={`text-[10px] font-black uppercase ${isWhatsAppConnected ? 'text-emerald-500' : 'text-rose-500'}`}>
                    {isWhatsAppConnected ? 'Operando' : 'Parado'}
                  </p>
@@ -391,7 +391,7 @@ const App: React.FC = () => {
         <header className={`h-20 md:h-24 ${performanceMode ? 'bg-slate-900/40 border-slate-800/50' : 'bg-white/60 border-indigo-50'} backdrop-blur-xl border-b flex items-center justify-between px-6 md:px-10 z-40 transition-colors duration-500`}>
            <div className="flex items-center gap-4 md:gap-8">
               {isMobile && (
-                <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-slate-400 hover:text-indigo-500">
+                <button onClick={() => setIsSidebarOpen(true)} className={`p-2 ${performanceMode ? 'text-slate-400 hover:text-indigo-500' : 'text-slate-600 hover:text-indigo-600'}`}>
                   <MenuIcon size={24} />
                 </button>
               )}
@@ -406,21 +406,18 @@ const App: React.FC = () => {
            </div>
 
            <div className="flex items-center gap-3 md:gap-6">
-             {/* PERFORMANCE TOGGLE (MANTIDO E DESTACADO) */}
-             <div 
+             {/* PERFORMANCE TOGGLE (ICONE APENAS) */}
+             <button 
                onClick={() => setPerformanceMode(!performanceMode)}
-               className={`cursor-pointer flex items-center gap-3 px-4 py-2.5 rounded-full border transition-all hover:scale-105 active:scale-95 ${
+               title={performanceMode ? 'Modo Planejamento' : 'Modo Dia'}
+               className={`p-3 rounded-full border transition-all hover:scale-105 active:scale-95 shadow-sm ${
                  performanceMode 
-                 ? 'bg-indigo-950/50 border-indigo-500/50 text-indigo-300 shadow-[0_0_20px_rgba(99,102,241,0.3)]' 
-                 : 'bg-white border-slate-200 text-slate-500 shadow-sm hover:border-indigo-300 hover:text-indigo-600'
+                 ? 'bg-indigo-950/50 border-indigo-500/50 text-yellow-400 shadow-[0_0_15px_rgba(99,102,241,0.2)]' 
+                 : 'bg-white border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-300'
                }`}
              >
-                <div className={`w-2 h-2 rounded-full ${performanceMode ? 'bg-indigo-400 animate-pulse shadow-[0_0_10px_#818cf8]' : 'bg-slate-300'}`}></div>
-                <span className="text-[9px] font-black uppercase tracking-widest hidden md:inline">
-                  {performanceMode ? 'Modo Planejamento' : 'Modo Dia'}
-                </span>
-                {performanceMode ? <Zap size={14} className="text-yellow-400 fill-yellow-400"/> : <Moon size={14}/>}
-             </div>
+                {performanceMode ? <Zap size={20} className="fill-yellow-400"/> : <Moon size={20}/>}
+             </button>
 
              <div className="relative" ref={notificationRef}>
                 <button 
@@ -432,19 +429,19 @@ const App: React.FC = () => {
                 </button>
 
                 {showNotifications && (
-                  <div className="absolute top-full right-0 mt-4 w-80 md:w-96 bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-800 p-4 z-[100] animate-in zoom-in-95">
-                     <div className="flex justify-between items-center px-4 py-2 border-b border-slate-100 dark:border-slate-800 mb-2">
-                        <span className="text-xs font-black uppercase tracking-widest dark:text-white">Notificações</span>
+                  <div className={`absolute top-full right-0 mt-4 w-80 md:w-96 rounded-[2rem] shadow-2xl border p-4 z-[100] animate-in zoom-in-95 ${performanceMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
+                     <div className={`flex justify-between items-center px-4 py-2 border-b mb-2 ${performanceMode ? 'border-slate-800' : 'border-slate-100'}`}>
+                        <span className={`text-xs font-black uppercase tracking-widest ${performanceMode ? 'text-white' : 'text-slate-800'}`}>Notificações</span>
                         <button onClick={() => setNotifications([])} className="text-[9px] font-bold text-indigo-500 hover:underline">Limpar</button>
                      </div>
                      <div className="max-h-[300px] overflow-y-auto custom-scrollbar space-y-2">
                         {notifications.length > 0 ? notifications.map(notif => (
-                           <div key={notif.id} className="p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex gap-3 border border-transparent hover:border-slate-100 dark:hover:border-slate-700">
+                           <div key={notif.id} className={`p-4 rounded-2xl transition-colors flex gap-3 border ${performanceMode ? 'hover:bg-slate-800 border-transparent hover:border-slate-700' : 'hover:bg-slate-50 border-transparent hover:border-slate-100'}`}>
                               <div className={`p-2 rounded-lg h-fit ${notif.type === 'SYSTEM' ? 'bg-indigo-100 text-indigo-600' : notif.type === 'INBOX' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
                                  <Info size={16} />
                               </div>
                               <div>
-                                 <h4 className="text-xs font-black uppercase tracking-tight text-slate-800 dark:text-slate-200">{notif.title}</h4>
+                                 <h4 className={`text-xs font-black uppercase tracking-tight ${performanceMode ? 'text-slate-200' : 'text-slate-800'}`}>{notif.title}</h4>
                                  <p className="text-[10px] font-medium text-slate-500 leading-tight mt-1">{notif.description}</p>
                                  <span className="text-[9px] font-bold text-slate-400 mt-2 block">{notif.time}</span>
                               </div>
@@ -459,7 +456,7 @@ const App: React.FC = () => {
                 )}
              </div>
 
-             <div className="flex items-center gap-4 cursor-pointer group pl-6 border-l border-slate-200/50 dark:border-slate-700/50" onClick={() => setActiveModule('profile')}>
+             <div className={`flex items-center gap-4 cursor-pointer group pl-6 border-l ${performanceMode ? 'border-slate-700/50' : 'border-slate-200/50'}`} onClick={() => setActiveModule('profile')}>
                 <div className="text-right hidden sm:block">
                   <p className={`text-xs font-black uppercase tracking-widest transition-colors ${performanceMode ? 'text-white' : 'text-slate-800'}`}>{currentUser.name}</p>
                   <p className="text-[8px] font-black text-indigo-500 uppercase tracking-widest italic">{currentUser.role}</p>
