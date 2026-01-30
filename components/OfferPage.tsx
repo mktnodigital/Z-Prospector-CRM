@@ -20,7 +20,7 @@ import { BrandingConfig } from '../types';
 interface OfferPageProps {
   branding: BrandingConfig;
   onLogin: () => void;
-  onActivationSuccess?: (email: string) => void;
+  onActivationSuccess?: (token: string) => void;
 }
 
 const ZLogoHero: React.FC<{ branding: BrandingConfig, className?: string }> = ({ branding, className = "" }) => {
@@ -44,7 +44,7 @@ const ZLogoHero: React.FC<{ branding: BrandingConfig, className?: string }> = ({
   );
 };
 
-export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
+export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin, onActivationSuccess }) => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('annual');
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 47, seconds: 22 });
   
@@ -86,7 +86,7 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
     setInputCode('');
   };
 
-  const handleAccess = (e: React.FormEvent) => {
+  const handleAccess = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
 
@@ -98,11 +98,44 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
     }
 
     setIsAuthenticating(true);
-    // Simulação de autenticação Master
-    setTimeout(() => {
+
+    try {
+      // Autenticação Real via API Core
+      const response = await fetch('/api/core.php?action=login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.success && data.token) {
+          // Login Sucesso
+          if (onActivationSuccess) {
+            onActivationSuccess(data.token);
+          } else {
+            onLogin();
+          }
+        } else {
+          // Erro de Credencial Backend
+          setLoginError('Credenciais inválidas ou acesso não autorizado.');
+          generateSecurityCode();
+          setInputCode('');
+        }
+      } else {
+        // Erro HTTP (401, 500 etc)
+        setLoginError('Falha na autenticação. Verifique suas credenciais.');
+        generateSecurityCode();
+        setInputCode('');
+      }
+    } catch (error) {
+      setLoginError('Erro de conexão com o servidor de login.');
+    } finally {
       setIsAuthenticating(false);
-      onLogin();
-    }, 1500);
+    }
   };
 
   const plans = [
