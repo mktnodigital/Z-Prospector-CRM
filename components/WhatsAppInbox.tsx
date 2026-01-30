@@ -55,15 +55,17 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
-  // Efeito para carregar mensagens do chat ativo (Initial + Polling)
+  // Efeito para carregar mensagens do chat ativo (Initial + Polling Otimizado)
   useEffect(() => {
     if (activeChat) {
       // 1. Initial Load
       fetchMessages(activeChat.id, true);
 
-      // 2. Short Polling (3s) para sensação "Live"
+      // 2. Short Polling (3s) apenas se a aba estiver visível (Economia de banda)
       const interval = setInterval(() => {
-        fetchMessages(activeChat.id, false);
+        if (document.visibilityState === 'visible') {
+            fetchMessages(activeChat.id, false);
+        }
       }, 3000);
 
       return () => clearInterval(interval);
@@ -83,7 +85,7 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
         });
       }
     } catch (e) {
-      console.error("Failed to load messages");
+      console.error("Failed to load messages (Polling skipped)");
     } finally {
       if (showLoading) setIsLoadingMessages(false);
     }

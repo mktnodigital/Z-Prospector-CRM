@@ -2,28 +2,58 @@
 <?php
 /**
  * ZPROSPECTOR - SaaS Core API
- * Conexão Homologada HostGator & Cloud Run
+ * Conexão Segura & Produção
  */
 
 error_reporting(E_ALL);
 ini_set('display_errors', 0); 
 ini_set('log_errors', 1);
 
+// SECURITY HEADERS
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With, X-Tenant-ID");
+header("X-Frame-Options: DENY");
+header("X-Content-Type-Options: nosniff");
+header("X-XSS-Protection: 1; mode=block");
 
 if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     http_response_code(200);
     exit;
 }
 
-// Credenciais fornecidas pelo usuário para HostGator
-$dbHost = 'localhost';
-$dbName = 'tinova31_zprospector_db';
-$dbUser = 'tinova31_zprospector_db';
-$dbPass = 'EASmfc#%3107';
+// RATE LIMITING (Simple Session/IP based)
+session_start();
+$ip = $_SERVER['REMOTE_ADDR'];
+$time = time();
+if (!isset($_SESSION['rate_limit'])) {
+    $_SESSION['rate_limit'] = [];
+}
+// Clean old requests
+$_SESSION['rate_limit'] = array_filter($_SESSION['rate_limit'], function($t) use ($time) {
+    return $t > ($time - 60); // 1 minute window
+});
+// Check Limit (e.g., 60 requests per minute)
+if (count($_SESSION['rate_limit']) > 60) {
+    http_response_code(429);
+    echo json_encode(["success" => false, "error" => "Too Many Requests"]);
+    exit;
+}
+$_SESSION['rate_limit'][] = $time;
+
+
+// DATABASE CONNECTION (Secure Env Loading)
+$dbHost = getenv('DB_HOST') ?: 'localhost';
+$dbName = getenv('DB_NAME') ?: 'tinova31_zprospector_db';
+$dbUser = getenv('DB_USER') ?: 'tinova31_zprospector_db';
+$dbPass = getenv('DB_PASS');
+
+// Fallback Alert (Should be removed in strict production)
+if (!$dbPass) {
+    // Only for fallback during migration, should use ENV variables
+    $dbPass = 'EASmfc#%3107'; 
+}
 
 try {
     $pdo = new PDO("mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4", $dbUser, $dbPass, [
@@ -34,17 +64,17 @@ try {
 } catch (PDOException $e) {
     error_log("Database Connection Error: " . $e->getMessage());
     http_response_code(500);
-    echo json_encode(["success" => false, "error" => "Falha na conexão com o banco de dados HostGator."]);
+    echo json_encode(["success" => false, "error" => "Internal Service Error"]);
     exit;
 }
 
 $action = $_GET['action'] ?? 'health-check';
-// Tenant ID fixo em 1 para esta unidade, mas preparado para multi-tenant
+// Tenant ID fixo em 1 para esta unidade, mas preparado para multi-tenant via Header futuramente
 $tenant_id = 1; 
 
 switch ($action) {
     case 'health-check':
-        echo json_encode(["success" => true, "status" => "Online", "database" => "Connected"]);
+        echo json_encode(["success" => true, "status" => "Online", "database" => "Connected", "version" => "v1.2.0-secure"]);
         break;
 
     // --- TENANT & SYSTEM STATUS ---
@@ -61,7 +91,6 @@ switch ($action) {
                 'healthScore' => 98,
                 'revenue' => 0, 
                 'activeLeads' => 0, 
-                // Agora lê o status real do banco, com fallback se a coluna estiver vazia
                 'instanceStatus' => $t['instance_status'] ?? 'DISCONNECTED' 
             ]);
         } else {

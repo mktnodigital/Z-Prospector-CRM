@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, ErrorInfo, ReactNode } from 'react';
 import { 
   MessageSquare, Calendar, Zap, Menu, Package, Target, 
   Sun, Moon, Sparkles, Wallet, Rocket,
@@ -9,7 +8,7 @@ import {
   Settings, Building2, UserCog, Cpu, Shield, Fingerprint, Palette,
   ChevronLeft, ChevronRight, Megaphone, Search, CreditCard, ChevronLast, ChevronFirst,
   Bell, BellDot, ShoppingCart, TrendingUp, Workflow, Code2, Gauge, Menu as MenuIcon,
-  Info, Flame
+  Info, Flame, RefreshCw, AlertTriangle
 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { CRMKanban } from './components/CRMKanban';
@@ -52,6 +51,62 @@ const DEFAULT_N8N_CONFIG = {
   status: 'ONLINE'
 };
 
+// --- ERROR BOUNDARY (PRODUCTION SAFETY) ---
+interface ErrorBoundaryProps {
+  children: ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("Uncaught error:", error, errorInfo);
+  }
+
+  handleReload = () => {
+    window.location.reload();
+  };
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="fixed inset-0 bg-slate-950 flex flex-col items-center justify-center p-6 text-center z-[9999]">
+          <div className="w-24 h-24 bg-rose-500/10 rounded-full flex items-center justify-center mb-6 animate-pulse">
+            <AlertTriangle size={48} className="text-rose-500" />
+          </div>
+          <h1 className="text-3xl font-black text-white uppercase tracking-tighter mb-2">Sistema Interrompido</h1>
+          <p className="text-slate-400 max-w-md mb-8 text-sm font-medium">
+            Ocorreu uma falha crítica no módulo de renderização. O sistema de proteção blindou os dados.
+          </p>
+          <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 mb-8 max-w-lg w-full text-left overflow-hidden">
+             <p className="text-[10px] font-mono text-rose-400 break-all">{this.state.error?.message}</p>
+          </div>
+          <button 
+            onClick={this.handleReload}
+            className="px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg hover:shadow-indigo-500/20 flex items-center gap-3"
+          >
+            <RefreshCw size={18} /> Reiniciar Operação
+          </button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 // Componente de Logo com Fallback Inteligente
 const ZLogo: React.FC<{ branding: BrandingConfig, type?: 'full' | 'icon', darkMode?: boolean }> = ({ branding, type = 'full', darkMode = false }) => {
   const [imgError, setImgError] = useState(false);
@@ -84,7 +139,7 @@ const ZLogo: React.FC<{ branding: BrandingConfig, type?: 'full' | 'icon', darkMo
   );
 };
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [branding, setBranding] = useState<BrandingConfig>(DEFAULT_BRANDING);
   const [evolutionConfig, setEvolutionConfig] = useState<EvolutionConfig>(DEFAULT_EVOLUTION_CONFIG);
@@ -266,11 +321,14 @@ const App: React.FC = () => {
     syncInitial();
   }, []);
 
-  // Heartbeat System (Real-time Polling every 15s)
+  // Heartbeat System (Real-time Polling every 15s) - OPTIMIZED
   useEffect(() => {
     if (isLoggedIn) {
       const interval = setInterval(() => {
-        syncCoreData();
+        // Only poll if tab is visible to save resources
+        if (document.visibilityState === 'visible') {
+            syncCoreData();
+        }
       }, 15000); 
       return () => clearInterval(interval);
     }
@@ -584,6 +642,14 @@ const App: React.FC = () => {
         </div>
       </main>
     </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <ErrorBoundary>
+      <AppContent />
+    </ErrorBoundary>
   );
 };
 
