@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS `tenants` (
   KEY `idx_franchise` (`franchise_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Tabela de Branding
+-- Tabela de Branding (Configurações Visuais Master)
 CREATE TABLE IF NOT EXISTS `branding` (
   `tenant_id` int(11) NOT NULL,
   `config_json` longtext NOT NULL,
@@ -31,7 +31,8 @@ CREATE TABLE IF NOT EXISTS `branding` (
   PRIMARY KEY (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Tabela de Usuários
+-- Tabela de Usuários (Perfil Master)
+-- Recria a tabela para garantir que a coluna password exista
 DROP TABLE IF EXISTS `users`;
 CREATE TABLE `users` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -43,19 +44,7 @@ CREATE TABLE `users` (
   `avatar` longtext,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
-  UNIQUE KEY `idx_email` (`email`),
   KEY `idx_user_tenant` (`tenant_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Tabela de Sessões (NOVO - Para Segurança IDOR)
-CREATE TABLE IF NOT EXISTS `user_sessions` (
-  `token` varchar(64) NOT NULL,
-  `user_id` int(11) NOT NULL,
-  `tenant_id` int(11) NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `expires_at` datetime NOT NULL,
-  PRIMARY KEY (`token`),
-  KEY `idx_session_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Tabela de Leads
@@ -75,7 +64,7 @@ CREATE TABLE IF NOT EXISTS `leads` (
   KEY `idx_tenant` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Tabela de Mensagens
+-- Tabela de Mensagens (Chat Histórico)
 CREATE TABLE IF NOT EXISTS `messages` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `tenant_id` int(11) NOT NULL,
@@ -90,7 +79,7 @@ CREATE TABLE IF NOT EXISTS `messages` (
   KEY `idx_msg_tenant` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Tabela de Transações
+-- Tabela de Transações Financeiras
 CREATE TABLE IF NOT EXISTS `transactions` (
   `id` varchar(50) NOT NULL,
   `tenant_id` int(11) NOT NULL,
@@ -159,7 +148,7 @@ CREATE TABLE IF NOT EXISTS `campaigns` (
   KEY `idx_camp_tenant` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Tabela de Integrações
+-- Tabela de Integrações (Gateways de Pagamento e APIs)
 CREATE TABLE IF NOT EXISTS `integrations` (
   `id` varchar(50) NOT NULL,
   `tenant_id` int(11) NOT NULL,
@@ -173,7 +162,7 @@ CREATE TABLE IF NOT EXISTS `integrations` (
   KEY `idx_int_tenant` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Tabela de Webhooks
+-- Tabela de Webhooks Inbound (Captação)
 CREATE TABLE IF NOT EXISTS `webhooks` (
   `id` varchar(50) NOT NULL,
   `tenant_id` int(11) NOT NULL,
@@ -193,7 +182,5 @@ INSERT INTO `tenants` (`id`, `name`, `status`, `instance_status`) VALUES (1, 'Un
 
 INSERT INTO `branding` (`tenant_id`, `config_json`) VALUES (1, '{"appName":"Z-Prospector","fullLogo":"Logotipo%20Z_Prospector.png","fullLogoDark":"Logotipo%20Z_Prospector.png","iconLogo":"Logotipo%20Z_Prospector_Icon.png","iconLogoDark":"Logotipo%20Z_Prospector_Icon.png","favicon":"Logotipo%20Z_Prospector_Icon.png","salesPageLogo":"Logotipo%20Z_Prospector.png"}') ON DUPLICATE KEY UPDATE tenant_id=tenant_id;
 
--- Senha padrão '123456' Hash Bcrypt
--- A senha '123456' gerada via password_hash é algo como $2y$10$....
--- Para garantir o acesso inicial, vamos inserir o usuário
-INSERT INTO `users` (`tenant_id`, `name`, `email`, `password`, `role`) VALUES (1, 'Operador Master', 'admin@zprospector.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'SUPER_ADMIN') ON DUPLICATE KEY UPDATE id=id;
+-- Senha padrão '123456' hash MD5
+INSERT INTO `users` (`tenant_id`, `name`, `email`, `password`, `role`) VALUES (1, 'Operador Master', 'admin@zprospector.com', 'e10adc3949ba59abbe56e057f20f883e', 'SUPER_ADMIN') ON DUPLICATE KEY UPDATE password='e10adc3949ba59abbe56e057f20f883e';
