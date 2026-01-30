@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Search, Send, Paperclip, Smile, CheckCheck, 
@@ -6,15 +5,14 @@ import {
   Smartphone, QrCode, AlertCircle, ShieldCheck, RefreshCcw,
   Terminal, CheckCircle2, Wifi, Zap, X, Copy, Cpu, SmartphoneIcon,
   CreditCard, Landmark, Building2, ChevronRight, Activity, Database,
-  MoreVertical, User, Calendar, Brain, Flame, Lock, Mic, Image as ImageIcon, Play
+  MoreVertical, User, Calendar, Brain, Flame
 } from 'lucide-react';
 import { Lead, Appointment, Tenant, EvolutionConfig } from '../types';
 
 interface Message {
   id: string;
   sender: 'me' | 'lead' | 'ai';
-  text: string; // Base64 content for images or plain text
-  type?: 'text' | 'image' | 'audio';
+  text: string;
   time: string;
   status?: 'sent' | 'delivered' | 'read';
 }
@@ -29,13 +27,10 @@ interface WhatsAppInboxProps {
   onConnectionChange?: (status: boolean) => void;
 }
 
-const API_URL = '/api/core.php';
-
 export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads, onSchedule, tenant, evolutionConfig, notify, onConnectionChange }) => {
   const [activeChat, setActiveChat] = useState<Lead | null>(activeLeads[0] || null);
   const [messageInput, setMessageInput] = useState('');
   const [isSending, setIsSending] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
   
   const [connStatus, setConnStatus] = useState<'DISCONNECTED' | 'CONNECTING' | 'CONNECTED'>(
     tenant.instanceStatus === 'CONNECTED' ? 'CONNECTED' : 'DISCONNECTED'
@@ -49,52 +44,28 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
   const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  // Real State for Messages
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
-
-  // Efeito para carregar mensagens do chat ativo (Initial + Polling)
-  useEffect(() => {
-    if (activeChat) {
-      // 1. Initial Load
-      fetchMessages(activeChat.id, true);
-
-      // 2. Short Polling (3s) para sensação "Live"
-      const interval = setInterval(() => {
-        fetchMessages(activeChat.id, false);
-      }, 3000);
-
-      return () => clearInterval(interval);
-    }
-  }, [activeChat]);
-
-  const fetchMessages = async (leadId: string, showLoading = false) => {
-    if (showLoading) setIsLoadingMessages(true);
-    try {
-      const res = await fetch(`${API_URL}?action=get-messages&lead_id=${leadId}`);
-      if (res.ok) {
-        const data = await res.json();
-        // Simple comparison to avoid unnecessary re-renders if nothing changed
-        setMessages(prev => {
-            if (prev.length !== data.length) return data;
-            return prev;
-        });
-      }
-    } catch (e) {
-      console.error("Failed to load messages");
-    } finally {
-      if (showLoading) setIsLoadingMessages(false);
-    }
-  };
+  const [chatHistories, setChatHistories] = useState<Record<string, Message[]>>({});
 
   // Efeito para Scroll Automático
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, activeChat]);
+  }, [chatHistories, activeChat]);
+
+  // Populando Histórico Fake para os Leads se estiver vazio
+  useEffect(() => {
+    if (activeLeads.length > 0 && Object.keys(chatHistories).length === 0) {
+      const initialHistory: Record<string, Message[]> = {};
+      activeLeads.forEach(lead => {
+        initialHistory[lead.id] = [
+          { id: '1', sender: 'lead', text: `Olá, vi o anúncio da ${niche} e gostaria de saber mais.`, time: '10:00' },
+          { id: '2', sender: 'ai', text: `Olá ${lead.name}! Que prazer atender você. A nossa unidade Master está com condições especiais hoje. Como posso te ajudar agora?`, time: '10:01' }
+        ];
+      });
+      setChatHistories(initialHistory);
+    }
+  }, [activeLeads, niche]);
 
   const handleConnectionSuccess = () => {
     setConnStatus('CONNECTED');
@@ -116,13 +87,6 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
 
     const baseUrl = evolutionConfig.baseUrl.replace(/\/$/, '');
     const apiKey = evolutionConfig.apiKey;
-
-    if (!baseUrl || !apiKey) {
-        addLog('ERR: Configuração de API (URL/Key) não encontrada.');
-        notify('Configure a Evolution API no painel Admin.');
-        setIsConnecting(false);
-        return;
-    }
 
     addLog(`INIT: Conectando ao Cluster Evolution (${baseUrl})...`);
     
@@ -184,6 +148,7 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
 
              if (createRes.ok) {
                  const createData = await createRes.json();
+                 // Tenta pegar QR code diretamente da resposta de criação (comum na v1/v2)
                  qrData = createData.qrcode?.base64 || createData.base64 || createData.code;
                  setIsInstanceCreated(true);
                  addLog(`SUCCESS: Instância criada com sucesso.`);
@@ -206,6 +171,7 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
       if (!qrData) {
           if (instanceExists || isInstanceCreated) {
               addLog(`SYNC: Solicitando QR Code de conexão...`);
+              // Delay para garantir propagação
               await new Promise(r => setTimeout(r, 1500));
 
               const connectRes = await fetch(`${baseUrl}/instance/connect/${instanceName}`, { 
@@ -222,7 +188,12 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
               }
 
               const connectData = await connectRes.json();
-              qrData = connectData.base64 || connectData.qrcode?.base64 || connectData.code || (typeof connectData === 'string' && connectData.startsWith('data:') ? connectData : null);
+              
+              qrData = 
+                connectData.base64 || 
+                connectData.qrcode?.base64 || 
+                connectData.code || 
+                (typeof connectData === 'string' && connectData.startsWith('data:') ? connectData : null);
           }
       }
 
@@ -231,105 +202,45 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
         setQrCode(finalQr);
         addLog(`READY: QR Code gerado. Escaneie agora.`);
       } else {
+        // Se não tem QR mas não deu erro, pode estar conectado
         addLog(`CHECK: Verificando conexão final...`);
+        // Uma última verificação de estado
         handleConnectionSuccess();
       }
 
     } catch (err: any) {
       console.error(err);
       addLog(`FATAL: ${err.message || 'Falha crítica de conexão'}`);
+      // Removido fallback estático para evitar confusão do usuário
     } finally {
       setIsConnecting(false);
     }
   };
 
-  const handleSendMessage = async (type: 'text' | 'image' = 'text', content?: string) => {
-    if (!activeChat) return;
-    const textToSend = content || messageInput;
-    if (type === 'text' && !textToSend.trim()) return;
+  const handleSendMessage = () => {
+    if (!activeChat || !messageInput.trim()) return;
 
     setIsSending(true);
-    
-    // 1. Optimistic UI Update
     const newMessage: Message = {
-      id: `local_${Date.now()}`,
+      id: Math.random().toString(36).substr(2, 9),
       sender: 'me',
-      text: textToSend,
-      type: type,
+      text: messageInput,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       status: 'sent'
     };
-    setMessages(prev => [...prev, newMessage]);
-    if (type === 'text') setMessageInput('');
 
-    try {
-      // 2. Persist to Database (So we have history even if API fails)
-      await fetch(`${API_URL}?action=save-message`, {
-        method: 'POST',
-        body: JSON.stringify({
-          lead_id: activeChat.id,
-          sender: 'me',
-          text: textToSend,
-          type: type
-        })
-      });
-
-      // 3. Send via Evolution API (Real Sending)
-      if (connStatus === 'CONNECTED' && evolutionConfig.baseUrl && evolutionConfig.apiKey) {
-         const baseUrl = evolutionConfig.baseUrl.replace(/\/$/, '');
-         const cleanPhone = activeChat.phone.replace(/\D/g, '');
-         const jid = cleanPhone.includes('@s.whatsapp.net') ? cleanPhone : `${cleanPhone}@s.whatsapp.net`;
-
-         if (type === 'text') {
-             await fetch(`${baseUrl}/message/sendText/${instanceName}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'apikey': evolutionConfig.apiKey },
-                body: JSON.stringify({ number: jid, text: textToSend, delay: 1200, linkPreview: true })
-             });
-         } else if (type === 'image') {
-             await fetch(`${baseUrl}/message/sendMedia/${instanceName}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'apikey': evolutionConfig.apiKey },
-                body: JSON.stringify({ 
-                    number: jid, 
-                    media: textToSend, // Base64
-                    mediatype: "image", 
-                    mimetype: "image/png",
-                    caption: "",
-                    delay: 1200 
-                })
-             });
-         }
-      }
-
-    } catch (e) {
-      console.error("Failed to send message", e);
-      notify("Erro ao enviar. Mensagem salva localmente.");
-    } finally {
-      setTimeout(() => setIsSending(false), 400);
-    }
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-        if (file.size > 2 * 1024 * 1024) {
-            notify("Arquivo muito grande (Max 2MB)");
-            return;
-        }
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            const base64 = reader.result as string;
-            handleSendMessage('image', base64);
-        };
-        reader.readAsDataURL(file);
-    }
+    setChatHistories(prev => ({
+      ...prev,
+      [activeChat.id]: [...(prev[activeChat.id] || []), newMessage]
+    }));
+    
+    setMessageInput('');
+    setTimeout(() => setIsSending(false), 400);
   };
 
   return (
     <div className="h-full flex flex-col bg-slate-900 overflow-hidden relative">
       
-      {/* SUCCESS OVERLAY */}
       {showSuccessOverlay && (
         <div className="absolute inset-0 z-[200] bg-emerald-600 flex flex-col items-center justify-center text-white animate-in fade-in duration-700">
            <div className="p-10 bg-white/20 rounded-full animate-bounce mb-8">
@@ -340,7 +251,6 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
         </div>
       )}
 
-      {/* CONNECTION SCREEN (QR CODE) */}
       {connStatus !== 'CONNECTED' && (
         <div className="absolute inset-0 z-[100] bg-slate-950/98 backdrop-blur-3xl flex items-center justify-center p-8 animate-in fade-in">
            <div className="max-w-5xl w-full bg-slate-900 rounded-[4rem] shadow-2xl border border-white/10 overflow-hidden flex flex-col md:flex-row min-h-[600px]">
@@ -392,9 +302,9 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
 
                        <button 
                          onClick={() => setConnStatus('CONNECTED')}
-                         className="text-[9px] font-black uppercase text-indigo-500 hover:underline tracking-widest opacity-50 hover:opacity-100 flex items-center justify-center gap-2"
+                         className="text-[9px] font-black uppercase text-indigo-500 hover:underline tracking-widest opacity-50 hover:opacity-100"
                        >
-                         <Lock size={10} /> Entrar em Modo Demonstração
+                         Ignorar e Ver Interface (Modo Demo)
                        </button>
                     </div>
                  ) : (
@@ -446,7 +356,9 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar pt-4 pb-10 space-y-1 px-4">
-            {activeLeads.length > 0 ? activeLeads.map((chat) => (
+            {activeLeads.length > 0 ? activeLeads.map((chat) => {
+              const lastMsg = chatHistories[chat.id]?.[chatHistories[chat.id].length - 1];
+              return (
                 <div 
                   key={chat.id} 
                   onClick={() => setActiveChat(chat)} 
@@ -458,15 +370,17 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-baseline mb-1">
                       <h4 className={`text-sm font-black truncate uppercase tracking-tight ${activeChat?.id === chat.id ? 'text-indigo-400' : 'text-slate-200'}`}>{chat.name}</h4>
-                      <span className="text-[8px] font-black text-slate-500 uppercase">{chat.lastInteraction?.includes('Agora') ? 'Agora' : 'Recente'}</span>
+                      <span className="text-[8px] font-black text-slate-500 uppercase">{lastMsg?.time || 'Agora'}</span>
                     </div>
                     <p className="text-[10px] text-slate-400 font-bold truncate tracking-widest italic opacity-70">
-                       {chat.lastInteraction || 'Sem mensagens'}
+                       {lastMsg?.sender === 'ai' && <Bot size={10} className="inline mr-1 text-indigo-500"/>}
+                       {lastMsg?.text || 'Sem mensagens recentes'}
                     </p>
                   </div>
                   {activeChat?.id === chat.id && <div className="w-1 h-8 bg-indigo-500 rounded-full absolute left-0 shadow-[0_0_10px_#6366f1]"></div>}
                 </div>
-            )) : (
+              );
+            }) : (
               <div className="flex flex-col items-center justify-center py-20 opacity-20 grayscale scale-75">
                  <Database size={48} className="mb-4 text-slate-500" />
                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nenhuma Conversa</p>
@@ -502,70 +416,43 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                 </div>
               </div>
 
-              <div ref={scrollRef} className="flex-1 overflow-y-auto p-10 space-y-8 custom-scrollbar bg-slate-950 scroll-smooth">
-                {isLoadingMessages ? (
-                   <div className="flex flex-col items-center justify-center h-full text-indigo-500 gap-4">
-                      <Loader2 className="animate-spin" size={48} />
-                      <p className="text-[10px] font-black uppercase tracking-widest">Carregando Histórico Seguro...</p>
-                   </div>
-                ) : messages.length > 0 ? (
-                  messages.map((msg) => (
-                    <div key={msg.id} className={`flex flex-col ${msg.sender === 'me' ? 'items-end' : msg.sender === 'ai' ? 'items-end' : 'items-start'} animate-in slide-in-from-bottom-2`}>
-                      <div className={`max-w-[70%] p-4 rounded-[2.5rem] shadow-sm border relative ${
-                        msg.sender === 'me' 
-                          ? 'bg-indigo-600 text-white rounded-tr-none border-indigo-700 shadow-indigo-500/20' 
-                          : msg.sender === 'ai'
-                          ? 'bg-gradient-to-br from-violet-600 to-indigo-700 text-white rounded-tr-none border-violet-800 shadow-purple-500/20'
-                          : 'bg-slate-900 text-slate-100 rounded-tl-none border-slate-800'
-                      }`}>
-                        {msg.sender === 'ai' && (
-                          <div className="absolute -top-3 -left-3 bg-slate-800 p-2 rounded-xl shadow-lg border border-purple-500/30">
-                             <Sparkles size={12} className="text-purple-400 animate-pulse" />
-                          </div>
-                        )}
-                        
-                        {/* RENDERIZAÇÃO INTELIGENTE DE MÍDIA */}
-                        {msg.type === 'image' ? (
-                           <div className="rounded-2xl overflow-hidden mb-2 border border-white/10">
-                              <img src={msg.text} alt="Mídia" className="max-w-full h-auto object-cover" />
-                           </div>
-                        ) : msg.type === 'audio' ? (
-                           <div className="flex items-center gap-3 p-2 min-w-[200px]">
-                              <button className="p-3 bg-white/20 rounded-full hover:bg-white/30 transition-all"><Play size={16} fill="currentColor" /></button>
-                              <div className="h-1 flex-1 bg-white/20 rounded-full overflow-hidden">
-                                 <div className="h-full w-1/3 bg-white/80 rounded-full"></div>
-                              </div>
-                              <span className="text-[9px] font-black opacity-70">0:12</span>
-                           </div>
-                        ) : (
-                           <p className="text-sm font-medium leading-relaxed italic px-4 py-2">{msg.text}</p>
-                        )}
-
-                      </div>
-                      <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mt-3 px-6 opacity-50 italic flex items-center gap-2">
-                         {msg.sender === 'ai' ? 'IA Coach' : msg.sender === 'me' ? 'Você' : 'Lead'} • {msg.time} 
-                         {(msg.sender === 'me' || msg.sender === 'ai') && <CheckCheck size={10} className="text-emerald-500"/>}
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-slate-600 opacity-30 select-none">
-                     <MessageSquare size={64} className="mb-4" />
-                     <p className="text-[10px] font-black uppercase tracking-widest">Inicie a conversa agora</p>
-                  </div>
-                )}
+              {/* DICA FLUTUANTE DA IA */}
+              <div className="absolute top-32 left-1/2 -translate-x-1/2 z-30 animate-in slide-in-from-top-4 w-auto">
+                 <div className="bg-indigo-900/80 backdrop-blur-md border border-indigo-500/30 px-6 py-3 rounded-full flex items-center gap-3 shadow-2xl">
+                    <Brain size={16} className="text-indigo-300 animate-pulse"/>
+                    <p className="text-[10px] font-bold text-indigo-100 uppercase tracking-widest">
+                       Sugestão: "O cliente mostrou interesse no preço. Foque no valor agora."
+                    </p>
+                    <button className="text-[9px] font-black text-white bg-indigo-600 px-3 py-1 rounded-lg hover:bg-indigo-500">USAR</button>
+                 </div>
               </div>
 
-              {/* INPUT AREA COM UPLOAD REAL */}
-              <div className="bg-slate-900 border-t border-slate-800 p-8 z-10 shadow-2xl relative">
-                <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    className="hidden" 
-                    accept="image/*" 
-                    onChange={handleFileUpload} 
-                />
+              <div ref={scrollRef} className="flex-1 overflow-y-auto p-10 space-y-8 custom-scrollbar bg-slate-950 scroll-smooth">
+                {chatHistories[activeChat.id]?.map((msg) => (
+                  <div key={msg.id} className={`flex flex-col ${msg.sender === 'me' ? 'items-end' : msg.sender === 'ai' ? 'items-end' : 'items-start'} animate-in slide-in-from-bottom-2`}>
+                    <div className={`max-w-[70%] p-8 rounded-[2.5rem] shadow-sm border relative ${
+                      msg.sender === 'me' 
+                        ? 'bg-indigo-600 text-white rounded-tr-none border-indigo-700 shadow-indigo-500/20' 
+                        : msg.sender === 'ai'
+                        ? 'bg-gradient-to-br from-violet-600 to-indigo-700 text-white rounded-tr-none border-violet-800 shadow-purple-500/20'
+                        : 'bg-slate-900 text-slate-100 rounded-tl-none border-slate-800'
+                    }`}>
+                      {msg.sender === 'ai' && (
+                        <div className="absolute -top-3 -left-3 bg-slate-800 p-2 rounded-xl shadow-lg border border-purple-500/30">
+                           <Sparkles size={12} className="text-purple-400 animate-pulse" />
+                        </div>
+                      )}
+                      <p className="text-sm font-medium leading-relaxed italic">{msg.text}</p>
+                    </div>
+                    <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mt-3 px-6 opacity-50 italic flex items-center gap-2">
+                       {msg.sender === 'ai' ? 'IA Coach' : msg.sender === 'me' ? 'Você' : 'Lead'} • {msg.time} 
+                       {(msg.sender === 'me' || msg.sender === 'ai') && <CheckCheck size={10} className="text-emerald-500"/>}
+                    </span>
+                  </div>
+                ))}
+              </div>
 
+              <div className="bg-slate-900 border-t border-slate-800 p-8 z-10 shadow-2xl relative">
                 {/* BARRA DE SUGESTÕES RÁPIDAS */}
                 <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar pb-2">
                    {["Preço", "Agendar", "Áudio Explicativo", "Quebra de Objeção"].map(tag => (
@@ -573,43 +460,27 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                    ))}
                 </div>
 
-                <div className="max-w-6xl mx-auto flex items-center gap-4">
-                  <div className="flex-1 relative group flex items-center gap-2 bg-slate-800 rounded-[2.2rem] pr-2 border-2 border-transparent focus-within:border-indigo-500/50 transition-all">
+                <div className="max-w-6xl mx-auto flex items-center gap-6">
+                  <div className="flex-1 relative group">
                     <input 
                       value={messageInput} 
                       onChange={(e) => setMessageInput(e.target.value)} 
-                      onKeyPress={(e) => e.key === 'Enter' && handleSendMessage('text')} 
-                      placeholder={isRecording ? "Gravando áudio..." : "Digite para vender ou use IA (ctrl+space)..."}
-                      className="flex-1 pl-8 py-7 bg-transparent border-none outline-none text-sm font-bold shadow-inner italic placeholder:text-slate-500 text-white" 
-                      disabled={isRecording}
+                      onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()} 
+                      placeholder="Digite para vender ou use IA (ctrl+space)..." 
+                      className="w-full pl-8 pr-32 py-7 bg-slate-800 rounded-[2.2rem] border-2 border-transparent outline-none text-sm font-bold shadow-inner focus:border-indigo-500/50 transition-all italic placeholder:text-slate-500 text-white" 
                     />
-                    
-                    <div className="flex items-center gap-3 text-slate-500 mr-4">
+                    <div className="absolute right-6 top-1/2 -translate-y-1/2 flex items-center gap-3 text-slate-500 group-focus-within:text-indigo-400 transition-colors">
                        <Paperclip size={20} className="cursor-pointer hover:scale-110 transition-transform hover:text-white"/>
                        <Smile size={20} className="cursor-pointer hover:scale-110 transition-transform hover:text-white"/>
-                       <button onClick={() => fileInputRef.current?.click()} title="Enviar Imagem">
-                           <ImageIcon size={20} className="cursor-pointer hover:scale-110 transition-transform hover:text-indigo-400"/>
-                       </button>
                     </div>
                   </div>
-
-                  {messageInput.trim() ? (
-                      <button 
-                        onClick={() => handleSendMessage('text')} 
-                        disabled={isSending} 
-                        className="p-8 bg-indigo-600 text-white rounded-3xl shadow-xl hover:bg-indigo-700 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 flex items-center justify-center hover:shadow-indigo-500/30"
-                      >
-                        {isSending ? <Loader2 className="animate-spin" size={24} /> : <Send size={24} />}
-                      </button>
-                  ) : (
-                      <button 
-                        onMouseDown={() => setIsRecording(true)}
-                        onMouseUp={() => { setIsRecording(false); notify('Áudio enviado (Simulação)'); }}
-                        className={`p-8 rounded-3xl shadow-xl transition-all hover:scale-105 active:scale-95 flex items-center justify-center ${isRecording ? 'bg-rose-600 text-white animate-pulse' : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'}`}
-                      >
-                        <Mic size={24} />
-                      </button>
-                  )}
+                  <button 
+                    onClick={handleSendMessage} 
+                    disabled={!messageInput.trim() || isSending} 
+                    className="p-8 bg-indigo-600 text-white rounded-3xl shadow-xl hover:bg-indigo-700 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 flex items-center justify-center hover:shadow-indigo-500/30"
+                  >
+                    {isSending ? <Loader2 className="animate-spin" size={24} /> : <Send size={24} />}
+                  </button>
                 </div>
               </div>
             </>

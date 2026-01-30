@@ -29,7 +29,7 @@ const DATA_PERFORMANCE = [
 ];
 
 export const Dashboard: React.FC<DashboardProps> = ({ performanceMode, leads }) => {
-  const [aiCoachMessage, setAiCoachMessage] = useState<string>('Analisando funil de vendas em tempo real...');
+  const [aiCoachMessage, setAiCoachMessage] = useState<string>('');
   const [isAiThinking, setIsAiThinking] = useState(false);
 
   // Cálculos em Tempo Real para o PLACAR

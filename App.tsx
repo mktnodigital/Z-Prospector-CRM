@@ -25,7 +25,7 @@ import { UserProfile } from './components/UserProfile';
 import { AISearchModal } from './components/AISearchModal';
 import { N8nManager } from './components/N8nManager';
 import { FollowUpAutomation } from './components/FollowUpAutomation';
-import { LeadStatus, Lead, AppModule, Appointment, BrandingConfig, EvolutionConfig, AppNotification, Tenant } from './types';
+import { LeadStatus, Lead, AppModule, Appointment, BrandingConfig, EvolutionConfig, AppNotification } from './types';
 
 const API_URL = '/api/core.php';
 
@@ -39,17 +39,10 @@ const DEFAULT_BRANDING: BrandingConfig = {
   appName: "Z-Prospector"
 };
 
-// Configuração padrão como fallback, será sobrescrita pelo DB
-const DEFAULT_EVOLUTION_CONFIG: EvolutionConfig = {
+const MASTER_EVOLUTION_CONFIG: EvolutionConfig = {
   baseUrl: 'https://api.clikai.com.br',
-  apiKey: '',
-  enabled: false
-};
-
-const DEFAULT_N8N_CONFIG = {
-  baseUrl: 'https://n8n.clikai.com.br',
-  apiKey: '',
-  status: 'ONLINE'
+  apiKey: 'f292e7c587e33adf1873e0c1fc3bfcda',
+  enabled: true
 };
 
 // Componente de Logo com Fallback Inteligente
@@ -87,17 +80,9 @@ const ZLogo: React.FC<{ branding: BrandingConfig, type?: 'full' | 'icon', darkMo
 const App: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [branding, setBranding] = useState<BrandingConfig>(DEFAULT_BRANDING);
-  const [evolutionConfig, setEvolutionConfig] = useState<EvolutionConfig>(DEFAULT_EVOLUTION_CONFIG);
-  const [n8nConfig, setN8nConfig] = useState(DEFAULT_N8N_CONFIG);
-  
   const [leads, setLeads] = useState<Lead[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [tenant, setTenant] = useState<Tenant>({
-    id: '1', name: 'Master', niche: 'SaaS', healthScore: 100, revenue: 0, activeLeads: 0, status: 'ONLINE', instanceStatus: 'DISCONNECTED'
-  });
-  
-  // Derivado do estado do Tenant para compatibilidade
-  const isWhatsAppConnected = tenant.instanceStatus === 'CONNECTED';
+  const [isWhatsAppConnected, setIsWhatsAppConnected] = useState(false);
   
   const [notifications, setNotifications] = useState<AppNotification[]>([
     { id: '1', type: 'SYSTEM', title: 'Operação Iniciada', description: 'O Motor de Vendas está pronto para escalar.', time: 'Agora', read: false },
@@ -125,26 +110,6 @@ const App: React.FC = () => {
     role: 'SUPER_ADMIN', 
     avatar: null 
   });
-
-  // Dynamic Favicon Update
-  useEffect(() => {
-    if (branding.favicon) {
-      const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
-      if (link) {
-        link.href = branding.favicon;
-      } else {
-        const newLink = document.createElement('link');
-        newLink.rel = 'icon';
-        newLink.href = branding.favicon;
-        document.head.appendChild(newLink);
-      }
-      
-      // Also update apple-touch-icon if exists
-      const appleLink = document.querySelector("link[rel~='apple-touch-icon']") as HTMLLinkElement;
-      if (appleLink) appleLink.href = branding.favicon;
-    }
-    document.title = `${branding.appName} - Operação`;
-  }, [branding]);
 
   // Handle Resize
   useEffect(() => {
@@ -184,71 +149,15 @@ const App: React.FC = () => {
     setNotifications(prev => [newNotif, ...prev]);
   };
 
-  // FETCH CORE DATA (Sync Function)
-  const syncCoreData = async () => {
-    try {
-      // 1. Leads
-      const lRes = await fetch(`${API_URL}?action=get-leads`);
-      if (lRes.ok) {
-        const newLeads = await lRes.json();
-        if (newLeads.length > leads.length && leads.length > 0) {
-           addNotification({ type: 'INBOX', title: 'Novo Lead', description: 'Um novo cliente entrou no pipeline.' });
-        }
-        setLeads(newLeads);
-      }
-      
-      // 2. Tenant Status
-      const tRes = await fetch(`${API_URL}?action=get-current-tenant`);
-      if (tRes.ok) {
-         const tData = await tRes.json();
-         setTenant(tData);
-      }
-      
-      // 3. Appointments
-      const aRes = await fetch(`${API_URL}?action=get-appointments`);
-      if (aRes.ok) setAppointments(await aRes.json());
-
-    } catch (e) {
-      // Silent fail on polling
-    }
-  };
-
   // Inicialização Robusta
   useEffect(() => {
     const syncInitial = async () => {
       try {
-        // Branding
         const bRes = await fetch(`${API_URL}?action=get-branding`);
         if (bRes.ok) setBranding(await bRes.json());
         
-        // Load System Configs (Evolution / N8N) from Integrations
-        const iRes = await fetch(`${API_URL}?action=get-integrations`);
-        if (iRes.ok) {
-            const integrations = await iRes.json();
-            if (Array.isArray(integrations)) {
-                // Parse Evolution Config
-                const evo = integrations.find((i: any) => i.provider === 'SYSTEM_EVOLUTION');
-                if (evo && evo.keys) {
-                    setEvolutionConfig({
-                        baseUrl: evo.name, // Storing URL in name for convenience or keys.url
-                        apiKey: evo.keys.apiKey || '',
-                        enabled: evo.status === 'CONNECTED'
-                    });
-                }
-                
-                // Parse N8N Config
-                const n8n = integrations.find((i: any) => i.provider === 'SYSTEM_N8N');
-                if (n8n && n8n.keys) {
-                    setN8nConfig({
-                        baseUrl: n8n.name,
-                        apiKey: n8n.keys.apiKey || '',
-                        status: n8n.status === 'CONNECTED' ? 'ONLINE' : 'OFFLINE'
-                    });
-                }
-            }
-        }
-
-        await syncCoreData(); // Initial Data Load
+        const lRes = await fetch(`${API_URL}?action=get-leads`);
+        if (lRes.ok) setLeads(await lRes.json());
         
         const uRes = await fetch(`${API_URL}?action=get-user`);
         if (uRes.ok) {
@@ -266,16 +175,6 @@ const App: React.FC = () => {
     syncInitial();
   }, []);
 
-  // Heartbeat System (Real-time Polling every 15s)
-  useEffect(() => {
-    if (isLoggedIn) {
-      const interval = setInterval(() => {
-        syncCoreData();
-      }, 15000); 
-      return () => clearInterval(interval);
-    }
-  }, [isLoggedIn, leads.length]); 
-
   const handleLogout = () => {
     notify('Sessão encerrada. A operação continua rodando em background.');
     setTimeout(() => {
@@ -286,6 +185,7 @@ const App: React.FC = () => {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
+  // MENU REESTRUTURADO POR FASES
   const menuCategories = [
     {
       label: 'Operação Central',
@@ -334,7 +234,7 @@ const App: React.FC = () => {
   if (!isLoggedIn) return <OfferPage branding={branding} onLogin={() => setIsLoggedIn(true)} />;
 
   return (
-    <div className={`fixed inset-0 flex h-full w-full overflow-hidden transition-all duration-700 ${performanceMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+    <div className={`fixed inset-0 flex h-full w-full overflow-hidden transition-all duration-700 ${performanceMode ? 'dark bg-slate-950' : 'bg-slate-50'}`}>
       
       {/* VIBRANT BACKGROUND MESH */}
       <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
@@ -395,10 +295,10 @@ const App: React.FC = () => {
             <div key={catIdx} className="space-y-2">
               {isSidebarOpen && (
                 <div className="px-6 mb-2 flex items-center gap-2 opacity-40">
-                  <span className={`text-[8px] font-black uppercase tracking-[0.3em] whitespace-nowrap ${performanceMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  <span className="text-[8px] font-black uppercase tracking-[0.3em] whitespace-nowrap text-slate-500 dark:text-slate-400">
                     {category.label}
                   </span>
-                  <div className={`h-px flex-1 ${performanceMode ? 'bg-slate-800' : 'bg-slate-200'}`}></div>
+                  <div className="h-px bg-slate-200 dark:bg-slate-800 flex-1"></div>
                 </div>
               )}
               <div className="space-y-1">
@@ -411,7 +311,7 @@ const App: React.FC = () => {
                         ? `bg-gradient-to-r ${m.activeGradient} text-white shadow-lg shadow-${m.color.split('-')[1]}-500/30 scale-[1.02]`
                         : performanceMode 
                           ? 'text-slate-400 hover:bg-slate-800/50 hover:text-white' 
-                          : 'text-slate-600 hover:bg-white hover:text-indigo-600 hover:shadow-md'
+                          : 'text-slate-500 hover:bg-white hover:text-indigo-600 hover:shadow-md'
                     }`}
                   >
                     <m.icon size={isSidebarOpen ? 18 : 22} className={`${activeModule === m.id ? 'text-white' : m.color} transition-colors`} /> 
@@ -433,7 +333,7 @@ const App: React.FC = () => {
              <div className={`w-2.5 h-2.5 rounded-full ${isWhatsAppConnected ? 'bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]' : 'bg-rose-500'}`}></div>
              {isSidebarOpen && (
                <div>
-                 <p className={`text-[9px] font-black uppercase tracking-widest opacity-60 ${performanceMode ? 'text-slate-400' : 'text-slate-500'}`}>Status do Motor</p>
+                 <p className="text-[9px] font-black uppercase tracking-widest opacity-60">Status do Motor</p>
                  <p className={`text-[10px] font-black uppercase ${isWhatsAppConnected ? 'text-emerald-500' : 'text-rose-500'}`}>
                    {isWhatsAppConnected ? 'Operando' : 'Parado'}
                  </p>
@@ -456,7 +356,7 @@ const App: React.FC = () => {
         <header className={`h-20 md:h-24 ${performanceMode ? 'bg-slate-900/40 border-slate-800/50' : 'bg-white/60 border-indigo-50'} backdrop-blur-xl border-b flex items-center justify-between px-6 md:px-10 z-40 transition-colors duration-500`}>
            <div className="flex items-center gap-4 md:gap-8">
               {isMobile && (
-                <button onClick={() => setIsSidebarOpen(true)} className={`p-2 ${performanceMode ? 'text-slate-400 hover:text-indigo-500' : 'text-slate-600 hover:text-indigo-600'}`}>
+                <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-slate-400 hover:text-indigo-500">
                   <MenuIcon size={24} />
                 </button>
               )}
@@ -471,18 +371,21 @@ const App: React.FC = () => {
            </div>
 
            <div className="flex items-center gap-3 md:gap-6">
-             {/* PERFORMANCE TOGGLE (ICONE APENAS) */}
-             <button 
+             {/* PERFORMANCE TOGGLE (MANTIDO E DESTACADO) */}
+             <div 
                onClick={() => setPerformanceMode(!performanceMode)}
-               title={performanceMode ? 'Modo Planejamento (Dark)' : 'Modo Dia (Light)'}
-               className={`p-3 rounded-full border transition-all hover:scale-105 active:scale-95 shadow-sm ${
+               className={`cursor-pointer flex items-center gap-3 px-4 py-2.5 rounded-full border transition-all hover:scale-105 active:scale-95 ${
                  performanceMode 
-                 ? 'bg-indigo-950/50 border-indigo-500/50 text-yellow-400 shadow-[0_0_15px_rgba(99,102,241,0.2)]' 
-                 : 'bg-white border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-300'
+                 ? 'bg-indigo-950/50 border-indigo-500/50 text-indigo-300 shadow-[0_0_20px_rgba(99,102,241,0.3)]' 
+                 : 'bg-white border-slate-200 text-slate-500 shadow-sm hover:border-indigo-300 hover:text-indigo-600'
                }`}
              >
-                {performanceMode ? <Zap size={20} className="fill-yellow-400"/> : <Moon size={20}/>}
-             </button>
+                <div className={`w-2 h-2 rounded-full ${performanceMode ? 'bg-indigo-400 animate-pulse shadow-[0_0_10px_#818cf8]' : 'bg-slate-300'}`}></div>
+                <span className="text-[9px] font-black uppercase tracking-widest hidden md:inline">
+                  {performanceMode ? 'Modo Planejamento' : 'Modo Dia'}
+                </span>
+                {performanceMode ? <Zap size={14} className="text-yellow-400 fill-yellow-400"/> : <Moon size={14}/>}
+             </div>
 
              <div className="relative" ref={notificationRef}>
                 <button 
@@ -494,21 +397,21 @@ const App: React.FC = () => {
                 </button>
 
                 {showNotifications && (
-                  <div className={`absolute top-full right-0 mt-4 w-80 md:w-96 rounded-[2rem] shadow-2xl border p-4 z-[100] animate-in zoom-in-95 ${performanceMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
-                     <div className={`flex justify-between items-center px-4 py-2 border-b mb-2 ${performanceMode ? 'border-slate-800' : 'border-slate-100'}`}>
-                        <span className={`text-xs font-black uppercase tracking-widest ${performanceMode ? 'text-white' : 'text-slate-800'}`}>Notificações</span>
+                  <div className="absolute top-full right-0 mt-4 w-80 md:w-96 bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-800 p-4 z-[100] animate-in zoom-in-95">
+                     <div className="flex justify-between items-center px-4 py-2 border-b border-slate-100 dark:border-slate-800 mb-2">
+                        <span className="text-xs font-black uppercase tracking-widest dark:text-white">Notificações</span>
                         <button onClick={() => setNotifications([])} className="text-[9px] font-bold text-indigo-500 hover:underline">Limpar</button>
                      </div>
                      <div className="max-h-[300px] overflow-y-auto custom-scrollbar space-y-2">
                         {notifications.length > 0 ? notifications.map(notif => (
-                           <div key={notif.id} className={`p-4 rounded-2xl transition-colors flex gap-3 border ${performanceMode ? 'hover:bg-slate-800 border-transparent hover:border-slate-700' : 'hover:bg-slate-50 border-transparent hover:border-slate-100'}`}>
+                           <div key={notif.id} className="p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex gap-3 border border-transparent hover:border-slate-100 dark:hover:border-slate-700">
                               <div className={`p-2 rounded-lg h-fit ${notif.type === 'SYSTEM' ? 'bg-indigo-100 text-indigo-600' : notif.type === 'INBOX' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
                                  <Info size={16} />
                               </div>
                               <div>
-                                 <h4 className={`text-xs font-black uppercase tracking-tight ${performanceMode ? 'text-slate-200' : 'text-slate-800'}`}>{notif.title}</h4>
-                                 <p className={`text-[10px] font-medium leading-tight mt-1 ${performanceMode ? 'text-slate-300' : 'text-slate-500'}`}>{notif.description}</p>
-                                 <span className={`text-[9px] font-bold mt-2 block ${performanceMode ? 'text-slate-500' : 'text-slate-400'}`}>{notif.time}</span>
+                                 <h4 className="text-xs font-black uppercase tracking-tight text-slate-800 dark:text-slate-200">{notif.title}</h4>
+                                 <p className="text-[10px] font-medium text-slate-500 leading-tight mt-1">{notif.description}</p>
+                                 <span className="text-[9px] font-bold text-slate-400 mt-2 block">{notif.time}</span>
                               </div>
                            </div>
                         )) : (
@@ -521,7 +424,7 @@ const App: React.FC = () => {
                 )}
              </div>
 
-             <div className={`flex items-center gap-4 cursor-pointer group pl-6 border-l ${performanceMode ? 'border-slate-700/50' : 'border-slate-200/50'}`} onClick={() => setActiveModule('profile')}>
+             <div className="flex items-center gap-4 cursor-pointer group pl-6 border-l border-slate-200/50 dark:border-slate-700/50" onClick={() => setActiveModule('profile')}>
                 <div className="text-right hidden sm:block">
                   <p className={`text-xs font-black uppercase tracking-widest transition-colors ${performanceMode ? 'text-white' : 'text-slate-800'}`}>{currentUser.name}</p>
                   <p className="text-[8px] font-black text-indigo-500 uppercase tracking-widest italic">{currentUser.role}</p>
@@ -537,18 +440,7 @@ const App: React.FC = () => {
         <div className="flex-1 overflow-auto custom-scrollbar relative">
           <div className="relative z-10 h-full">
             {activeModule === 'results' && <Dashboard performanceMode={performanceMode} leads={leads} />}
-            {activeModule === 'admin' && (
-              <AdminModule 
-                branding={branding} 
-                onBrandingChange={setBranding} 
-                onNicheChange={() => {}} 
-                evolutionConfig={evolutionConfig} 
-                onEvolutionConfigChange={setEvolutionConfig} 
-                n8nConfig={n8nConfig}
-                onN8nConfigChange={setN8nConfig}
-                notify={notify} 
-              />
-            )}
+            {activeModule === 'admin' && <AdminModule branding={branding} onBrandingChange={setBranding} onNicheChange={() => {}} evolutionConfig={MASTER_EVOLUTION_CONFIG} onEvolutionConfigChange={() => {}} notify={notify} />}
             {activeModule === 'capture' && <CaptureManagement onAddLead={(l) => setLeads([l, ...leads])} notify={notify} />}
             {activeModule === 'prospecting' && <CRMKanban leads={leads} onLeadsChange={setLeads} notify={notify} onNavigate={setActiveModule} />}
             {activeModule === 'inbox' && (
@@ -556,20 +448,9 @@ const App: React.FC = () => {
                 niche="Vendas Master" 
                 activeLeads={leads} 
                 onSchedule={() => {}} 
-                tenant={tenant}
-                evolutionConfig={evolutionConfig} 
-                onConnectionChange={async (status) => { 
-                  const newStatus = status ? 'CONNECTED' : 'DISCONNECTED';
-                  setTenant(prev => ({...prev, instanceStatus: newStatus})); 
-                  try {
-                    await fetch(`${API_URL}?action=update-instance-status`, {
-                       method: 'POST',
-                       body: JSON.stringify({ status: newStatus })
-                    });
-                  } catch (e) {
-                    console.error("Falha ao persistir status", e);
-                  }
-                }}
+                tenant={{id: '1', name: 'Master', niche: 'SaaS', healthScore: 100, revenue: 0, activeLeads: leads.length, status: 'ONLINE', instanceStatus: isWhatsAppConnected ? 'CONNECTED' : 'DISCONNECTED'}} 
+                evolutionConfig={MASTER_EVOLUTION_CONFIG} 
+                onConnectionChange={setIsWhatsAppConnected}
                 notify={(msg) => { notify(msg); addNotification({ type: 'INBOX', title: 'Mensagem Recebida', description: msg }); }} 
               />
             )}
