@@ -53,11 +53,12 @@ $authenticated_tenant_id = 0;
 if ($action === 'login') {
     $input = json_decode(file_get_contents('php://input'), true);
     // Em produção: verificar contra a tabela `users` com password_verify
-    if (($input['email'] ?? '') === 'admin@zprospector.com') {
+    // Atualizado para o novo proprietário/administrador geral
+    if (($input['email'] ?? '') === 'moisescosta.mkt@gmail.com') {
         echo json_encode([
             "success" => true, 
             "token" => base64_encode("session_tenant_1"), // Mock JWT
-            "user" => ["name" => "Operador Master", "role" => "SUPER_ADMIN", "tenant_id" => 1]
+            "user" => ["name" => "Moises Costa", "role" => "SUPER_ADMIN", "tenant_id" => 1]
         ]);
         exit;
     }

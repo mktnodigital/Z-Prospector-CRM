@@ -1,4 +1,3 @@
-
 -- Tabela de Branding (Configurações Visuais Master)
 CREATE TABLE IF NOT EXISTS `branding` (
   `tenant_id` int(11) NOT NULL,
@@ -92,7 +91,7 @@ CREATE TABLE IF NOT EXISTS `campaigns` (
   `tenant_id` int(11) NOT NULL,
   `name` varchar(255) NOT NULL,
   `target_status` varchar(50) NOT NULL,
-  `product_id` varchar(50) DEFAULT NULL,
+  `product_id power_id` varchar(50) DEFAULT NULL,
   `product_name` varchar(255) DEFAULT NULL,
   `template` text,
   `scheduled_at` varchar(50) DEFAULT NULL,
@@ -137,4 +136,5 @@ CREATE TABLE IF NOT EXISTS `webhooks` (
 -- Inserir Dados Iniciais Obrigatórios
 INSERT INTO `branding` (`tenant_id`, `config_json`) VALUES (1, '{"appName":"Z-Prospector","fullLogo":"Logotipo%20Z_Prospector.png","fullLogoDark":"Logotipo%20Z_Prospector.png","iconLogo":"Logotipo%20Z_Prospector_Icon.png","iconLogoDark":"Logotipo%20Z_Prospector_Icon.png","favicon":"Logotipo%20Z_Prospector_Icon.png","salesPageLogo":"Logotipo%20Z_Prospector.png"}') ON DUPLICATE KEY UPDATE tenant_id=tenant_id;
 
-INSERT INTO `users` (`tenant_id`, `name`, `email`, `role`) VALUES (1, 'Operador Master', 'admin@zprospector.com.br', 'SUPER_ADMIN') ON DUPLICATE KEY UPDATE tenant_id=tenant_id;
+-- Atualizado para o novo proprietário e administrador geral do sistema
+INSERT INTO `users` (`tenant_id`, `name`, `email`, `role`) VALUES (1, 'Moises Costa', 'moisescosta.mkt@gmail.com', 'SUPER_ADMIN') ON DUPLICATE KEY UPDATE tenant_id=tenant_id;
