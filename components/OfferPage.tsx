@@ -110,8 +110,8 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
       id: 'start', 
       name: 'Essencial', 
       tagline: 'Para quem está montando a rotina.', 
-      monthlyPrice: 34, 
-      annualTotal: 326, // 34 * 12 * 0.8 = ~326
+      monthlyPrice: 47, 
+      annualTotal: 451, // 47 * 12 * 0.8 = ~451
       features: ['Pipeline Visual de Conversão', 'Central de Conversas Unificada', 'Até 1.000 Oportunidades/mês'], 
       cta: 'ATIVAR OPERAÇÃO', 
       color: 'indigo', 
@@ -121,8 +121,8 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
       id: 'growth', 
       name: 'Avançado', 
       tagline: 'Para quem quer ritmo constante.', 
-      monthlyPrice: 134, 
-      annualTotal: 1286, // 134 * 12 * 0.8 = ~1286
+      monthlyPrice: 147, 
+      annualTotal: 1411, // 147 * 12 * 0.8 = ~1411
       features: ['Cadências Automáticas de Resposta', 'Co-piloto de Vendas (IA)', 'Recuperação de Agenda'], 
       cta: 'ACELERAR RITMO', 
       popular: true, 
@@ -133,8 +133,8 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
       id: 'scale', 
       name: 'Elite', 
       tagline: 'Para operações de alto volume.', 
-      monthlyPrice: 297, 
-      annualTotal: 2851, // 297 * 12 * 0.8 = ~2851
+      monthlyPrice: 347, 
+      annualTotal: 3331, // 347 * 12 * 0.8 = ~3331
       features: ['Visão Multi-operação', 'Inteligência de Dados Master', 'Motor de Escala Total'], 
       cta: 'ESCALAR AGORA', 
       color: 'slate', 

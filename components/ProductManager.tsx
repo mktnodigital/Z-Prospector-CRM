@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { 
   Package, Plus, Tag, DollarSign, 
   Sparkles, Link as LinkIcon, 
@@ -30,8 +30,6 @@ interface Product {
   image?: string | null;
 }
 
-const API_URL = '/api/core.php';
-
 const PERFORMANCE_DATA = [
   { name: 'Seg', views: 400, sales: 24 },
   { name: 'Ter', views: 300, sales: 18 },
@@ -42,8 +40,37 @@ const PERFORMANCE_DATA = [
   { name: 'Dom', views: 700, sales: 42 },
 ];
 
+const INITIAL_PRODUCTS: Product[] = [
+  { 
+    id: 'prod_1', 
+    name: 'Combo Premium Barbearia', 
+    price: 180.00, 
+    category: 'Serviço', 
+    description: 'Corte master + Barba terapia com óleos essenciais e toalha quente.',
+    conversion: '24%', 
+    views: 1240,
+    sales: 297,
+    icon: Star, 
+    color: 'text-indigo-500',
+    image: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&q=80&w=800"
+  },
+  { 
+    id: 'prod_2', 
+    name: 'Mentoria Business IA', 
+    price: 2500.00, 
+    category: 'Consultoria', 
+    description: 'Aceleração de negócios digitais utilizando workflows n8n e IA.',
+    conversion: '8%', 
+    views: 3500,
+    sales: 280,
+    icon: Zap, 
+    color: 'text-orange-500',
+    image: "https://images.unsplash.com/photo-1675557009875-436f595b1897?auto=format&fit=crop&q=80&w=800"
+  }
+];
+
 export const ProductManager: React.FC<{ notify: (msg: string) => void }> = ({ notify }) => {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [activeFilter, setActiveFilter] = useState('Todos');
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -59,29 +86,6 @@ export const ProductManager: React.FC<{ notify: (msg: string) => void }> = ({ no
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const fetchProducts = async () => {
-        try {
-            const res = await fetch(`${API_URL}?action=get-products`);
-            if (res.ok) {
-                const data = await res.json();
-                if (Array.isArray(data)) {
-                    // Map icon back since API doesn't return component
-                    const mapped = data.map((p: any) => ({
-                        ...p,
-                        icon: Package,
-                        color: 'text-indigo-500'
-                    }));
-                    setProducts(mapped);
-                }
-            }
-        } catch (e) {
-            console.error("Failed to load products");
-        }
-    };
-    fetchProducts();
-  }, []);
 
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
@@ -112,17 +116,13 @@ export const ProductManager: React.FC<{ notify: (msg: string) => void }> = ({ no
     }
   };
 
-  const handleSaveProduct = async (e: React.FormEvent) => {
+  const handleSaveProduct = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    let productToSave: Product;
-
     if (editingId) {
-      productToSave = { ...form } as Product;
-      setProducts(prev => prev.map(p => p.id === editingId ? productToSave : p));
+      setProducts(prev => prev.map(p => p.id === editingId ? { ...p, ...form } as Product : p));
       notify('Oferta atualizada no catálogo master!');
     } else {
-      productToSave = {
+      const newProduct: Product = {
         ...form as Product,
         id: `prod_${Date.now()}`,
         conversion: '0%',
@@ -131,33 +131,15 @@ export const ProductManager: React.FC<{ notify: (msg: string) => void }> = ({ no
         icon: Package,
         color: 'text-indigo-600'
       };
-      setProducts([productToSave, ...products]);
+      setProducts([newProduct, ...products]);
       notify('Nova oferta injetada com sucesso!');
     }
-
-    try {
-        await fetch(`${API_URL}?action=save-product`, {
-            method: 'POST',
-            body: JSON.stringify(productToSave)
-        });
-    } catch(e) {
-        console.error("Failed to save product", e);
-    }
-
     setIsProductModalOpen(false);
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!confirmDeleteId) return;
     setProducts(prev => prev.filter(p => p.id !== confirmDeleteId));
-    
-    try {
-        await fetch(`${API_URL}?action=delete-product`, {
-            method: 'POST',
-            body: JSON.stringify({ id: confirmDeleteId })
-        });
-    } catch(e) { console.error(e); }
-
     setConfirmDeleteId(null);
     notify('Oferta removida da rede.');
   };

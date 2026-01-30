@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Calendar as CalendarIcon, Clock, Users, ChevronLeft, 
   ChevronRight, CheckCircle2, Sparkles, Brain, Bot, 
@@ -18,8 +18,6 @@ interface Props {
 
 type ViewMode = 'month' | 'list';
 
-const API_URL = '/api/core.php';
-
 const SERVICE_CATALOG = [
   { id: 'srv_1', name: 'Corte Master', price: 80.00 },
   { id: 'srv_2', name: 'Barba Terapia', price: 65.00 },
@@ -27,44 +25,18 @@ const SERVICE_CATALOG = [
   { id: 'srv_4', name: 'Mentoria Express', price: 250.00 },
 ];
 
-export const ScheduleManager: React.FC<Props> = ({ appointments: propAppointments, onAddAppointment, onUpdateAppointment, onDeleteAppointment }) => {
+export const ScheduleManager: React.FC<Props> = ({ appointments, onAddAppointment, onUpdateAppointment, onDeleteAppointment }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('month');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(new Date().getDate());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
-  const [localAppointments, setLocalAppointments] = useState<Appointment[]>(propAppointments);
   
   const [hoveredDay, setHoveredDay] = useState<number | null>(null);
 
   const [formName, setFormName] = useState('');
   const [formTime, setFormTime] = useState('');
   const [formServiceId, setFormServiceId] = useState(SERVICE_CATALOG[0].id);
-
-  // Load appointments from API
-  useEffect(() => {
-    const fetchAppointments = async () => {
-      try {
-        const res = await fetch(`${API_URL}?action=get-appointments`);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            setLocalAppointments(data);
-          }
-        }
-      } catch (e) {
-        console.error("Failed to load appointments from API");
-      }
-    };
-    fetchAppointments();
-  }, []);
-
-  // Sync prop changes if any (from other components)
-  useEffect(() => {
-    if (propAppointments.length > localAppointments.length) {
-       setLocalAppointments(propAppointments);
-    }
-  }, [propAppointments]);
 
   const daysInMonth = useMemo(() => {
     return new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
@@ -98,27 +70,21 @@ export const ScheduleManager: React.FC<Props> = ({ appointments: propAppointment
     setIsModalOpen(true);
   };
 
-  const handleSaveAppointment = async (e: React.FormEvent) => {
+  const handleSaveAppointment = (e: React.FormEvent) => {
     e.preventDefault();
     const selectedService = SERVICE_CATALOG.find(s => s.id === formServiceId);
     
-    let apptToSave: Appointment;
-
     if (editingAppointment) {
-      apptToSave = { 
+      onUpdateAppointment({ 
         ...editingAppointment, 
         lead: formName, 
         time: formTime, 
         service: selectedService?.name || 'Serviço',
         serviceId: formServiceId,
         value: selectedService?.price
-      };
-      // Optimistic update
-      const updatedList = localAppointments.map(i => i.id === apptToSave.id ? apptToSave : i);
-      setLocalAppointments(updatedList);
-      onUpdateAppointment(apptToSave);
+      });
     } else {
-      apptToSave = {
+      const newAppointment: Appointment = {
         id: Math.random().toString(36).substr(2, 9),
         lead: formName,
         time: formTime,
@@ -131,51 +97,25 @@ export const ScheduleManager: React.FC<Props> = ({ appointments: propAppointment
         status: 'CONFIRMED',
         ia: false
       };
-      // Optimistic update
-      setLocalAppointments([...localAppointments, apptToSave]);
-      onAddAppointment(apptToSave);
+      onAddAppointment(newAppointment);
     }
-
-    // Persist to API
-    try {
-      await fetch(`${API_URL}?action=save-appointment`, {
-        method: 'POST',
-        body: JSON.stringify(apptToSave)
-      });
-    } catch (e) {
-      console.error("Failed to save appointment", e);
-    }
-
     setIsModalOpen(false);
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Remover agendamento do cluster de operações?')) {
-      const updatedList = localAppointments.filter(i => i.id !== id);
-      setLocalAppointments(updatedList);
-      onDeleteAppointment(id);
-      
-      try {
-        await fetch(`${API_URL}?action=delete-appointment`, {
-          method: 'POST',
-          body: JSON.stringify({ id })
-        });
-      } catch (e) {
-        console.error("Failed to delete appointment", e);
-      }
-    }
+  const handleDelete = (id: string) => {
+    if (confirm('Remover agendamento do cluster de operações?')) onDeleteAppointment(id);
   };
 
   const dailyAppointments = useMemo(() => {
-    return localAppointments.filter(ap => 
+    return appointments.filter(ap => 
       ap.date === selectedDay && 
       ap.month === currentDate.getMonth() && 
       ap.year === currentDate.getFullYear()
     ).sort((a, b) => a.time.localeCompare(b.time));
-  }, [localAppointments, selectedDay, currentDate]);
+  }, [appointments, selectedDay, currentDate]);
 
   const allUpcoming = useMemo(() => {
-    return [...localAppointments]
+    return [...appointments]
       .filter(ap => {
         const apDate = new Date(ap.year, ap.month, ap.date);
         const today = new Date();
@@ -188,13 +128,13 @@ export const ScheduleManager: React.FC<Props> = ({ appointments: propAppointment
         if (dateA !== dateB) return dateA - dateB;
         return a.time.localeCompare(b.time);
       });
-  }, [localAppointments]);
+  }, [appointments]);
 
   const iaStats = useMemo(() => {
-    const total = localAppointments.length;
-    const iaConfirmed = localAppointments.filter(ap => ap.ia).length;
+    const total = appointments.length;
+    const iaConfirmed = appointments.filter(ap => ap.ia).length;
     return { total, iaConfirmed, rate: total > 0 ? Math.round((iaConfirmed / total) * 100) : 0 };
-  }, [localAppointments]);
+  }, [appointments]);
 
   return (
     <div className="p-10 space-y-10 animate-in fade-in relative pb-40">
@@ -300,7 +240,7 @@ export const ScheduleManager: React.FC<Props> = ({ appointments: propAppointment
                   {Array.from({ length: daysInMonth }).map((_, i) => {
                     const day = i + 1;
                     const isSelected = selectedDay === day;
-                    const dayAppts = localAppointments.filter(ap => ap.date === day && ap.month === currentDate.getMonth() && ap.year === currentDate.getFullYear());
+                    const dayAppts = appointments.filter(ap => ap.date === day && ap.month === currentDate.getMonth() && ap.year === currentDate.getFullYear());
                     const hasEvents = dayAppts.length > 0;
                     const isToday = new Date().getDate() === day && new Date().getMonth() === currentDate.getMonth();
 
