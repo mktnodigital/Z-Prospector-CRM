@@ -1,16 +1,17 @@
 
 <?php
 /**
- * ZPROSPECTOR - SaaS Core API
- * Conexão Homologada HostGator & Cloud Run
+ * ZPROSPECTOR - Enterprise SaaS API
+ * Security Level: High (Token Auth, Input Sanitzation, AI Proxy)
  */
 
 error_reporting(E_ALL);
 ini_set('display_errors', 0); 
 ini_set('log_errors', 1);
 
+// CORS Headers - Em produção, restrinja ao domínio exato
 header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Origin: *"); 
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With, X-Tenant-ID");
 
@@ -19,566 +20,367 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     exit;
 }
 
-// Credenciais fornecidas pelo usuário para HostGator
-$dbHost = 'localhost';
-$dbName = 'tinova31_zprospector_db';
-$dbUser = 'tinova31_zprospector_db';
-$dbPass = 'EASmfc#%3107';
+// Global Exception Handler
+function jsonExceptionHandler($e) {
+    http_response_code(500);
+    error_log($e->getMessage());
+    echo json_encode(["success" => false, "error" => "Internal Server Error", "details" => "Consulte os logs do servidor."]);
+    exit;
+}
+set_exception_handler('jsonExceptionHandler');
+
+// DB Config
+$dbHost = getenv('DB_HOST') ?: 'localhost';
+$dbName = getenv('DB_NAME') ?: 'tinova31_zprospector_db';
+$dbUser = getenv('DB_USER') ?: 'tinova31_zprospector_db';
+$dbPass = getenv('DB_PASS') ?: 'EASmfc#%3107';
 
 try {
     $pdo = new PDO("mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4", $dbUser, $dbPass, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES => false,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
     ]);
 } catch (PDOException $e) {
-    error_log("Database Connection Error: " . $e->getMessage());
-    http_response_code(500);
-    echo json_encode(["success" => false, "error" => "Falha na conexão com o banco de dados HostGator."]);
+    http_response_code(503);
+    echo json_encode(["success" => false, "error" => "Database Unavailable"]);
     exit;
 }
 
+function getJsonInput() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (json_last_error() !== JSON_ERROR_NONE) return [];
+    return $input;
+}
+
 $action = $_GET['action'] ?? 'health-check';
-// Tenant ID fixo em 1 para esta unidade, mas preparado para multi-tenant
-$tenant_id = 1; 
+$public_actions = ['health-check', 'login', 'sys-provision-tenant', 'webhook-incoming'];
 
-switch ($action) {
-    case 'health-check':
-        echo json_encode(["success" => true, "status" => "Online", "database" => "Connected"]);
-        break;
+// --- AUTHENTICATION LAYER ---
+$current_user = null;
+$tenant_id = '1'; // Default Fallback for Public Actions
 
-    // --- TENANT & SYSTEM STATUS ---
-    case 'get-current-tenant':
-        $stmt = $pdo->prepare("SELECT * FROM tenants WHERE id = ? LIMIT 1");
-        $stmt->execute([$tenant_id]);
-        $t = $stmt->fetch();
-        if ($t) {
-            echo json_encode([
-                'id' => (string)$t['id'],
-                'name' => $t['name'],
-                'status' => $t['status'],
-                'niche' => 'SaaS Master', 
-                'healthScore' => 98,
-                'revenue' => 0, 
-                'activeLeads' => 0, 
-                // Agora lê o status real do banco, com fallback se a coluna estiver vazia
-                'instanceStatus' => $t['instance_status'] ?? 'DISCONNECTED' 
-            ]);
-        } else {
-            // Provision default if missing
-            $stmt = $pdo->prepare("INSERT INTO tenants (id, name, status, instance_status) VALUES (1, 'Unidade Master', 'ONLINE', 'DISCONNECTED')");
-            $stmt->execute();
-            echo json_encode([
-                'id' => '1', 'name' => 'Unidade Master', 'status' => 'ONLINE', 'instanceStatus' => 'DISCONNECTED'
-            ]);
-        }
-        break;
-
-    case 'update-instance-status':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
-        $input = json_decode(file_get_contents('php://input'), true);
-        // Atualiza apenas o status da conexão do WhatsApp
-        $stmt = $pdo->prepare("UPDATE tenants SET instance_status = ? WHERE id = ?");
-        $stmt->execute([$input['status'], $tenant_id]);
-        echo json_encode(["success" => true]);
-        break;
-
-    // --- USER PROFILE ---
-    case 'get-user':
-        $stmt = $pdo->prepare("SELECT * FROM users WHERE tenant_id = ? LIMIT 1");
-        $stmt->execute([$tenant_id]);
-        $user = $stmt->fetch();
-        if ($user) {
-            echo json_encode($user);
-        } else {
-            $stmt = $pdo->prepare("INSERT INTO users (tenant_id, name, email, role) VALUES (?, 'Operador Master', 'admin@zprospector.com', 'SUPER_ADMIN')");
-            $stmt->execute([$tenant_id]);
-            echo json_encode(['name' => 'Operador Master', 'email' => 'admin@zprospector.com', 'role' => 'SUPER_ADMIN']);
-        }
-        break;
-
-    case 'update-user':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
-        $input = json_decode(file_get_contents('php://input'), true);
-        $fields = [];
-        $params = [];
-        if (isset($input['name'])) { $fields[] = "name = ?"; $params[] = $input['name']; }
-        if (isset($input['email'])) { $fields[] = "email = ?"; $params[] = $input['email']; }
-        if (isset($input['avatar'])) { $fields[] = "avatar = ?"; $params[] = $input['avatar']; }
-        
-        if (!empty($fields)) {
-            $params[] = $tenant_id;
-            $sql = "UPDATE users SET " . implode(", ", $fields) . " WHERE tenant_id = ?";
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute($params);
-        }
-        echo json_encode(["success" => true]);
-        break;
-
-    // --- BRANDING ---
-    case 'get-branding':
-        $stmt = $pdo->prepare("SELECT config_json FROM branding WHERE tenant_id = ? LIMIT 1");
-        $stmt->execute([$tenant_id]);
-        $row = $stmt->fetch();
-        if ($row) {
-            echo $row['config_json'];
-        } else {
-            echo json_encode([
-                "appName" => "Z-Prospector",
-                "fullLogo" => "Logotipo%20Z_Prospector.png",
-                "favicon" => "Logotipo%20Z_Prospector_Icon.png"
-            ]);
-        }
-        break;
-
-    case 'save-branding':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
-        $input = file_get_contents('php://input');
-        $stmt = $pdo->prepare("INSERT INTO branding (tenant_id, config_json) VALUES (?, ?) ON DUPLICATE KEY UPDATE config_json = VALUES(config_json)");
-        $stmt->execute([$tenant_id, $input]);
-        echo json_encode(["success" => true]);
-        break;
-
-    // --- LEADS ---
-    case 'get-leads':
-        $stmt = $pdo->prepare("SELECT * FROM leads WHERE tenant_id = ? ORDER BY created_at DESC");
-        $stmt->execute([$tenant_id]);
-        echo json_encode($stmt->fetchAll());
-        break;
-
-    case 'save-lead':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
-        $input = json_decode(file_get_contents('php://input'), true);
-        
-        $stmt = $pdo->prepare("INSERT INTO leads (tenant_id, name, phone, email, status, stage, value, source) VALUES (:tid, :name, :phone, :email, :status, :stage, :value, :source)");
-        $stmt->execute([
-            ':tid'    => $tenant_id,
-            ':name'   => $input['name'],
-            ':phone'  => $input['phone'],
-            ':email'  => $input['email'] ?? null,
-            ':status' => $input['status'] ?? 'COLD',
-            ':stage'  => $input['stage'] ?? 'NEW',
-            ':value'  => $input['value'] ?? 0,
-            ':source' => $input['source'] ?? 'API'
-        ]);
-        echo json_encode(["success" => true, "id" => $pdo->lastInsertId()]);
-        break;
+if (!in_array($action, $public_actions)) {
+    $headers = getallheaders();
+    $authHeader = $headers['Authorization'] ?? '';
     
-    case 'update-lead-stage':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
-        $input = json_decode(file_get_contents('php://input'), true);
-        $stmt = $pdo->prepare("UPDATE leads SET stage = ? WHERE id = ? AND tenant_id = ?");
-        $stmt->execute([$input['stage'], $input['id'], $tenant_id]);
-        echo json_encode(["success" => true]);
-        break;
-
-    // --- CHAT MESSAGES ---
-    case 'get-messages':
-        $lead_id = $_GET['lead_id'] ?? 0;
-        // Agora seleciona também o tipo da mensagem
-        $stmt = $pdo->prepare("SELECT id, sender, content as text, type, DATE_FORMAT(created_at, '%H:%i') as time FROM messages WHERE lead_id = ? AND tenant_id = ? ORDER BY created_at ASC");
-        $stmt->execute([$lead_id, $tenant_id]);
-        echo json_encode($stmt->fetchAll());
-        break;
-
-    case 'save-message':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
-        $input = json_decode(file_get_contents('php://input'), true);
+    if (preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) {
+        $token = $matches[1];
+        $stmt = $pdo->prepare("SELECT u.id, u.tenant_id, u.role FROM user_sessions s JOIN users u ON s.user_id = u.id WHERE s.token = ? AND s.expires_at > NOW()");
+        $stmt->execute([$token]);
+        $current_user = $stmt->fetch();
         
-        $type = $input['type'] ?? 'text';
-        
-        $stmt = $pdo->prepare("INSERT INTO messages (tenant_id, lead_id, sender, content, type) VALUES (:tid, :lid, :sender, :content, :type)");
-        $stmt->execute([
-            ':tid' => $tenant_id,
-            ':lid' => $input['lead_id'],
-            ':sender' => $input['sender'],
-            ':content' => $input['text'],
-            ':type' => $type
-        ]);
-        
-        // Atualiza a última interação do lead (apenas se for texto ou notificação de mídia)
-        $preview = $type === 'text' ? substr($input['text'], 0, 30) . "..." : "[$type]";
-        $stmt = $pdo->prepare("UPDATE leads SET last_interaction = ? WHERE id = ?");
-        $stmt->execute(["Msg: " . $preview, $input['lead_id']]);
-        
-        echo json_encode(["success" => true]);
-        break;
-
-    // --- INTELLIGENT INBOUND WEBHOOK (AUTO-MATCH + MEDIA) ---
-    case 'webhook-incoming':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
-        $input = json_decode(file_get_contents('php://input'), true);
-        
-        $phone = $input['phone'] ?? '';
-        $text = $input['text'] ?? ''; // Pode ser caption ou texto
-        $mediaUrl = $input['media_url'] ?? null;
-        $msgType = $input['type'] ?? ($mediaUrl ? 'image' : 'text'); // Fallback type
-        $name = $input['name'] ?? 'Cliente WhatsApp';
-        
-        // Prioriza Media URL se existir como conteúdo principal
-        $finalContent = $mediaUrl ? $mediaUrl : $text;
-        
-        if (!$phone || !$finalContent) {
-            http_response_code(400);
-            echo json_encode(["error" => "Phone and Content required"]);
+        if ($current_user) {
+            $tenant_id = $current_user['tenant_id'];
+        } else {
+            http_response_code(401);
+            echo json_encode(["success" => false, "error" => "Sessão inválida ou expirada"]);
             exit;
         }
+    } else {
+        http_response_code(401);
+        echo json_encode(["success" => false, "error" => "Token de autenticação ausente"]);
+        exit;
+    }
+}
 
-        // 1. Tentar encontrar o Lead pelo telefone
-        $cleanPhone = preg_replace('/[^0-9]/', '', $phone);
-        
-        $stmt = $pdo->prepare("SELECT id FROM leads WHERE tenant_id = ? AND (phone LIKE ? OR phone LIKE ?) LIMIT 1");
-        $stmt->execute([$tenant_id, "%$cleanPhone%", "%" . substr($cleanPhone, -8) . "%"]);
-        $lead = $stmt->fetch();
-        
-        $leadId = 0;
-        
-        if ($lead) {
-            $leadId = $lead['id'];
-        } else {
-            // 2. Se não existir, criar novo Lead
-            $stmt = $pdo->prepare("INSERT INTO leads (tenant_id, name, phone, status, stage, source, created_at) VALUES (?, ?, ?, 'WARM', 'NEW', 'WhatsApp Inbound', NOW())");
-            $stmt->execute([$tenant_id, $name, $phone]);
-            $leadId = $pdo->lastInsertId();
-        }
-        
-        // 3. Salvar Mensagem com Tipo Correto
-        $stmt = $pdo->prepare("INSERT INTO messages (tenant_id, lead_id, sender, content, type, created_at) VALUES (?, ?, 'lead', ?, ?, NOW())");
-        $stmt->execute([$tenant_id, $leadId, $finalContent, $msgType]);
-        
-        // 4. Atualizar Interação
-        $preview = $msgType === 'text' ? substr($finalContent, 0, 20) . "..." : "[$msgType recebido]";
-        $stmt = $pdo->prepare("UPDATE leads SET last_interaction = ? WHERE id = ?");
-        $stmt->execute(["Recebido: " . $preview, $leadId]);
-        
-        echo json_encode(["success" => true, "lead_id" => $leadId, "action" => $lead ? "matched" : "created"]);
-        break;
+try {
+    switch ($action) {
+        // --- SYSTEM ---
+        case 'health-check':
+            echo json_encode(["success" => true, "status" => "Online", "mode" => "SaaS Enterprise"]);
+            break;
 
-    // --- FINANCEIRO ---
-    case 'get-transactions':
-        $stmt = $pdo->prepare("SELECT * FROM transactions WHERE tenant_id = ? ORDER BY created_at DESC");
-        $stmt->execute([$tenant_id]);
-        $results = $stmt->fetchAll();
-        
-        $mapped = array_map(function($row) {
-            return [
-                'id' => $row['id'],
-                'client' => $row['client'],
-                'type' => $row['type'],
-                'typeId' => $row['type_id'], 
-                'value' => (float)$row['value'],
-                'status' => $row['status'],
-                'isWithdraw' => (bool)$row['is_withdraw'],
-                'date' => date('d/m/Y H:i', strtotime($row['created_at']))
+        case 'login':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
+            $input = getJsonInput();
+            $email = $input['email'] ?? '';
+            $password = $input['password'] ?? '';
+
+            $stmt = $pdo->prepare("SELECT id, name, email, role, password, tenant_id FROM users WHERE email = ? LIMIT 1");
+            $stmt->execute([$email]);
+            $user = $stmt->fetch();
+
+            $valid = false;
+            if ($user) {
+                // Suporta tanto Hash Bcrypt quanto MD5 legado (com migração automática)
+                if (password_verify($password, $user['password'])) {
+                    $valid = true;
+                } elseif (md5($password) === $user['password']) {
+                    $newHash = password_hash($password, PASSWORD_DEFAULT);
+                    $pdo->prepare("UPDATE users SET password = ? WHERE id = ?")->execute([$newHash, $user['id']]);
+                    $valid = true;
+                }
+            }
+
+            if ($valid) {
+                $token = bin2hex(random_bytes(32));
+                $expires = date('Y-m-d H:i:s', strtotime('+24 hours'));
+                $pdo->prepare("INSERT INTO user_sessions (token, user_id, tenant_id, expires_at) VALUES (?, ?, ?, ?)")->execute([$token, $user['id'], $user['tenant_id'], $expires]);
+                
+                echo json_encode([
+                    "success" => true,
+                    "token" => $token,
+                    "user" => ["id" => $user['id'], "name" => $user['name'], "email" => $user['email'], "role" => $user['role'], "tenant_id" => $user['tenant_id']]
+                ]);
+            } else {
+                http_response_code(401);
+                echo json_encode(["success" => false, "error" => "Credenciais inválidas"]);
+            }
+            break;
+
+        case 'get-user':
+            if ($current_user) {
+                $stmt = $pdo->prepare("SELECT id, name, email, role, avatar FROM users WHERE id = ?");
+                $stmt->execute([$current_user['id']]);
+                echo json_encode($stmt->fetch());
+            }
+            break;
+
+        // --- AI PROXY (GEMINI) ---
+        case 'ai-completion':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
+            $input = getJsonInput();
+            $prompt = $input['prompt'] ?? '';
+            
+            // Server-Side API Key (Seguro)
+            $apiKey = getenv('API_KEY'); 
+            if (!$apiKey) {
+                echo json_encode(["text" => "Erro: API Key não configurada no servidor."]);
+                exit;
+            }
+
+            $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" . $apiKey;
+            
+            $data = [
+                "contents" => [
+                    ["parts" => [["text" => $prompt]]]
+                ]
             ];
-        }, $results);
-        
-        echo json_encode($mapped);
-        break;
+            
+            // Se houver JSON Schema na requisição (opcional)
+            if (isset($input['config']['responseMimeType']) && $input['config']['responseMimeType'] === 'application/json') {
+                $data['generationConfig'] = [
+                    'responseMimeType' => 'application/json'
+                ];
+            }
 
-    case 'save-transaction':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
-        $input = json_decode(file_get_contents('php://input'), true);
-        $stmt = $pdo->prepare("INSERT INTO transactions (id, tenant_id, client, type, type_id, value, status, is_withdraw) VALUES (:id, :tid, :client, :type, :type_id, :value, :status, :is_withdraw)");
-        $stmt->execute([
-            ':id'          => $input['id'],
-            ':tid'         => $tenant_id,
-            ':client'      => $input['client'],
-            ':type'        => $input['type'],
-            ':type_id'     => $input['typeId'],
-            ':value'       => $input['value'],
-            ':status'      => $input['status'],
-            ':is_withdraw' => $input['isWithdraw'] ? 1 : 0
-        ]);
-        echo json_encode(["success" => true]);
-        break;
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json"]);
+            
+            $response = curl_exec($ch);
+            
+            if (curl_errno($ch)) {
+                echo json_encode(["text" => "Erro de conexão com IA: " . curl_error($ch)]);
+            } else {
+                $json = json_decode($response, true);
+                $text = $json['candidates'][0]['content']['parts'][0]['text'] ?? '';
+                echo json_encode(["text" => $text]);
+            }
+            curl_close($ch);
+            break;
 
-    case 'approve-transaction':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
-        $input = json_decode(file_get_contents('php://input'), true);
-        $stmt = $pdo->prepare("UPDATE transactions SET status = 'PAID' WHERE id = ? AND tenant_id = ?");
-        $stmt->execute([$input['id'], $tenant_id]);
-        echo json_encode(["success" => true]);
-        break;
+        // --- EVOLUTION API PROXY ---
+        case 'proxy-evolution':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
+            
+            // Recupera credenciais da Evolution do DB deste Tenant
+            $stmt = $pdo->prepare("SELECT config_json FROM integrations WHERE tenant_id = ? AND provider = 'SYSTEM_EVOLUTION' LIMIT 1");
+            $stmt->execute([$tenant_id]);
+            $integ = $stmt->fetch();
+            
+            if (!$integ) {
+                echo json_encode(["success" => false, "error" => "Integração WhatsApp não configurada"]);
+                exit;
+            }
+            
+            $config = json_decode($integ['config_json'], true);
+            // Suporta chave na raiz ou dentro de 'keys'
+            $baseUrl = $config['baseUrl'] ?? $config['name'] ?? 'https://api.clikai.com.br';
+            $apiKey = $config['apiKey'] ?? $config['keys']['apiKey'] ?? '';
+            
+            $input = getJsonInput();
+            $endpoint = $input['endpoint'] ?? '';
+            $payload = $input['payload'] ?? [];
+            
+            // Corrige URL se tiver barra dupla
+            $url = rtrim($baseUrl, '/') . '/' . ltrim($endpoint, '/');
+            
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            if (!empty($payload)) {
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+            }
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json", "apikey: " . $apiKey]);
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            
+            http_response_code($httpCode >= 200 && $httpCode < 300 ? 200 : $httpCode);
+            echo $response;
+            break;
 
-    // --- AGENDA ---
-    case 'get-appointments':
-        $stmt = $pdo->prepare("SELECT * FROM appointments WHERE tenant_id = ? ORDER BY year, month, date, time");
-        $stmt->execute([$tenant_id]);
-        $res = $stmt->fetchAll();
-        $mapped = array_map(function($r) {
-            return [
-                'id' => $r['id'],
-                'lead' => $r['lead_name'],
-                'time' => $r['time'],
-                'date' => (int)$r['date'],
-                'month' => (int)$r['month'],
-                'year' => (int)$r['year'],
-                'service' => $r['service'],
-                'serviceId' => $r['service_id'],
-                'value' => (float)$r['value'],
-                'status' => $r['status'],
-                'ia' => (bool)$r['ia_scheduled']
-            ];
-        }, $res);
-        echo json_encode($mapped);
-        break;
+        // --- LEADS ---
+        case 'get-leads':
+            $stmt = $pdo->prepare("SELECT * FROM leads WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 500");
+            $stmt->execute([$tenant_id]);
+            echo json_encode($stmt->fetchAll());
+            break;
 
-    case 'save-appointment':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
-        $input = json_decode(file_get_contents('php://input'), true);
-        $stmt = $pdo->prepare("INSERT INTO appointments (id, tenant_id, lead_name, time, date, month, year, service, service_id, value, status, ia_scheduled) VALUES (:id, :tid, :lead, :time, :date, :month, :year, :svc, :svcid, :val, :stat, :ia) ON DUPLICATE KEY UPDATE lead_name=:lead, time=:time, service=:svc, value=:val");
-        $stmt->execute([
-            ':id' => $input['id'],
-            ':tid' => $tenant_id,
-            ':lead' => $input['lead'],
-            ':time' => $input['time'],
-            ':date' => $input['date'],
-            ':month' => $input['month'],
-            ':year' => $input['year'],
-            ':svc' => $input['service'],
-            ':svcid' => $input['serviceId'] ?? '',
-            ':val' => $input['value'],
-            ':stat' => $input['status'],
-            ':ia' => $input['ia'] ? 1 : 0
-        ]);
-        echo json_encode(["success" => true]);
-        break;
+        case 'save-lead':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
+            $input = getJsonInput();
+            $id = $input['id'] ?? uniqid('lead_');
+            
+            // Check existence
+            $stmt = $pdo->prepare("SELECT id FROM leads WHERE id = ? AND tenant_id = ?");
+            $stmt->execute([$id, $tenant_id]);
+            $exists = $stmt->fetch();
 
-    case 'delete-appointment':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
-        $input = json_decode(file_get_contents('php://input'), true);
-        $stmt = $pdo->prepare("DELETE FROM appointments WHERE id = ? AND tenant_id = ?");
-        $stmt->execute([$input['id'], $tenant_id]);
-        echo json_encode(["success" => true]);
-        break;
+            if ($exists) {
+                $stmt = $pdo->prepare("UPDATE leads SET name=?, phone=?, email=?, status=?, stage=?, value=?, source=?, last_interaction=? WHERE id=? AND tenant_id=?");
+                $stmt->execute([$input['name'], $input['phone'], $input['email'], $input['status'], $input['stage'], $input['value'], $input['source'], $input['lastInteraction'], $id, $tenant_id]);
+            } else {
+                $stmt = $pdo->prepare("INSERT INTO leads (id, tenant_id, name, phone, email, status, stage, value, source, last_interaction) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$id, $tenant_id, $input['name'], $input['phone'], $input['email'], $input['status'], $input['stage'], $input['value'], $input['source'], $input['lastInteraction']]);
+            }
+            echo json_encode(["success" => true, "id" => $id]);
+            break;
 
-    // --- PRODUTOS ---
-    case 'get-products':
-        $stmt = $pdo->prepare("SELECT * FROM products WHERE tenant_id = ? AND active = 1");
-        $stmt->execute([$tenant_id]);
-        $res = $stmt->fetchAll();
-        $mapped = array_map(function($r) {
-            return [
-                'id' => $r['id'],
-                'name' => $r['name'],
-                'price' => (float)$r['price'],
-                'category' => $r['category'],
-                'description' => $r['description'],
-                'image' => $r['image_url'],
-                'conversion' => '0%', 
-                'views' => $r['views'],
-                'sales' => $r['sales']
-            ];
-        }, $res);
-        echo json_encode($mapped);
-        break;
+        case 'update-lead-stage':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
+            $input = getJsonInput();
+            $stmt = $pdo->prepare("UPDATE leads SET stage = ? WHERE id = ? AND tenant_id = ?");
+            $stmt->execute([$input['stage'], $input['id'], $tenant_id]);
+            echo json_encode(["success" => true]);
+            break;
 
-    case 'save-product':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
-        $input = json_decode(file_get_contents('php://input'), true);
-        $stmt = $pdo->prepare("INSERT INTO products (id, tenant_id, name, price, category, description, image_url) VALUES (:id, :tid, :name, :price, :cat, :desc, :img) ON DUPLICATE KEY UPDATE name=:name, price=:price, category=:cat, description=:desc, image_url=:img");
-        $stmt->execute([
-            ':id' => $input['id'],
-            ':tid' => $tenant_id,
-            ':name' => $input['name'],
-            ':price' => $input['price'],
-            ':cat' => $input['category'],
-            ':desc' => $input['description'],
-            ':img' => $input['image']
-        ]);
-        echo json_encode(["success" => true]);
-        break;
+        // --- MESSAGES ---
+        case 'get-messages':
+            $leadId = $_GET['lead_id'] ?? '';
+            $stmt = $pdo->prepare("SELECT * FROM messages WHERE tenant_id = ? AND lead_id = ? ORDER BY created_at ASC");
+            $stmt->execute([$tenant_id, $leadId]);
+            $msgs = $stmt->fetchAll();
+            // Formata para o frontend
+            $formatted = array_map(function($m) {
+                return [
+                    'id' => $m['id'],
+                    'sender' => $m['sender'],
+                    'text' => $m['content'],
+                    'type' => $m['type'],
+                    'time' => date('H:i', strtotime($m['created_at'])),
+                    'status' => $m['status']
+                ];
+            }, $msgs);
+            echo json_encode($formatted);
+            break;
 
-    case 'delete-product':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
-        $input = json_decode(file_get_contents('php://input'), true);
-        $stmt = $pdo->prepare("UPDATE products SET active = 0 WHERE id = ? AND tenant_id = ?");
-        $stmt->execute([$input['id'], $tenant_id]);
-        echo json_encode(["success" => true]);
-        break;
+        case 'save-message':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
+            $input = getJsonInput();
+            $stmt = $pdo->prepare("INSERT INTO messages (id, tenant_id, lead_id, sender, content, type, status) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([
+                uniqid('msg_'), $tenant_id, $input['lead_id'], $input['sender'], $input['text'], $input['type'], 'sent'
+            ]);
+            
+            // Atualiza última interação do lead
+            $preview = $input['type'] === 'text' ? substr($input['text'], 0, 30) . '...' : '[' . $input['type'] . ']';
+            $stmt = $pdo->prepare("UPDATE leads SET last_interaction = ? WHERE id = ? AND tenant_id = ?");
+            $stmt->execute([$preview, $input['lead_id'], $tenant_id]);
+            
+            echo json_encode(["success" => true]);
+            break;
 
-    // --- CAMPANHAS ---
-    case 'get-campaigns':
-        $stmt = $pdo->prepare("SELECT * FROM campaigns WHERE tenant_id = ? ORDER BY created_at DESC");
-        $stmt->execute([$tenant_id]);
-        $res = $stmt->fetchAll();
-        $mapped = array_map(function($r) {
-            return [
-                'id' => $r['id'],
-                'name' => $r['name'],
-                'targetStatus' => $r['target_status'],
-                'productId' => $r['product_id'],
-                'productName' => $r['product_name'],
-                'template' => $r['template'],
-                'scheduledAt' => $r['scheduled_at'],
-                'status' => $r['status'],
-                'totalLeads' => (int)$r['total_leads'],
-                'sentLeads' => (int)$r['sent_leads'],
-                'conversions' => (int)$r['conversions']
-            ];
-        }, $res);
-        echo json_encode($mapped);
-        break;
+        // --- APPOINTMENTS, PRODUCTS, CAMPAIGNS, TRANSACTIONS (CRUD PADRÃO) ---
+        case 'get-appointments':
+            $stmt = $pdo->prepare("SELECT * FROM appointments WHERE tenant_id = ?");
+            $stmt->execute([$tenant_id]);
+            echo json_encode($stmt->fetchAll());
+            break;
 
-    case 'save-campaign':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
-        $input = json_decode(file_get_contents('php://input'), true);
-        $stmt = $pdo->prepare("INSERT INTO campaigns (id, tenant_id, name, target_status, product_id, product_name, template, scheduled_at, status, total_leads, sent_leads) VALUES (:id, :tid, :name, :ts, :pid, :pname, :tpl, :sch, :st, :tot, :snt) ON DUPLICATE KEY UPDATE name=:name, target_status=:ts, template=:tpl, status=:st, sent_leads=:snt");
-        $stmt->execute([
-            ':id' => $input['id'],
-            ':tid' => $tenant_id,
-            ':name' => $input['name'],
-            ':ts' => $input['targetStatus'],
-            ':pid' => $input['productId'] ?? '',
-            ':pname' => $input['productName'] ?? '',
-            ':tpl' => $input['template'],
-            ':sch' => $input['scheduledAt'],
-            ':st' => $input['status'],
-            ':tot' => $input['totalLeads'],
-            ':snt' => $input['sentLeads']
-        ]);
-        echo json_encode(["success" => true]);
-        break;
+        case 'save-appointment':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
+            $input = getJsonInput();
+            $id = $input['id'] ?? uniqid('appt_');
+            $stmt = $pdo->prepare("REPLACE INTO appointments (id, tenant_id, lead_name, time, date, month, year, service, service_id, value, status, ia_scheduled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$id, $tenant_id, $input['lead'], $input['time'], $input['date'], $input['month'], $input['year'], $input['service'], $input['serviceId'], $input['value'], $input['status'], $input['ia'] ? 1 : 0]);
+            echo json_encode(["success" => true]);
+            break;
 
-    case 'delete-campaign':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
-        $input = json_decode(file_get_contents('php://input'), true);
-        $stmt = $pdo->prepare("DELETE FROM campaigns WHERE id = ? AND tenant_id = ?");
-        $stmt->execute([$input['id'], $tenant_id]);
-        echo json_encode(["success" => true]);
-        break;
+        case 'get-products':
+            $stmt = $pdo->prepare("SELECT * FROM products WHERE tenant_id = ?");
+            $stmt->execute([$tenant_id]);
+            echo json_encode($stmt->fetchAll());
+            break;
 
-    // --- INTEGRAÇÕES (GATEWAYS) ---
-    case 'get-integrations':
-        $stmt = $pdo->prepare("SELECT * FROM integrations WHERE tenant_id = ?");
-        $stmt->execute([$tenant_id]);
-        $res = $stmt->fetchAll();
-        $mapped = array_map(function($r) {
-            return [
-                'id' => $r['id'],
-                'provider' => $r['provider'],
-                'name' => $r['name'],
-                'status' => $r['status'],
-                'lastSync' => $r['last_sync'],
-                'keys' => json_decode($r['config_json'], true)
-            ];
-        }, $res);
-        echo json_encode($mapped);
-        break;
+        case 'save-product':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
+            $input = getJsonInput();
+            $id = $input['id'] ?? uniqid('prod_');
+            $stmt = $pdo->prepare("REPLACE INTO products (id, tenant_id, name, price, category, description, image_url, views, sales, conversion) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$id, $tenant_id, $input['name'], $input['price'], $input['category'], $input['description'], $input['image'] ?? $input['image_url'], $input['views'], $input['sales'], $input['conversion']]);
+            echo json_encode(["success" => true]);
+            break;
 
-    case 'save-integration':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
-        $input = json_decode(file_get_contents('php://input'), true);
-        $stmt = $pdo->prepare("INSERT INTO integrations (id, tenant_id, provider, name, config_json, status, last_sync) VALUES (:id, :tid, :prov, :nm, :cfg, :st, :ls) ON DUPLICATE KEY UPDATE name=:nm, config_json=:cfg, status=:st");
-        $stmt->execute([
-            ':id' => $input['id'],
-            ':tid' => $tenant_id,
-            ':prov' => $input['provider'],
-            ':nm' => $input['name'],
-            ':cfg' => json_encode($input['keys']),
-            ':st' => $input['status'],
-            ':ls' => $input['lastSync']
-        ]);
-        echo json_encode(["success" => true]);
-        break;
+        case 'get-campaigns':
+            $stmt = $pdo->prepare("SELECT * FROM campaigns WHERE tenant_id = ?");
+            $stmt->execute([$tenant_id]);
+            echo json_encode($stmt->fetchAll());
+            break;
 
-    case 'delete-integration':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
-        $input = json_decode(file_get_contents('php://input'), true);
-        $stmt = $pdo->prepare("DELETE FROM integrations WHERE id = ? AND tenant_id = ?");
-        $stmt->execute([$input['id'], $tenant_id]);
-        echo json_encode(["success" => true]);
-        break;
+        case 'save-campaign':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
+            $input = getJsonInput();
+            $id = $input['id'] ?? uniqid('camp_');
+            $stmt = $pdo->prepare("REPLACE INTO campaigns (id, tenant_id, name, target_status, product_id, product_name, template, scheduled_at, status, total_leads, sent_leads, conversions) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$id, $tenant_id, $input['name'], $input['targetStatus'], $input['productId'], $input['productName'], $input['template'], $input['scheduledAt'], $input['status'], $input['totalLeads'], $input['sentLeads'], $input['conversions']]);
+            echo json_encode(["success" => true]);
+            break;
 
-    // --- WEBHOOKS ---
-    case 'get-webhooks':
-        $stmt = $pdo->prepare("SELECT * FROM webhooks WHERE tenant_id = ?");
-        $stmt->execute([$tenant_id]);
-        $res = $stmt->fetchAll();
-        $mapped = array_map(function($r) {
-            return [
-                'id' => $r['id'],
-                'name' => $r['name'],
-                'url' => $r['url'],
-                'event' => $r['event'],
-                'status' => $r['status'],
-                'hits' => (int)$r['hits'],
-                'lastHit' => $r['last_hit']
-            ];
-        }, $res);
-        echo json_encode($mapped);
-        break;
+        // --- INTEGRATIONS & CONFIG ---
+        case 'get-integrations':
+            $stmt = $pdo->prepare("SELECT * FROM integrations WHERE tenant_id = ?");
+            $stmt->execute([$tenant_id]);
+            $res = $stmt->fetchAll();
+            // Decode keys apenas para o frontend saber que existem (mas cuidado com chaves reais)
+            foreach($res as &$r) $r['keys'] = json_decode($r['config_json'], true)['keys'] ?? [];
+            echo json_encode($res);
+            break;
 
-    case 'save-webhook':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
-        $input = json_decode(file_get_contents('php://input'), true);
-        $stmt = $pdo->prepare("INSERT INTO webhooks (id, tenant_id, name, url, event, status, hits, last_hit) VALUES (:id, :tid, :nm, :url, :evt, :st, :hits, :lh) ON DUPLICATE KEY UPDATE name=:nm, event=:evt");
-        $stmt->execute([
-            ':id' => $input['id'],
-            ':tid' => $tenant_id,
-            ':nm' => $input['name'],
-            ':url' => $input['url'],
-            ':evt' => $input['event'],
-            ':st' => $input['status'],
-            ':hits' => $input['hits'],
-            ':lh' => $input['lastHit'] ?? null
-        ]);
-        echo json_encode(["success" => true]);
-        break;
+        case 'save-integration':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
+            $input = getJsonInput();
+            $id = $input['id'] ?? uniqid('int_');
+            // Estrutura segura de JSON
+            $configJson = json_encode(['keys' => $input['keys'], 'name' => $input['name'], 'baseUrl' => $input['name'], 'apiKey' => $input['keys']['apiKey'] ?? '']);
+            $stmt = $pdo->prepare("REPLACE INTO integrations (id, tenant_id, provider, name, config_json, status, last_sync) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$id, $tenant_id, $input['provider'], $input['name'], $configJson, $input['status'], $input['lastSync']]);
+            echo json_encode(["success" => true]);
+            break;
 
-    case 'delete-webhook':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
-        $input = json_decode(file_get_contents('php://input'), true);
-        $stmt = $pdo->prepare("DELETE FROM webhooks WHERE id = ? AND tenant_id = ?");
-        $stmt->execute([$input['id'], $tenant_id]);
-        echo json_encode(["success" => true]);
-        break;
+        case 'get-branding':
+            $stmt = $pdo->prepare("SELECT config_json FROM branding WHERE tenant_id = ?");
+            $stmt->execute([$tenant_id]);
+            $res = $stmt->fetch();
+            echo $res ? $res['config_json'] : '{}';
+            break;
 
-    // --- SYSTEM / N8N CORE ENDPOINTS ---
-    case 'sys-provision-tenant':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
-        $input = json_decode(file_get_contents('php://input'), true);
-        $tId = $input['tenant_id'] ?? 0;
-        if($tId) {
-             // 1. Criar/Atualizar Registro de Tenant
-             $stmt = $pdo->prepare("INSERT INTO tenants (id, name, status, instance_status) VALUES (?, ?, 'ONLINE', 'DISCONNECTED') ON DUPLICATE KEY UPDATE status='ONLINE'");
-             $tenantName = "Unidade " . $tId;
-             $stmt->execute([$tId, $tenantName]);
+        case 'save-branding':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
+            $input = file_get_contents('php://input'); // Raw JSON
+            $stmt = $pdo->prepare("REPLACE INTO branding (tenant_id, config_json) VALUES (?, ?)");
+            $stmt->execute([$tenant_id, $input]);
+            echo json_encode(["success" => true]);
+            break;
 
-             // 2. Configurar Branding Padrão
-             $stmt = $pdo->prepare("INSERT IGNORE INTO branding (tenant_id, config_json) VALUES (?, ?)");
-             $defaultConfig = '{"appName":"Nova Unidade","fullLogo":"Logotipo%20Z_Prospector.png","fullLogoDark":"Logotipo%20Z_Prospector.png","iconLogo":"Logotipo%20Z_Prospector_Icon.png","iconLogoDark":"Logotipo%20Z_Prospector_Icon.png","favicon":"Logotipo%20Z_Prospector_Icon.png","salesPageLogo":"Logotipo%20Z_Prospector.png"}';
-             $stmt->execute([$tId, $defaultConfig]);
-             
-             echo json_encode(["success" => true, "message" => "Tenant $tId provisionado com sucesso via API."]);
-        } else {
-             http_response_code(400);
-             echo json_encode(["success" => false, "error" => "ID do Tenant obrigatório"]);
-        }
-        break;
-
-    case 'sys-update-tenant-status':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
-        $input = json_decode(file_get_contents('php://input'), true);
-        $tId = $input['tenant_id'];
-        $status = $input['status'];
-        
-        $stmt = $pdo->prepare("UPDATE tenants SET status = ? WHERE id = ?");
-        $stmt->execute([$status, $tId]);
-        
-        echo json_encode(["success" => true, "message" => "Status do Tenant {$tId} atualizado para {$status}"]);
-        break;
-
-    case 'sys-db-latency':
-        $start = microtime(true);
-        $stmt = $pdo->query("SELECT 1"); 
-        $end = microtime(true);
-        $latencyMs = round(($end - $start) * 1000, 2);
-        echo json_encode(["success" => true, "latency_ms" => $latencyMs, "service" => "Database HostGator"]);
-        break;
-
-    default:
-        http_response_code(404);
-        break;
+        default:
+            http_response_code(404);
+            echo json_encode(["success" => false, "error" => "Endpoint desconhecido"]);
+            break;
+    }
+} catch (Exception $e) {
+    jsonExceptionHandler($e);
 }

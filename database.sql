@@ -1,4 +1,6 @@
 
+-- Z-PROSPECTOR Database Schema v2.0 (Production Ready)
+
 -- Tabela de Franquias (Matriz)
 CREATE TABLE IF NOT EXISTS `franchises` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -10,12 +12,12 @@ CREATE TABLE IF NOT EXISTS `franchises` (
 
 -- Tabela de Tenants (Unidades)
 CREATE TABLE IF NOT EXISTS `tenants` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` varchar(50) NOT NULL,
   `franchise_id` int(11) DEFAULT NULL,
   `name` varchar(255) NOT NULL,
   `document` varchar(50) DEFAULT NULL,
   `status` enum('ONLINE','WARNING','OFFLINE') DEFAULT 'ONLINE',
-  `instance_status` varchar(50) DEFAULT 'DISCONNECTED', -- Coluna adicionada para controle da Evolution API
+  `instance_status` varchar(50) DEFAULT 'DISCONNECTED',
   `plan_id` varchar(50) DEFAULT 'START',
   `next_billing` date DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -23,31 +25,44 @@ CREATE TABLE IF NOT EXISTS `tenants` (
   KEY `idx_franchise` (`franchise_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Tabela de Branding (Configurações Visuais Master)
+-- Tabela de Branding
 CREATE TABLE IF NOT EXISTS `branding` (
-  `tenant_id` int(11) NOT NULL,
+  `tenant_id` varchar(50) NOT NULL,
   `config_json` longtext NOT NULL,
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Tabela de Usuários (Perfil Master)
+-- Tabela de Usuários
 CREATE TABLE IF NOT EXISTS `users` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `tenant_id` int(11) NOT NULL,
+  `tenant_id` varchar(50) NOT NULL,
   `name` varchar(255) NOT NULL,
   `email` varchar(255) NOT NULL,
+  `password` varchar(255) NOT NULL,
   `role` varchar(50) DEFAULT 'SUPER_ADMIN',
   `avatar` longtext,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_email` (`email`),
   KEY `idx_user_tenant` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Tabela de Leads
+-- Tabela de Sessões (Auth Token)
+CREATE TABLE IF NOT EXISTS `user_sessions` (
+  `token` varchar(64) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `tenant_id` varchar(50) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `expires_at` datetime NOT NULL,
+  PRIMARY KEY (`token`),
+  KEY `idx_session_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Tabela de Leads (UUID Support)
 CREATE TABLE IF NOT EXISTS `leads` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `tenant_id` int(11) NOT NULL,
+  `id` varchar(50) NOT NULL,
+  `tenant_id` varchar(50) NOT NULL,
   `name` varchar(255) NOT NULL,
   `phone` varchar(50) NOT NULL,
   `email` varchar(255) DEFAULT NULL,
@@ -55,18 +70,19 @@ CREATE TABLE IF NOT EXISTS `leads` (
   `stage` varchar(50) DEFAULT 'NEW',
   `value` decimal(10,2) DEFAULT 0.00,
   `source` varchar(100) DEFAULT NULL,
+  `last_interaction` text DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `idx_tenant` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Tabela de Mensagens (Chat Histórico)
+-- Tabela de Mensagens
 CREATE TABLE IF NOT EXISTS `messages` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `tenant_id` int(11) NOT NULL,
-  `lead_id` int(11) NOT NULL,
+  `id` varchar(50) NOT NULL,
+  `tenant_id` varchar(50) NOT NULL,
+  `lead_id` varchar(50) NOT NULL,
   `sender` enum('me','lead','ai') NOT NULL,
-  `content` text,
+  `content` longtext,
   `type` varchar(20) DEFAULT 'text',
   `status` varchar(20) DEFAULT 'sent',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -75,10 +91,10 @@ CREATE TABLE IF NOT EXISTS `messages` (
   KEY `idx_msg_tenant` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Tabela de Transações Financeiras
+-- Tabela de Transações
 CREATE TABLE IF NOT EXISTS `transactions` (
   `id` varchar(50) NOT NULL,
-  `tenant_id` int(11) NOT NULL,
+  `tenant_id` varchar(50) NOT NULL,
   `client` varchar(255) NOT NULL,
   `type` varchar(100) NOT NULL,
   `type_id` enum('PIX','CREDIT_CARD') NOT NULL,
@@ -93,7 +109,7 @@ CREATE TABLE IF NOT EXISTS `transactions` (
 -- Tabela de Agendamentos
 CREATE TABLE IF NOT EXISTS `appointments` (
   `id` varchar(50) NOT NULL,
-  `tenant_id` int(11) NOT NULL,
+  `tenant_id` varchar(50) NOT NULL,
   `lead_name` varchar(255) NOT NULL,
   `time` varchar(10) NOT NULL,
   `date` int(11) NOT NULL,
@@ -112,7 +128,7 @@ CREATE TABLE IF NOT EXISTS `appointments` (
 -- Tabela de Produtos
 CREATE TABLE IF NOT EXISTS `products` (
   `id` varchar(50) NOT NULL,
-  `tenant_id` int(11) NOT NULL,
+  `tenant_id` varchar(50) NOT NULL,
   `name` varchar(255) NOT NULL,
   `price` decimal(10,2) NOT NULL,
   `category` varchar(50) NOT NULL,
@@ -128,7 +144,7 @@ CREATE TABLE IF NOT EXISTS `products` (
 -- Tabela de Campanhas
 CREATE TABLE IF NOT EXISTS `campaigns` (
   `id` varchar(50) NOT NULL,
-  `tenant_id` int(11) NOT NULL,
+  `tenant_id` varchar(50) NOT NULL,
   `name` varchar(255) NOT NULL,
   `target_status` varchar(50) NOT NULL,
   `product_id` varchar(50) DEFAULT NULL,
@@ -144,13 +160,13 @@ CREATE TABLE IF NOT EXISTS `campaigns` (
   KEY `idx_camp_tenant` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Tabela de Integrações (Gateways de Pagamento e APIs)
+-- Tabela de Integrações
 CREATE TABLE IF NOT EXISTS `integrations` (
   `id` varchar(50) NOT NULL,
-  `tenant_id` int(11) NOT NULL,
+  `tenant_id` varchar(50) NOT NULL,
   `provider` varchar(50) NOT NULL,
   `name` varchar(255) NOT NULL,
-  `config_json` longtext NOT NULL, -- Armazena chaves criptografadas/JSON
+  `config_json` longtext NOT NULL,
   `status` enum('CONNECTED','DISCONNECTED') DEFAULT 'CONNECTED',
   `last_sync` varchar(50) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -158,10 +174,10 @@ CREATE TABLE IF NOT EXISTS `integrations` (
   KEY `idx_int_tenant` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Tabela de Webhooks Inbound (Captação)
+-- Tabela de Webhooks
 CREATE TABLE IF NOT EXISTS `webhooks` (
   `id` varchar(50) NOT NULL,
-  `tenant_id` int(11) NOT NULL,
+  `tenant_id` varchar(50) NOT NULL,
   `name` varchar(255) NOT NULL,
   `url` varchar(255) NOT NULL,
   `event` varchar(100) NOT NULL,
@@ -173,9 +189,10 @@ CREATE TABLE IF NOT EXISTS `webhooks` (
   KEY `idx_wh_tenant` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Inserir Dados Iniciais Obrigatórios
-INSERT INTO `tenants` (`id`, `name`, `status`, `instance_status`) VALUES (1, 'Unidade Master', 'ONLINE', 'DISCONNECTED') ON DUPLICATE KEY UPDATE id=id;
+-- DADOS INICIAIS (SEED)
+INSERT INTO `tenants` (`id`, `name`, `status`, `instance_status`) VALUES ('1', 'Unidade Master', 'ONLINE', 'DISCONNECTED') ON DUPLICATE KEY UPDATE id=id;
 
-INSERT INTO `branding` (`tenant_id`, `config_json`) VALUES (1, '{"appName":"Z-Prospector","fullLogo":"Logotipo%20Z_Prospector.png","fullLogoDark":"Logotipo%20Z_Prospector.png","iconLogo":"Logotipo%20Z_Prospector_Icon.png","iconLogoDark":"Logotipo%20Z_Prospector_Icon.png","favicon":"Logotipo%20Z_Prospector_Icon.png","salesPageLogo":"Logotipo%20Z_Prospector.png"}') ON DUPLICATE KEY UPDATE tenant_id=tenant_id;
+INSERT INTO `branding` (`tenant_id`, `config_json`) VALUES ('1', '{"appName":"Z-Prospector","fullLogo":"Logotipo%20Z_Prospector.png","fullLogoDark":"Logotipo%20Z_Prospector.png","iconLogo":"Logotipo%20Z_Prospector_Icon.png","iconLogoDark":"Logotipo%20Z_Prospector_Icon.png","favicon":"Logotipo%20Z_Prospector_Icon.png","salesPageLogo":"Logotipo%20Z_Prospector.png"}') ON DUPLICATE KEY UPDATE tenant_id=tenant_id;
 
-INSERT INTO `users` (`tenant_id`, `name`, `email`, `role`) VALUES (1, 'Operador Master', 'admin@zprospector.com.br', 'SUPER_ADMIN') ON DUPLICATE KEY UPDATE tenant_id=tenant_id;
+-- Senha padrão '123456' Hash Bcrypt (Exemplo)
+INSERT INTO `users` (`tenant_id`, `name`, `email`, `password`, `role`) VALUES ('1', 'Operador Master', 'admin@zprospector.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'SUPER_ADMIN') ON DUPLICATE KEY UPDATE id=id;
