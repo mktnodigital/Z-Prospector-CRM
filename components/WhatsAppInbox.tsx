@@ -6,14 +6,16 @@ import {
   Smartphone, QrCode, AlertCircle, ShieldCheck, RefreshCcw,
   Terminal, CheckCircle2, Wifi, Zap, X, Copy, Cpu, SmartphoneIcon,
   CreditCard, Landmark, Building2, ChevronRight, Activity, Database,
-  MoreVertical, User, Calendar, Brain, Flame, Lock
+  MoreVertical, User, Calendar, Brain, Flame, Lock, Mic, Image as ImageIcon, Play,
+  Trash2, ArrowLeft
 } from 'lucide-react';
 import { Lead, Appointment, Tenant, EvolutionConfig } from '../types';
 
 interface Message {
   id: string;
   sender: 'me' | 'lead' | 'ai';
-  text: string;
+  text: string; // Base64 content for images or plain text
+  type?: 'text' | 'image' | 'audio';
   time: string;
   status?: 'sent' | 'delivered' | 'read';
 }
@@ -31,9 +33,22 @@ interface WhatsAppInboxProps {
 const API_URL = '/api/core.php';
 
 export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads, onSchedule, tenant, evolutionConfig, notify, onConnectionChange }) => {
-  const [activeChat, setActiveChat] = useState<Lead | null>(activeLeads[0] || null);
+  // Mobile UX: Start with null activeChat on mobile to show list first, or allow prop to override
+  const [activeChat, setActiveChat] = useState<Lead | null>(null); 
+  
+  // Auto-select first lead only on Desktop to avoid "empty state"
+  useEffect(() => {
+    if (window.innerWidth > 768 && activeLeads.length > 0 && !activeChat) {
+        setActiveChat(activeLeads[0]);
+    }
+  }, [activeLeads]);
+
   const [messageInput, setMessageInput] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  
+  // States para Preview de Imagem (Safety UX)
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
   
   const [connStatus, setConnStatus] = useState<'DISCONNECTED' | 'CONNECTING' | 'CONNECTED'>(
     tenant.instanceStatus === 'CONNECTED' ? 'CONNECTED' : 'DISCONNECTED'
@@ -47,21 +62,22 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
   const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Real State for Messages
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
-  // Efeito para carregar mensagens do chat ativo (Initial + Polling)
+  // Efeito para carregar mensagens do chat ativo (Initial + Polling Seguro)
   useEffect(() => {
     if (activeChat) {
       // 1. Initial Load
       fetchMessages(activeChat.id, true);
 
-      // 2. Short Polling (3s) para sensação "Live"
+      // 2. Safe Polling (6s) para evitar sobrecarga em hospedagem compartilhada
       const interval = setInterval(() => {
         fetchMessages(activeChat.id, false);
-      }, 3000);
+      }, 6000);
 
       return () => clearInterval(interval);
     }
@@ -70,10 +86,12 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
   const fetchMessages = async (leadId: string, showLoading = false) => {
     if (showLoading) setIsLoadingMessages(true);
     try {
-      const res = await fetch(`${API_URL}?action=get-messages&lead_id=${leadId}`);
+      // Passa o Tenant ID via Header para garantir isolamento de dados
+      const res = await fetch(`${API_URL}?action=get-messages&lead_id=${leadId}`, {
+        headers: { 'X-Tenant-ID': tenant.id }
+      });
       if (res.ok) {
         const data = await res.json();
-        // Simple comparison to avoid unnecessary re-renders if nothing changed
         setMessages(prev => {
             if (prev.length !== data.length) return data;
             return prev;
@@ -91,7 +109,7 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, activeChat]);
+  }, [messages, activeChat, pendingImage]); // Scroll também quando abrir preview
 
   const handleConnectionSuccess = () => {
     setConnStatus('CONNECTED');
@@ -240,32 +258,36 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!activeChat || !messageInput.trim()) return;
+  const handleSendMessage = async (type: 'text' | 'image' = 'text', content?: string) => {
+    if (!activeChat) return;
+    const textToSend = content || messageInput;
+    if (type === 'text' && !textToSend.trim()) return;
 
     setIsSending(true);
+    setPendingImage(null); // Limpa o preview ao enviar
     
     // 1. Optimistic UI Update
     const newMessage: Message = {
       id: `local_${Date.now()}`,
       sender: 'me',
-      text: messageInput,
+      text: textToSend,
+      type: type,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       status: 'sent'
     };
     setMessages(prev => [...prev, newMessage]);
-    
-    const textToSend = messageInput;
-    setMessageInput('');
+    if (type === 'text') setMessageInput('');
 
     try {
-      // 2. Persist to Database (So we have history even if API fails)
+      // 2. Persist to Database (Passando Tenant ID)
       await fetch(`${API_URL}?action=save-message`, {
         method: 'POST',
+        headers: { 'X-Tenant-ID': tenant.id },
         body: JSON.stringify({
           lead_id: activeChat.id,
           sender: 'me',
-          text: textToSend
+          text: textToSend,
+          type: type
         })
       });
 
@@ -275,33 +297,72 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
          const cleanPhone = activeChat.phone.replace(/\D/g, '');
          const jid = cleanPhone.includes('@s.whatsapp.net') ? cleanPhone : `${cleanPhone}@s.whatsapp.net`;
 
-         await fetch(`${baseUrl}/message/sendText/${instanceName}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'apikey': evolutionConfig.apiKey
-            },
-            body: JSON.stringify({
-                number: jid,
-                text: textToSend,
-                delay: 1200,
-                linkPreview: true
-            })
-         });
+         if (type === 'text') {
+             await fetch(`${baseUrl}/message/sendText/${instanceName}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': evolutionConfig.apiKey },
+                body: JSON.stringify({ number: jid, text: textToSend, delay: 1200, linkPreview: true })
+             });
+         } else if (type === 'image') {
+             // DETECÇÃO DINÂMICA DE MIMETYPE (CRÍTICO PARA ARQUIVOS REAIS)
+             const mimeType = textToSend.match(/data:(.*?);base64/)?.[1] || 'image/jpeg';
+             
+             await fetch(`${baseUrl}/message/sendMedia/${instanceName}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': evolutionConfig.apiKey },
+                body: JSON.stringify({ 
+                    number: jid, 
+                    media: textToSend, // Base64
+                    mediatype: "image", 
+                    mimetype: mimeType, // Usa o mime correto do arquivo (jpg, png, etc)
+                    caption: "",
+                    delay: 1200 
+                })
+             });
+         }
       }
 
     } catch (e) {
       console.error("Failed to send message", e);
       notify("Erro ao enviar. Mensagem salva localmente.");
     } finally {
-      // Small delay to allow UI animation
       setTimeout(() => setIsSending(false), 400);
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+        if (file.size > 5 * 1024 * 1024) { // Aumentado para 5MB
+            notify("Arquivo muito grande (Max 5MB)");
+            return;
+        }
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const base64 = reader.result as string;
+            // IMPORTANTE: Não envia direto. Define como pendente para Preview.
+            setPendingImage(base64);
+        };
+        reader.readAsDataURL(file);
+    }
+    // Reset input value to allow sending the same file twice
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const cancelImagePreview = () => {
+    setPendingImage(null);
+  };
+
+  const confirmSendImage = () => {
+    if (pendingImage) {
+        handleSendMessage('image', pendingImage);
     }
   };
 
   return (
     <div className="h-full flex flex-col bg-slate-900 overflow-hidden relative">
       
+      {/* SUCCESS OVERLAY */}
       {showSuccessOverlay && (
         <div className="absolute inset-0 z-[200] bg-emerald-600 flex flex-col items-center justify-center text-white animate-in fade-in duration-700">
            <div className="p-10 bg-white/20 rounded-full animate-bounce mb-8">
@@ -312,6 +373,30 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
         </div>
       )}
 
+      {/* MODAL DE PREVIEW DE IMAGEM (SAFE UX) */}
+      {pendingImage && (
+        <div className="absolute inset-0 z-[150] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-8 animate-in fade-in">
+           <div className="max-w-2xl w-full bg-slate-900 rounded-[3rem] border border-white/10 shadow-2xl p-8 flex flex-col gap-6">
+              <div className="flex justify-between items-center">
+                 <h3 className="text-xl font-black italic uppercase text-white tracking-tight">Confirmar Envio</h3>
+                 <button onClick={cancelImagePreview} className="p-2 text-slate-400 hover:text-white transition-colors"><X size={24}/></button>
+              </div>
+              <div className="rounded-3xl overflow-hidden border border-slate-700 bg-black/50 flex items-center justify-center max-h-[60vh]">
+                 <img src={pendingImage} alt="Preview" className="max-w-full max-h-full object-contain" />
+              </div>
+              <div className="flex gap-4">
+                 <button onClick={cancelImagePreview} className="flex-1 py-4 bg-slate-800 text-slate-300 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-700 transition-all flex items-center justify-center gap-2">
+                    <Trash2 size={16} /> Descartar
+                 </button>
+                 <button onClick={confirmSendImage} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/30 flex items-center justify-center gap-2">
+                    <Send size={16} /> Enviar Agora
+                 </button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* CONNECTION SCREEN */}
       {connStatus !== 'CONNECTED' && (
         <div className="absolute inset-0 z-[100] bg-slate-950/98 backdrop-blur-3xl flex items-center justify-center p-8 animate-in fade-in">
            <div className="max-w-5xl w-full bg-slate-900 rounded-[4rem] shadow-2xl border border-white/10 overflow-hidden flex flex-col md:flex-row min-h-[600px]">
@@ -396,10 +481,10 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
       )}
 
       {/* CHAT INTERFACE COMPLETA */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
         
-        {/* LISTA DE CONVERSAS */}
-        <div className="w-96 flex flex-col border-r border-slate-800 bg-slate-900/50">
+        {/* LISTA DE CONVERSAS - MOBILE RESPONSIVE */}
+        <div className={`w-full md:w-96 flex flex-col border-r border-slate-800 bg-slate-900/50 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
           <div className="p-8 pb-4">
             <h2 className="text-2xl font-black tracking-tight italic uppercase mb-8 flex items-center gap-4 text-white">
                <MessageSquare className="text-indigo-500" /> Conversas
@@ -446,34 +531,46 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
           </div>
         </div>
 
-        {/* ÁREA DE MENSAGENS */}
-        <div className="flex-1 flex flex-col bg-slate-950 relative">
+        {/* ÁREA DE MENSAGENS - MOBILE RESPONSIVE */}
+        <div className={`flex-1 flex flex-col bg-slate-950 relative ${!activeChat ? 'hidden md:flex' : 'flex'}`}>
           {activeChat ? (
             <>
-              <div className="h-28 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-10 z-20 shadow-sm">
-                <div className="flex items-center gap-5">
-                  <div className="w-14 h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-black text-2xl shadow-xl border-2 border-slate-800">{activeChat.name.charAt(0)}</div>
-                  <div>
-                    <h3 className="text-xl font-black tracking-tight italic uppercase text-white">{activeChat.name}</h3>
+              <div className="h-28 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-6 md:px-10 z-20 shadow-sm">
+                <div className="flex items-center gap-4 md:gap-5">
+                  {/* Botão Voltar Mobile */}
+                  <button 
+                    onClick={() => setActiveChat(null)} 
+                    className="md:hidden p-3 bg-slate-800 text-slate-200 rounded-2xl hover:bg-slate-700 active:scale-95 transition-all"
+                  >
+                    <ArrowLeft size={20} />
+                  </button>
+
+                  <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-black text-2xl shadow-xl border-2 border-slate-800">
+                    {activeChat.name.charAt(0)}
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg md:text-xl font-black tracking-tight italic uppercase text-white truncate max-w-[150px] md:max-w-none">{activeChat.name}</h3>
                     <div className="flex items-center gap-3">
                        <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-900/20 text-emerald-500 rounded-full border border-emerald-800/40">
                           <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div> 
-                          <span className="text-[9px] font-black uppercase tracking-widest">Co-piloto IA Ativo</span>
+                          <span className="text-[8px] md:text-[9px] font-black uppercase tracking-widest whitespace-nowrap">IA Ativa</span>
                        </div>
-                       <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">• {activeChat.phone}</span>
+                       <span className="hidden md:inline text-[9px] text-slate-500 font-bold uppercase tracking-widest">• {activeChat.phone}</span>
                     </div>
                   </div>
                 </div>
-                <div className="flex gap-3">
-                  <button className="p-4 bg-slate-800 text-slate-400 hover:text-indigo-500 rounded-2xl transition-all shadow-sm"><Activity size={20}/></button>
-                  <button className="p-4 bg-slate-800 text-slate-400 hover:text-rose-500 rounded-2xl transition-all shadow-sm"><MoreVertical size={20}/></button>
-                  <button className="flex items-center gap-3 px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl hover:shadow-indigo-500/20">
-                    <Calendar size={16} /> Agendar Agora
+                
+                <div className="flex gap-2 md:gap-3">
+                  <button className="hidden md:block p-4 bg-slate-800 text-slate-400 hover:text-indigo-500 rounded-2xl transition-all shadow-sm"><Activity size={20}/></button>
+                  <button className="p-3 md:p-4 bg-slate-800 text-slate-400 hover:text-rose-500 rounded-2xl transition-all shadow-sm"><MoreVertical size={20}/></button>
+                  <button className="hidden md:flex items-center gap-3 px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl hover:shadow-indigo-500/20">
+                    <Calendar size={16} /> Agendar
                   </button>
                 </div>
               </div>
 
-              <div ref={scrollRef} className="flex-1 overflow-y-auto p-10 space-y-8 custom-scrollbar bg-slate-950 scroll-smooth">
+              <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-10 space-y-8 custom-scrollbar bg-slate-950 scroll-smooth">
                 {isLoadingMessages ? (
                    <div className="flex flex-col items-center justify-center h-full text-indigo-500 gap-4">
                       <Loader2 className="animate-spin" size={48} />
@@ -482,7 +579,7 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                 ) : messages.length > 0 ? (
                   messages.map((msg) => (
                     <div key={msg.id} className={`flex flex-col ${msg.sender === 'me' ? 'items-end' : msg.sender === 'ai' ? 'items-end' : 'items-start'} animate-in slide-in-from-bottom-2`}>
-                      <div className={`max-w-[70%] p-8 rounded-[2.5rem] shadow-sm border relative ${
+                      <div className={`max-w-[85%] md:max-w-[70%] p-4 rounded-[2.5rem] shadow-sm border relative ${
                         msg.sender === 'me' 
                           ? 'bg-indigo-600 text-white rounded-tr-none border-indigo-700 shadow-indigo-500/20' 
                           : msg.sender === 'ai'
@@ -494,7 +591,24 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                              <Sparkles size={12} className="text-purple-400 animate-pulse" />
                           </div>
                         )}
-                        <p className="text-sm font-medium leading-relaxed italic">{msg.text}</p>
+                        
+                        {/* RENDERIZAÇÃO INTELIGENTE DE MÍDIA */}
+                        {msg.type === 'image' ? (
+                           <div className="rounded-2xl overflow-hidden mb-2 border border-white/10">
+                              <img src={msg.text} alt="Mídia" className="max-w-full h-auto object-cover" />
+                           </div>
+                        ) : msg.type === 'audio' ? (
+                           <div className="flex items-center gap-3 p-2 min-w-[200px]">
+                              <button className="p-3 bg-white/20 rounded-full hover:bg-white/30 transition-all"><Play size={16} fill="currentColor" /></button>
+                              <div className="h-1 flex-1 bg-white/20 rounded-full overflow-hidden">
+                                 <div className="h-full w-1/3 bg-white/80 rounded-full"></div>
+                              </div>
+                              <span className="text-[9px] font-black opacity-70">0:12</span>
+                           </div>
+                        ) : (
+                           <p className="text-sm font-medium leading-relaxed italic px-4 py-2">{msg.text}</p>
+                        )}
+
                       </div>
                       <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mt-3 px-6 opacity-50 italic flex items-center gap-2">
                          {msg.sender === 'ai' ? 'IA Coach' : msg.sender === 'me' ? 'Você' : 'Lead'} • {msg.time} 
@@ -510,7 +624,16 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                 )}
               </div>
 
-              <div className="bg-slate-900 border-t border-slate-800 p-8 z-10 shadow-2xl relative">
+              {/* INPUT AREA COM UPLOAD REAL */}
+              <div className="bg-slate-900 border-t border-slate-800 p-4 md:p-8 z-10 shadow-2xl relative pb-8 md:pb-8">
+                <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    accept="image/*" 
+                    onChange={handleFileUpload} 
+                />
+
                 {/* BARRA DE SUGESTÕES RÁPIDAS */}
                 <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar pb-2">
                    {["Preço", "Agendar", "Áudio Explicativo", "Quebra de Objeção"].map(tag => (
@@ -518,27 +641,42 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                    ))}
                 </div>
 
-                <div className="max-w-6xl mx-auto flex items-center gap-6">
-                  <div className="flex-1 relative group">
+                <div className="max-w-6xl mx-auto flex items-center gap-2 md:gap-4">
+                  <div className="flex-1 relative group flex items-center gap-2 bg-slate-800 rounded-[2.2rem] pr-2 border-2 border-transparent focus-within:border-indigo-500/50 transition-all">
                     <input 
                       value={messageInput} 
                       onChange={(e) => setMessageInput(e.target.value)} 
-                      onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()} 
-                      placeholder="Digite para vender ou use IA (ctrl+space)..." 
-                      className="w-full pl-8 pr-32 py-7 bg-slate-800 rounded-[2.2rem] border-2 border-transparent outline-none text-sm font-bold shadow-inner focus:border-indigo-500/50 transition-all italic placeholder:text-slate-500 text-white" 
+                      onKeyPress={(e) => e.key === 'Enter' && handleSendMessage('text')} 
+                      placeholder={isRecording ? "Gravando..." : "Digite (ou Ctrl+K)..."}
+                      className="flex-1 pl-6 md:pl-8 py-5 md:py-7 bg-transparent border-none outline-none text-sm font-bold shadow-inner italic placeholder:text-slate-500 text-white" 
+                      disabled={isRecording}
                     />
-                    <div className="absolute right-6 top-1/2 -translate-y-1/2 flex items-center gap-3 text-slate-500 group-focus-within:text-indigo-400 transition-colors">
-                       <Paperclip size={20} className="cursor-pointer hover:scale-110 transition-transform hover:text-white"/>
-                       <Smile size={20} className="cursor-pointer hover:scale-110 transition-transform hover:text-white"/>
+                    
+                    <div className="flex items-center gap-2 md:gap-3 text-slate-500 mr-2 md:mr-4">
+                       <button className="hidden md:block"><Paperclip size={20} className="cursor-pointer hover:scale-110 transition-transform hover:text-white"/></button>
+                       <button onClick={() => fileInputRef.current?.click()} title="Enviar Imagem">
+                           <ImageIcon size={20} className="cursor-pointer hover:scale-110 transition-transform hover:text-indigo-400"/>
+                       </button>
                     </div>
                   </div>
-                  <button 
-                    onClick={handleSendMessage} 
-                    disabled={!messageInput.trim() || isSending} 
-                    className="p-8 bg-indigo-600 text-white rounded-3xl shadow-xl hover:bg-indigo-700 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 flex items-center justify-center hover:shadow-indigo-500/30"
-                  >
-                    {isSending ? <Loader2 className="animate-spin" size={24} /> : <Send size={24} />}
-                  </button>
+
+                  {messageInput.trim() ? (
+                      <button 
+                        onClick={() => handleSendMessage('text')} 
+                        disabled={isSending} 
+                        className="p-5 md:p-8 bg-indigo-600 text-white rounded-3xl shadow-xl hover:bg-indigo-700 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 flex items-center justify-center hover:shadow-indigo-500/30"
+                      >
+                        {isSending ? <Loader2 className="animate-spin" size={24} /> : <Send size={24} />}
+                      </button>
+                  ) : (
+                      <button 
+                        onMouseDown={() => setIsRecording(true)}
+                        onMouseUp={() => { setIsRecording(false); notify('Áudio enviado (Simulação)'); }}
+                        className={`p-5 md:p-8 rounded-3xl shadow-xl transition-all hover:scale-105 active:scale-95 flex items-center justify-center ${isRecording ? 'bg-rose-600 text-white animate-pulse' : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'}`}
+                      >
+                        <Mic size={24} />
+                      </button>
+                  )}
                 </div>
               </div>
             </>
@@ -547,7 +685,8 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
               <div className="p-12 rounded-full border-4 border-dashed border-slate-800">
                 <MessageSquare size={100} className="animate-pulse" />
               </div>
-              <p className="text-2xl font-black uppercase tracking-[0.5em] italic">Selecione uma Oportunidade</p>
+              <p className="text-2xl font-black uppercase tracking-[0.5em] italic hidden md:block">Selecione uma Oportunidade</p>
+              <p className="text-sm font-bold md:hidden">Selecione uma conversa</p>
             </div>
           )}
         </div>
