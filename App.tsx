@@ -9,7 +9,7 @@ import {
   Settings, Building2, UserCog, Cpu, Shield, Fingerprint, Palette,
   ChevronLeft, ChevronRight, Megaphone, Search, CreditCard, ChevronLast, ChevronFirst,
   Bell, BellDot, ShoppingCart, TrendingUp, Workflow, Code2, Gauge, Menu as MenuIcon,
-  Info
+  Info, Flame
 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { CRMKanban } from './components/CRMKanban';
@@ -85,11 +85,7 @@ const ZLogo: React.FC<{ branding: BrandingConfig, type?: 'full' | 'icon', darkMo
 };
 
 const App: React.FC = () => {
-  // SESSION PERSISTENCE (Enterprise Requirement)
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    return localStorage.getItem('z_session_token') === 'active';
-  });
-
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [branding, setBranding] = useState<BrandingConfig>(DEFAULT_BRANDING);
   const [evolutionConfig, setEvolutionConfig] = useState<EvolutionConfig>(DEFAULT_EVOLUTION_CONFIG);
   const [n8nConfig, setN8nConfig] = useState(DEFAULT_N8N_CONFIG);
@@ -120,11 +116,7 @@ const App: React.FC = () => {
   const [activeModule, setActiveModule] = useState<AppModule>('results');
   
   // CONCEITO: PERFORMANCE MODE (Controla Tema Escuro/Claro + Vibrancy)
-  // Inicializa lendo do localStorage se existir
-  const [performanceMode, setPerformanceMode] = useState(() => {
-    const saved = localStorage.getItem('z_performance_mode');
-    return saved !== null ? JSON.parse(saved) : true;
-  }); 
+  const [performanceMode, setPerformanceMode] = useState(true); 
   const [notification, setNotification] = useState<string | null>(null);
 
   const [currentUser, setCurrentUser] = useState({ 
@@ -133,23 +125,6 @@ const App: React.FC = () => {
     role: 'SUPER_ADMIN', 
     avatar: null 
   });
-
-  // Persist Performance Mode
-  useEffect(() => {
-    localStorage.setItem('z_performance_mode', JSON.stringify(performanceMode));
-  }, [performanceMode]);
-
-  // Enterprise Hotkey: Ctrl+K / Cmd+K for Search
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setIsSearchOpen(true);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
 
   // Dynamic Favicon Update
   useEffect(() => {
@@ -234,7 +209,7 @@ const App: React.FC = () => {
       if (aRes.ok) setAppointments(await aRes.json());
 
     } catch (e) {
-      // Silent fail on polling - Enterprise should log this or show discreet offline indicator
+      // Silent fail on polling
     }
   };
 
@@ -301,15 +276,8 @@ const App: React.FC = () => {
     }
   }, [isLoggedIn, leads.length]); 
 
-  // HANDLE LOGIN WITH PERSISTENCE
-  const handleLoginSuccess = () => {
-    localStorage.setItem('z_session_token', 'active');
-    setIsLoggedIn(true);
-  };
-
   const handleLogout = () => {
     notify('Sessão encerrada. A operação continua rodando em background.');
-    localStorage.removeItem('z_session_token');
     setTimeout(() => {
       setIsLoggedIn(false);
       setActiveModule('results');
@@ -363,7 +331,7 @@ const App: React.FC = () => {
   ];
 
   if (isLoading) return <div className="fixed inset-0 flex items-center justify-center bg-slate-950 text-white font-black uppercase tracking-widest z-[9999]"><Loader2 className="animate-spin text-indigo-500 mr-4" /> Iniciando Motor de Vendas...</div>;
-  if (!isLoggedIn) return <OfferPage branding={branding} onLogin={handleLoginSuccess} />;
+  if (!isLoggedIn) return <OfferPage branding={branding} onLogin={() => setIsLoggedIn(true)} />;
 
   return (
     <div className={`fixed inset-0 flex h-full w-full overflow-hidden transition-all duration-700 ${performanceMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
@@ -498,7 +466,7 @@ const App: React.FC = () => {
                 className={`flex items-center gap-4 px-6 py-3 rounded-[2rem] cursor-pointer group transition-all w-12 md:w-96 shadow-inner border ${performanceMode ? 'bg-slate-800/50 border-slate-700/50 text-slate-400 hover:border-indigo-500/50 hover:text-indigo-400 hover:bg-slate-800' : 'bg-white border-indigo-100 text-slate-500 hover:border-indigo-300 hover:shadow-md'}`}
               >
                  <Search size={18} className="group-hover:scale-110 transition-transform" />
-                 <span className="text-[10px] font-black uppercase tracking-widest hidden md:inline opacity-70 group-hover:opacity-100">Consultar Inteligência (Ctrl+K)</span>
+                 <span className="text-[10px] font-black uppercase tracking-widest hidden md:inline opacity-70 group-hover:opacity-100">Consultar Inteligência</span>
               </div>
            </div>
 
