@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS `tenants` (
   `name` varchar(255) NOT NULL,
   `document` varchar(50) DEFAULT NULL,
   `status` enum('ONLINE','WARNING','OFFLINE') DEFAULT 'ONLINE',
-  `instance_status` varchar(50) DEFAULT 'DISCONNECTED', -- Coluna adicionada para controle da Evolution API
+  `instance_status` varchar(50) DEFAULT 'DISCONNECTED',
   `plan_id` varchar(50) DEFAULT 'START',
   `next_billing` date DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `tenant_id` int(11) NOT NULL,
   `name` varchar(255) NOT NULL,
   `email` varchar(255) NOT NULL,
+  `password` varchar(255) NOT NULL, -- Coluna Crítica Adicionada
   `role` varchar(50) DEFAULT 'SUPER_ADMIN',
   `avatar` longtext,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -55,6 +56,7 @@ CREATE TABLE IF NOT EXISTS `leads` (
   `stage` varchar(50) DEFAULT 'NEW',
   `value` decimal(10,2) DEFAULT 0.00,
   `source` varchar(100) DEFAULT NULL,
+  `last_interaction` text DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `idx_tenant` (`tenant_id`)
@@ -150,7 +152,7 @@ CREATE TABLE IF NOT EXISTS `integrations` (
   `tenant_id` int(11) NOT NULL,
   `provider` varchar(50) NOT NULL,
   `name` varchar(255) NOT NULL,
-  `config_json` longtext NOT NULL, -- Armazena chaves criptografadas/JSON
+  `config_json` longtext NOT NULL,
   `status` enum('CONNECTED','DISCONNECTED') DEFAULT 'CONNECTED',
   `last_sync` varchar(50) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -173,9 +175,11 @@ CREATE TABLE IF NOT EXISTS `webhooks` (
   KEY `idx_wh_tenant` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Inserir Dados Iniciais Obrigatórios
+-- INSERTS INICIAIS
 INSERT INTO `tenants` (`id`, `name`, `status`, `instance_status`) VALUES (1, 'Unidade Master', 'ONLINE', 'DISCONNECTED') ON DUPLICATE KEY UPDATE id=id;
 
 INSERT INTO `branding` (`tenant_id`, `config_json`) VALUES (1, '{"appName":"Z-Prospector","fullLogo":"Logotipo%20Z_Prospector.png","fullLogoDark":"Logotipo%20Z_Prospector.png","iconLogo":"Logotipo%20Z_Prospector_Icon.png","iconLogoDark":"Logotipo%20Z_Prospector_Icon.png","favicon":"Logotipo%20Z_Prospector_Icon.png","salesPageLogo":"Logotipo%20Z_Prospector.png"}') ON DUPLICATE KEY UPDATE tenant_id=tenant_id;
 
-INSERT INTO `users` (`tenant_id`, `name`, `email`, `role`) VALUES (1, 'Operador Master', 'admin@zprospector.com.br', 'SUPER_ADMIN') ON DUPLICATE KEY UPDATE tenant_id=tenant_id;
+-- Senha padrão '123456' hash MD5 (para compatibilidade simples neste ambiente, em prod usar BCRYPT)
+-- MD5 de 123456 = e10adc3949ba59abbe56e057f20f883e
+INSERT INTO `users` (`tenant_id`, `name`, `email`, `password`, `role`) VALUES (1, 'Operador Master', 'admin@zprospector.com', 'e10adc3949ba59abbe56e057f20f883e', 'SUPER_ADMIN') ON DUPLICATE KEY UPDATE password='e10adc3949ba59abbe56e057f20f883e';
