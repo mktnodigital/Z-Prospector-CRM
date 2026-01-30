@@ -32,11 +32,11 @@ function jsonExceptionHandler($e) {
 }
 set_exception_handler('jsonExceptionHandler');
 
-// Credenciais (Mover para .env em produção)
-$dbHost = 'localhost';
-$dbName = 'tinova31_zprospector_db';
-$dbUser = 'tinova31_zprospector_db';
-$dbPass = 'EASmfc#%3107';
+// Credenciais Dinâmicas (Ambiente ou Fallback Local)
+$dbHost = getenv('DB_HOST') ?: 'localhost';
+$dbName = getenv('DB_NAME') ?: 'tinova31_zprospector_db';
+$dbUser = getenv('DB_USER') ?: 'tinova31_zprospector_db';
+$dbPass = getenv('DB_PASS') ?: 'EASmfc#%3107';
 
 try {
     $pdo = new PDO("mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4", $dbUser, $dbPass, [
@@ -83,11 +83,10 @@ try {
             $stmt->execute([$email]);
             $user = $stmt->fetch();
 
-            // Verificação simples MD5 para compatibilidade com o insert inicial (Em prod, use password_verify/BCRYPT)
+            // Verificação MD5 (Compatibilidade com Seed Inicial)
             if ($user && md5($password) === $user['password']) {
-                $token = bin2hex(random_bytes(32)); // Token de sessão simples
+                $token = bin2hex(random_bytes(32)); 
                 
-                // Retorna dados do usuário e token
                 echo json_encode([
                     "success" => true,
                     "token" => $token,
@@ -145,8 +144,7 @@ try {
             if ($user) {
                 echo json_encode($user);
             } else {
-                // Fallback user create (sem senha, apenas para não quebrar UI)
-                $stmt = $pdo->prepare("INSERT INTO users (tenant_id, name, email, role, password) VALUES (?, 'Operador Master', 'admin@zprospector.com', 'SUPER_ADMIN', '123456')");
+                $stmt = $pdo->prepare("INSERT INTO users (tenant_id, name, email, role, password) VALUES (?, 'Operador Master', 'admin@zprospector.com', 'SUPER_ADMIN', 'e10adc3949ba59abbe56e057f20f883e')");
                 $stmt->execute([$tenant_id]);
                 echo json_encode(['name' => 'Operador Master', 'email' => 'admin@zprospector.com', 'role' => 'SUPER_ADMIN']);
             }
