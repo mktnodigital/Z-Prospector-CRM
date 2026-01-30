@@ -1,7 +1,8 @@
+
 <?php
 /**
- * ZPROSPECTOR - SaaS Core API
- * Conexão Homologada HostGator & Cloud Run
+ * Z-PROSPECTOR - Produção Core Engine v1.5
+ * Suporte Total Multi-tenant & CRUD Módulos
  */
 
 error_reporting(E_ALL);
@@ -18,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     exit;
 }
 
-// Credenciais fornecidas pelo usuário para HostGator
+// Configurações DB HostGator
 $dbHost = 'localhost';
 $dbName = 'tinova31_zprospector_db';
 $dbUser = 'tinova31_zprospector_db';
@@ -31,78 +32,108 @@ try {
         PDO::ATTR_EMULATE_PREPARES => false,
     ]);
 } catch (PDOException $e) {
-    error_log("Database Connection Error: " . $e->getMessage());
     http_response_code(500);
-    echo json_encode(["success" => false, "error" => "Falha na conexão com o banco de dados HostGator."]);
+    echo json_encode(["success" => false, "error" => "DB Connection Failed"]);
     exit;
 }
 
-$action = $_GET['action'] ?? 'health-check';
-// Tenant ID fixo em 1 para esta unidade, mas preparado para multi-tenant
-$tenant_id = 1; 
+// Lógica de Tenant ID (Dinâmico via Header ou Query)
+$tenant_id = $_SERVER['HTTP_X_TENANT_ID'] ?? $_GET['tenant_id'] ?? 1;
+$action = $_GET['action'] ?? 'health';
+
+// Helper para leitura de JSON
+$input = json_decode(file_get_contents('php://input'), true);
 
 switch ($action) {
-    case 'health-check':
-        echo json_encode(["success" => true, "status" => "Online", "database" => "Connected"]);
+    case 'health':
+        echo json_encode(["status" => "online", "tenant" => $tenant_id]);
         break;
 
+    // --- BRANDING ---
     case 'get-branding':
-        $stmt = $pdo->prepare("SELECT config_json FROM branding WHERE tenant_id = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT config_json FROM branding WHERE tenant_id = ?");
         $stmt->execute([$tenant_id]);
-        $row = $stmt->fetch();
-        if ($row) {
-            echo $row['config_json'];
-        } else {
-            // Fallback se o banco estiver vazio
-            echo json_encode([
-                "appName" => "Z-Prospector",
-                "fullLogo" => "Logotipo%20Z_Prospector.png",
-                "favicon" => "Logotipo%20Z_Prospector_Icon.png"
-            ]);
-        }
+        $res = $stmt->fetch();
+        echo $res ? $res['config_json'] : json_encode(["appName" => "Z-Prospector"]);
         break;
 
     case 'save-branding':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
-        $input = file_get_contents('php://input');
         $stmt = $pdo->prepare("INSERT INTO branding (tenant_id, config_json) VALUES (?, ?) ON DUPLICATE KEY UPDATE config_json = VALUES(config_json)");
-        $stmt->execute([$tenant_id, $input]);
+        $stmt->execute([$tenant_id, json_encode($input)]);
         echo json_encode(["success" => true]);
         break;
 
+    // --- LEADS ---
     case 'get-leads':
-        $stmt = $pdo->prepare("SELECT * FROM leads WHERE tenant_id = ? ORDER BY created_at DESC");
+        $stmt = $pdo->prepare("SELECT * FROM leads WHERE tenant_id = ? ORDER BY id DESC");
         $stmt->execute([$tenant_id]);
         echo json_encode($stmt->fetchAll());
         break;
 
     case 'save-lead':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
-        $input = json_decode(file_get_contents('php://input'), true);
-        
-        $stmt = $pdo->prepare("INSERT INTO leads (tenant_id, name, phone, email, status, stage, value, source) VALUES (:tid, :name, :phone, :email, :status, :stage, :value, :source)");
+        $stmt = $pdo->prepare("INSERT INTO leads (tenant_id, name, phone, email, status, stage, value, source, last_interaction) VALUES (?,?,?,?,?,?,?,?,?)");
         $stmt->execute([
-            ':tid'    => $tenant_id,
-            ':name'   => $input['name'],
-            ':phone'  => $input['phone'],
-            ':email'  => $input['email'] ?? null,
-            ':status' => $input['status'] ?? 'COLD',
-            ':stage'  => $input['stage'] ?? 'NEW',
-            ':value'  => $input['value'] ?? 0,
-            ':source' => $input['source'] ?? 'API'
+            $tenant_id, $input['name'], $input['phone'], $input['email'], 
+            $input['status'] ?? 'COLD', $input['stage'] ?? 'NEW', 
+            $input['value'] ?? 0, $input['source'] ?? 'Direct', $input['lastInteraction'] ?? ''
         ]);
         echo json_encode(["success" => true, "id" => $pdo->lastInsertId()]);
         break;
-    
-    case 'update-lead-stage':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
-        $input = json_decode(file_get_contents('php://input'), true);
-        $stmt = $pdo->prepare("UPDATE leads SET stage = ? WHERE id = ? AND tenant_id = ?");
-        $stmt->execute([$input['stage'], $input['id'], $tenant_id]);
+
+    case 'delete-lead':
+        $stmt = $pdo->prepare("DELETE FROM leads WHERE id = ? AND tenant_id = ?");
+        $stmt->execute([$_GET['id'], $tenant_id]);
+        echo json_encode(["success" => true]);
+        break;
+
+    // --- AGENDAMENTOS ---
+    case 'get-appointments':
+        $stmt = $pdo->prepare("SELECT * FROM appointments WHERE tenant_id = ?");
+        $stmt->execute([$tenant_id]);
+        echo json_encode($stmt->fetchAll());
+        break;
+
+    case 'save-appointment':
+        $stmt = $pdo->prepare("INSERT INTO appointments (tenant_id, lead_name, service_name, scheduled_at, status, is_ia, value) VALUES (?,?,?,?,?,?,?)");
+        $stmt->execute([
+            $tenant_id, $input['lead'], $input['service'], $input['scheduled_at'],
+            $input['status'] ?? 'CONFIRMED', $input['ia'] ?? false, $input['value'] ?? 0
+        ]);
+        echo json_encode(["success" => true]);
+        break;
+
+    // --- PRODUTOS ---
+    case 'get-products':
+        $stmt = $pdo->prepare("SELECT * FROM products WHERE tenant_id = ?");
+        $stmt->execute([$tenant_id]);
+        echo json_encode($stmt->fetchAll());
+        break;
+
+    case 'save-product':
+        $stmt = $pdo->prepare("INSERT INTO products (tenant_id, name, price, category, description, image) VALUES (?,?,?,?,?,?)");
+        $stmt->execute([
+            $tenant_id, $input['name'], $input['price'], $input['category'], $input['description'], $input['image']
+        ]);
+        echo json_encode(["success" => true]);
+        break;
+
+    // --- N8N WORKFLOWS ---
+    case 'get-workflows':
+        $stmt = $pdo->prepare("SELECT * FROM n8n_workflows WHERE tenant_id = ?");
+        $stmt->execute([$tenant_id]);
+        echo json_encode($stmt->fetchAll());
+        break;
+
+    case 'save-workflow':
+        $stmt = $pdo->prepare("INSERT INTO n8n_workflows (tenant_id, name, webhook_url, event, status) VALUES (?,?,?,?,?)");
+        $stmt->execute([
+            $tenant_id, $input['name'], $input['webhookUrl'], $input['event'], $input['status'] ?? 'ACTIVE'
+        ]);
         echo json_encode(["success" => true]);
         break;
 
     default:
         http_response_code(404);
+        echo json_encode(["error" => "Action not found"]);
         break;
 }
