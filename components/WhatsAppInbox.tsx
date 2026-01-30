@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Search, Send, Paperclip, Smile, CheckCheck, 
@@ -87,6 +88,10 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
 
     const baseUrl = evolutionConfig.baseUrl.replace(/\/$/, '');
     const apiKey = evolutionConfig.apiKey;
+    
+    // AbortController para prevenir vazamento de memória e travamentos
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
     addLog(`INIT: Conectando ao Cluster Evolution (${baseUrl})...`);
     
@@ -102,7 +107,8 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
           headers: { 
             'apikey': apiKey,
             'Content-Type': 'application/json'
-          }
+          },
+          signal: controller.signal
         });
         
         if (fetchRes.ok) {
@@ -118,6 +124,7 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                     addLog(`SUCCESS: Instância já está conectada.`);
                     handleConnectionSuccess();
                     setIsConnecting(false);
+                    clearTimeout(timeoutId);
                     return;
                 }
             }
@@ -143,7 +150,8 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                     token: Math.random().toString(36).substring(7),
                     qrcode: true,
                     integration: 'WHATSAPP-BAILEYS'
-                })
+                }),
+                signal: controller.signal
              });
 
              if (createRes.ok) {
@@ -179,7 +187,8 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                 headers: { 
                     'apikey': apiKey,
                     'Content-Type': 'application/json'
-                } 
+                },
+                signal: controller.signal
               });
               
               if (!connectRes.ok) {
@@ -209,10 +218,14 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
       }
 
     } catch (err: any) {
-      console.error(err);
-      addLog(`FATAL: ${err.message || 'Falha crítica de conexão'}`);
-      // Removido fallback estático para evitar confusão do usuário
+      if (err.name === 'AbortError') {
+          addLog('TIMEOUT: O servidor demorou muito para responder.');
+      } else {
+          console.error(err);
+          addLog(`FATAL: ${err.message || 'Falha crítica de conexão'}`);
+      }
     } finally {
+      clearTimeout(timeoutId);
       setIsConnecting(false);
     }
   };

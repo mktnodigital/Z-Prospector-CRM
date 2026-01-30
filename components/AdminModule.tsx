@@ -43,7 +43,7 @@ const SYSTEM_WORKFLOWS = {
           "url": "https://api.clikai.com.br/instance/create", 
           "method": "POST",
           "bodyParameters": { "parameters": [{ "name": "instanceName", "value": "={{$json.body.instanceName}}" }, { "name": "token", "value": "={{$json.body.token}}" }] },
-          "headerParameters": { "parameters": [{ "name": "apikey", "value": "MASTER_KEY" }] }
+          "headerParameters": { "parameters": [{ "name": "apikey", "value": "MASTER_KEY_ENV_VAR" }] }
         },
         "position": [300, 300] 
       },
@@ -84,7 +84,7 @@ const SYSTEM_WORKFLOWS = {
     "name": "Sys - Health Check Monitor v3 (API)",
     "nodes": [
       { "name": "Cron 5min", "type": "n8n-nodes-base.cron", "parameters": { "triggerTimes": { "item": [{ "mode": "everyMinute", "value": 5 }] } }, "position": [100, 300] },
-      { "name": "API: Ping Evolution", "type": "n8n-nodes-base.httpRequest", "parameters": { "url": "https://api.clikai.com.br/instance/fetchInstances", "headerParameters": { "parameters": [{ "name": "apikey", "value": "MASTER_KEY" }] } }, "position": [300, 300] },
+      { "name": "API: Ping Evolution", "type": "n8n-nodes-base.httpRequest", "parameters": { "url": "https://api.clikai.com.br/instance/fetchInstances", "headerParameters": { "parameters": [{ "name": "apikey", "value": "MASTER_KEY_ENV_VAR" }] } }, "position": [300, 300] },
       { "name": "API: Check DB Latency", "type": "n8n-nodes-base.httpRequest", "parameters": { "url": "https://zprospector.com.br/api/core.php?action=sys-db-latency", "method": "GET" }, "position": [300, 500] },
       { "name": "API: Report Dashboard", "type": "n8n-nodes-base.httpRequest", "parameters": { "url": "https://zprospector.com.br/api/health", "method": "POST" }, "position": [600, 400] }
     ],
@@ -99,7 +99,7 @@ export const AdminModule: React.FC<AdminModuleProps> = ({ branding, onBrandingCh
   
   const [n8nConfig, setN8nConfig] = useState({
     baseUrl: 'https://n8n.clikai.com.br',
-    apiKey: '********************************',
+    apiKey: '', // Removido hardcoded placeholder
     status: 'ONLINE'
   });
 
