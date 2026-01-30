@@ -20,12 +20,13 @@ type ViewMode = 'month' | 'list';
 
 const API_URL = '/api/core.php';
 
-const SERVICE_CATALOG = [
-  { id: 'srv_1', name: 'Corte Master', price: 80.00 },
-  { id: 'srv_2', name: 'Barba Terapia', price: 65.00 },
-  { id: 'srv_3', name: 'Combo Premium', price: 130.00 },
-  { id: 'srv_4', name: 'Mentoria Express', price: 250.00 },
-];
+// Interface do Produto
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  category: string;
+}
 
 export const ScheduleManager: React.FC<Props> = ({ appointments: propAppointments, onAddAppointment, onUpdateAppointment, onDeleteAppointment }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('month');
@@ -35,11 +36,15 @@ export const ScheduleManager: React.FC<Props> = ({ appointments: propAppointment
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [localAppointments, setLocalAppointments] = useState<Appointment[]>(propAppointments);
   
+  // Dynamic Services from API
+  const [services, setServices] = useState<Product[]>([]);
+  const [isLoadingServices, setIsLoadingServices] = useState(false);
+  
   const [hoveredDay, setHoveredDay] = useState<number | null>(null);
 
   const [formName, setFormName] = useState('');
   const [formTime, setFormTime] = useState('');
-  const [formServiceId, setFormServiceId] = useState(SERVICE_CATALOG[0].id);
+  const [formServiceId, setFormServiceId] = useState('');
 
   // Load appointments from API
   useEffect(() => {
@@ -59,7 +64,31 @@ export const ScheduleManager: React.FC<Props> = ({ appointments: propAppointment
     fetchAppointments();
   }, []);
 
-  // Sync prop changes if any (from other components)
+  // Load Services (Products) from API
+  useEffect(() => {
+    const fetchServices = async () => {
+        setIsLoadingServices(true);
+        try {
+            const res = await fetch(`${API_URL}?action=get-products`);
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data)) {
+                    // Filter mainly 'Serviço' or treat all as potential appointments
+                    const svc = data.filter((p: any) => p.category === 'Serviço' || p.category === 'Consultoria');
+                    setServices(svc.length > 0 ? svc : data); // Fallback to all if no services
+                    if (svc.length > 0 && !formServiceId) setFormServiceId(svc[0].id);
+                }
+            }
+        } catch (e) {
+            console.error("Failed to load services");
+        } finally {
+            setIsLoadingServices(false);
+        }
+    };
+    fetchServices();
+  }, []);
+
+  // Sync prop changes
   useEffect(() => {
     if (propAppointments.length > localAppointments.length) {
        setLocalAppointments(propAppointments);
@@ -80,13 +109,12 @@ export const ScheduleManager: React.FC<Props> = ({ appointments: propAppointment
   const handlePrevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
   const handleNextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
 
-  // Função centralizada para abrir o modal de adição
   const handleOpenAddModal = (day?: number) => {
     if (day !== undefined) setSelectedDay(day);
     setEditingAppointment(null);
     setFormName('');
     setFormTime('');
-    setFormServiceId(SERVICE_CATALOG[0].id);
+    setFormServiceId(services.length > 0 ? services[0].id : '');
     setIsModalOpen(true);
   };
 
@@ -94,13 +122,13 @@ export const ScheduleManager: React.FC<Props> = ({ appointments: propAppointment
     setEditingAppointment(appt);
     setFormName(appt.lead);
     setFormTime(appt.time);
-    setFormServiceId(appt.serviceId || SERVICE_CATALOG[0].id);
+    setFormServiceId(appt.serviceId || (services.length > 0 ? services[0].id : ''));
     setIsModalOpen(true);
   };
 
   const handleSaveAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
-    const selectedService = SERVICE_CATALOG.find(s => s.id === formServiceId);
+    const selectedService = services.find(s => s.id === formServiceId);
     
     let apptToSave: Appointment;
 
@@ -109,11 +137,10 @@ export const ScheduleManager: React.FC<Props> = ({ appointments: propAppointment
         ...editingAppointment, 
         lead: formName, 
         time: formTime, 
-        service: selectedService?.name || 'Serviço',
+        service: selectedService?.name || 'Serviço Personalizado',
         serviceId: formServiceId,
-        value: selectedService?.price
+        value: selectedService?.price || 0
       };
-      // Optimistic update
       const updatedList = localAppointments.map(i => i.id === apptToSave.id ? apptToSave : i);
       setLocalAppointments(updatedList);
       onUpdateAppointment(apptToSave);
@@ -125,18 +152,16 @@ export const ScheduleManager: React.FC<Props> = ({ appointments: propAppointment
         date: selectedDay,
         month: currentDate.getMonth(),
         year: currentDate.getFullYear(),
-        service: selectedService?.name || 'Serviço',
+        service: selectedService?.name || 'Serviço Personalizado',
         serviceId: formServiceId,
-        value: selectedService?.price,
+        value: selectedService?.price || 0,
         status: 'CONFIRMED',
         ia: false
       };
-      // Optimistic update
       setLocalAppointments([...localAppointments, apptToSave]);
       onAddAppointment(apptToSave);
     }
 
-    // Persist to API
     try {
       await fetch(`${API_URL}?action=save-appointment`, {
         method: 'POST',
@@ -154,7 +179,6 @@ export const ScheduleManager: React.FC<Props> = ({ appointments: propAppointment
       const updatedList = localAppointments.filter(i => i.id !== id);
       setLocalAppointments(updatedList);
       onDeleteAppointment(id);
-      
       try {
         await fetch(`${API_URL}?action=delete-appointment`, {
           method: 'POST',
@@ -199,7 +223,7 @@ export const ScheduleManager: React.FC<Props> = ({ appointments: propAppointment
   return (
     <div className="p-10 space-y-10 animate-in fade-in relative pb-40">
       
-      {/* MODAL HÍBRIDO - SINCRONIZAÇÃO DE VENDA MASTER */}
+      {/* MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[3.5rem] shadow-2xl p-12 relative border border-white/10 overflow-hidden">
@@ -220,22 +244,29 @@ export const ScheduleManager: React.FC<Props> = ({ appointments: propAppointment
                 
                 <div className="space-y-1">
                    <label className="text-[9px] font-black uppercase text-slate-400 px-4">Selecionar Item do Catálogo</label>
-                   <div className="grid grid-cols-1 gap-2">
-                      {SERVICE_CATALOG.map(srv => (
-                        <button 
-                          key={srv.id}
-                          type="button"
-                          onClick={() => setFormServiceId(srv.id)}
-                          className={`flex items-center justify-between px-6 py-4 rounded-2xl border-2 transition-all ${formServiceId === srv.id ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600' : 'border-slate-50 dark:border-slate-800 text-slate-500'}`}
-                        >
-                           <div className="flex items-center gap-3">
-                              <ShoppingCart size={14} className={formServiceId === srv.id ? 'text-indigo-600' : 'text-slate-400'} />
-                              <span className="text-[11px] font-black uppercase tracking-tight">{srv.name}</span>
-                           </div>
-                           <span className="text-[10px] font-black italic">R$ {srv.price.toFixed(2)}</span>
-                        </button>
-                      ))}
-                   </div>
+                   
+                   {isLoadingServices ? (
+                       <div className="w-full py-8 text-center text-slate-400 font-bold"><Loader2 className="animate-spin inline mr-2"/> Carregando Produtos...</div>
+                   ) : services.length === 0 ? (
+                       <div className="w-full py-4 px-6 bg-slate-50 dark:bg-slate-800 rounded-3xl text-xs font-bold text-slate-500">Nenhum serviço cadastrado. Vá em 'Catálogo de Ofertas' primeiro.</div>
+                   ) : (
+                       <div className="grid grid-cols-1 gap-2 max-h-[200px] overflow-y-auto no-scrollbar">
+                          {services.map(srv => (
+                            <button 
+                              key={srv.id}
+                              type="button"
+                              onClick={() => setFormServiceId(srv.id)}
+                              className={`flex items-center justify-between px-6 py-4 rounded-2xl border-2 transition-all ${formServiceId === srv.id ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600' : 'border-slate-50 dark:border-slate-800 text-slate-500'}`}
+                            >
+                               <div className="flex items-center gap-3">
+                                  <ShoppingCart size={14} className={formServiceId === srv.id ? 'text-indigo-600' : 'text-slate-400'} />
+                                  <span className="text-[11px] font-black uppercase tracking-tight">{srv.name}</span>
+                               </div>
+                               <span className="text-[10px] font-black italic">R$ {srv.price.toFixed(2)}</span>
+                            </button>
+                          ))}
+                       </div>
+                   )}
                 </div>
 
                 <div className="space-y-1">
@@ -249,7 +280,7 @@ export const ScheduleManager: React.FC<Props> = ({ appointments: propAppointment
         </div>
       )}
 
-      {/* HEADER MASTER E SELECTOR */}
+      {/* HEADER MASTER */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-10">
         <div>
            <h1 className="text-4xl font-black italic uppercase tracking-tighter flex items-center gap-5">
@@ -287,8 +318,6 @@ export const ScheduleManager: React.FC<Props> = ({ appointments: propAppointment
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
-        
-        {/* CALENDÁRIO OU LISTA */}
         <div className="lg:col-span-3">
            {viewMode === 'month' ? (
              <div className="bg-white dark:bg-slate-900 p-12 rounded-[4.5rem] border-2 border-slate-50 dark:border-slate-800 shadow-sm relative animate-in zoom-in-95">
@@ -317,47 +346,9 @@ export const ScheduleManager: React.FC<Props> = ({ appointments: propAppointment
                         }`}
                       >
                          <span className={`text-xl font-black italic tracking-tighter ${isToday && !isSelected ? 'text-indigo-600' : ''}`}>{day}</span>
-                         
-                         {hasEvents && !isSelected && (
-                           <div className="absolute top-4 right-4 flex gap-1">
-                              <div className="w-2.5 h-2.5 rounded-full bg-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.6)] animate-pulse"></div>
-                           </div>
-                         )}
-
-                         {/* Botão de adição visual rápido no hover */}
-                         <div className="absolute top-2 left-2 opacity-0 group-hover/cell:opacity-100 transition-opacity">
-                            <Plus size={14} className={isSelected ? "text-white" : "text-indigo-500"} />
-                         </div>
-
-                         {hoveredDay === day && !isSelected && (
-                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-6 w-72 bg-slate-950/95 backdrop-blur-2xl p-8 rounded-[3rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.6)] z-[100] border border-white/10 animate-in slide-in-from-bottom-2 duration-300">
-                              <div className="flex items-center gap-3 pb-4 border-b border-white/10 mb-5">
-                                 <Zap size={16} className="text-yellow-400" />
-                                 <p className="text-[10px] font-black uppercase text-white tracking-[0.2em]">Agenda p/ Dia {day}</p>
-                              </div>
-                              <div className="space-y-4 max-h-[250px] overflow-y-auto no-scrollbar">
-                                 {dayAppts.map(ap => (
-                                   <div key={ap.id} className="flex flex-col gap-1 group/tip">
-                                      <div className="flex justify-between items-center">
-                                         <span className="text-[10px] font-black text-pink-400 tabular-nums">{ap.time}</span>
-                                         {ap.ia && <Brain size={12} className="text-indigo-400" />}
-                                      </div>
-                                      <p className="text-xs font-black text-white italic uppercase truncate tracking-tight">{ap.lead}</p>
-                                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">{ap.service}</p>
-                                   </div>
-                                 ))}
-                              </div>
-                              <div className="mt-5 pt-4 border-t border-white/10 flex justify-center">
-                                 <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{dayAppts.length} horários ocupados</span>
-                              </div>
-                           </div>
-                         )}
-
-                         {hasEvents && !isSelected && (
-                           <div className="absolute bottom-4 text-[8px] font-black uppercase text-pink-500 tracking-widest opacity-60 group-hover/cell:opacity-100 transition-opacity">
-                             {dayAppts.length} Slots
-                           </div>
-                         )}
+                         {hasEvents && !isSelected && <div className="absolute top-4 right-4 flex gap-1"><div className="w-2.5 h-2.5 rounded-full bg-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.6)] animate-pulse"></div></div>}
+                         <div className="absolute top-2 left-2 opacity-0 group-hover/cell:opacity-100 transition-opacity"><Plus size={14} className={isSelected ? "text-white" : "text-indigo-500"} /></div>
+                         {hasEvents && !isSelected && <div className="absolute bottom-4 text-[8px] font-black uppercase text-pink-500 tracking-widest opacity-60 group-hover/cell:opacity-100 transition-opacity">{dayAppts.length} Slots</div>}
                       </div>
                     );
                   })}
@@ -379,12 +370,8 @@ export const ScheduleManager: React.FC<Props> = ({ appointments: propAppointment
                               {ap.ia && <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg"><Bot size={14} /></div>}
                            </div>
                            <div className="flex items-center gap-4">
-                              <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                 <Clock size={12} className="text-indigo-500"/> {ap.time}
-                              </div>
-                              <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                 <Zap size={12} className="text-pink-500"/> {ap.service}
-                              </div>
+                              <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest"><Clock size={12} className="text-indigo-500"/> {ap.time}</div>
+                              <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest"><Zap size={12} className="text-pink-500"/> {ap.service}</div>
                            </div>
                         </div>
                      </div>
@@ -403,7 +390,6 @@ export const ScheduleManager: React.FC<Props> = ({ appointments: propAppointment
            )}
         </div>
 
-        {/* SIDEBAR */}
         <div className="space-y-8">
            <div className="bg-gradient-to-br from-indigo-600 to-purple-800 p-10 rounded-[3.5rem] text-white shadow-2xl relative overflow-hidden group">
               <Bot className="absolute -bottom-6 -right-6 w-36 h-36 text-white/10 group-hover:scale-125 transition-transform duration-1000" />
@@ -423,10 +409,6 @@ export const ScheduleManager: React.FC<Props> = ({ appointments: propAppointment
                     <div className="w-full h-2.5 bg-white/10 rounded-full overflow-hidden p-0.5">
                        <div className="h-full bg-white rounded-full transition-all duration-1000 shadow-[0_0_15px_rgba(255,255,255,0.5)]" style={{width: `${iaStats.rate}%`}}></div>
                     </div>
-                 </div>
-                 <div className="flex items-center gap-3 p-4 bg-white/5 rounded-2xl border border-white/10">
-                    <History size={16} className="text-indigo-300" />
-                    <p className="text-[9px] font-bold text-indigo-100 uppercase tracking-tight italic">Último agendamento automático: há 14 min</p>
                  </div>
               </div>
            </div>
