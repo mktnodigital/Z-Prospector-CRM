@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS `tenants` (
   `name` varchar(255) NOT NULL,
   `document` varchar(50) DEFAULT NULL,
   `status` enum('ONLINE','WARNING','OFFLINE') DEFAULT 'ONLINE',
+  `instance_status` varchar(50) DEFAULT 'DISCONNECTED', -- Coluna adicionada para controle da Evolution API
   `plan_id` varchar(50) DEFAULT 'START',
   `next_billing` date DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -173,7 +174,7 @@ CREATE TABLE IF NOT EXISTS `webhooks` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Inserir Dados Iniciais Obrigatórios
-INSERT INTO `tenants` (`id`, `name`, `status`) VALUES (1, 'Unidade Master', 'ONLINE') ON DUPLICATE KEY UPDATE id=id;
+INSERT INTO `tenants` (`id`, `name`, `status`, `instance_status`) VALUES (1, 'Unidade Master', 'ONLINE', 'DISCONNECTED') ON DUPLICATE KEY UPDATE id=id;
 
 INSERT INTO `branding` (`tenant_id`, `config_json`) VALUES (1, '{"appName":"Z-Prospector","fullLogo":"Logotipo%20Z_Prospector.png","fullLogoDark":"Logotipo%20Z_Prospector.png","iconLogo":"Logotipo%20Z_Prospector_Icon.png","iconLogoDark":"Logotipo%20Z_Prospector_Icon.png","favicon":"Logotipo%20Z_Prospector_Icon.png","salesPageLogo":"Logotipo%20Z_Prospector.png"}') ON DUPLICATE KEY UPDATE tenant_id=tenant_id;
 

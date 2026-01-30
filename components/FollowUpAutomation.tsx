@@ -7,7 +7,7 @@ import {
   ArrowRight, MousePointer2, Settings, Monitor,
   Smartphone, Database, Globe, Filter, AlertCircle,
   CloudLightning, RefreshCcw, Save, ZoomIn, ZoomOut, Maximize, Move,
-  ChevronRight, Box, Type
+  ChevronRight, Box, Type, Beaker
 } from 'lucide-react';
 
 interface FlowNode {
@@ -164,7 +164,7 @@ export const FollowUpAutomation: React.FC<{ niche?: string }> = ({ niche = 'Gera
     setIsPublishing(true);
     setTimeout(() => {
       setIsPublishing(false);
-      alert('🚀 Automação Master propagada com sucesso para clikai.com.br! Engine v2.4 sincronizada.');
+      alert('🚀 Automação Master propagada com sucesso para Produção! Engine v2.4 sincronizada.');
     }, 2000);
   };
 
@@ -217,10 +217,10 @@ export const FollowUpAutomation: React.FC<{ niche?: string }> = ({ niche = 'Gera
             <button 
               onClick={runFlowTest}
               disabled={isTesting}
-              className="action-btn flex items-center gap-3 px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-indigo-50 transition-all"
+              className="action-btn flex items-center gap-3 px-6 py-3 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-500 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-amber-100 transition-all"
             >
-               {isTesting ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} className="text-indigo-600" />}
-               Simular
+               {isTesting ? <Loader2 size={14} className="animate-spin" /> : <Beaker size={14} />}
+               Simular (Teste)
             </button>
             <button 
               onClick={handlePublish}
@@ -228,7 +228,7 @@ export const FollowUpAutomation: React.FC<{ niche?: string }> = ({ niche = 'Gera
               className="action-btn flex items-center gap-3 px-8 py-3 bg-indigo-600 text-white rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-lg hover:bg-indigo-700 transition-all disabled:opacity-50"
             >
                {isPublishing ? <Loader2 size={14} className="animate-spin" /> : <Rocket size={14} />}
-               Publicar
+               Publicar (Prod)
             </button>
          </div>
       </div>

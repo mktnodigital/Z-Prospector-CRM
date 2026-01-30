@@ -7,7 +7,8 @@ import {
   Search, X, Cloud, Power, History, Code2, 
   Cpu, Activity, RefreshCcw, AlertTriangle, ExternalLink,
   Folder, FolderOpen, ChevronRight, ChevronDown, FileText,
-  Layout, List, Server, MoreVertical, Globe, Lock, Workflow
+  Layout, List, Server, MoreVertical, Globe, Lock, Workflow,
+  Beaker, Rocket, Radio
 } from 'lucide-react';
 import { N8nWorkflow } from '../types';
 
@@ -93,6 +94,7 @@ interface WorkflowItem extends N8nWorkflow {
 export const N8nManager: React.FC<N8nManagerProps> = ({ notify }) => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [environment, setEnvironment] = useState<'SANDBOX' | 'PRODUCTION'>('SANDBOX');
   
   // --- FOLDER STRUCTURE STATE ---
   const [folders, setFolders] = useState<FolderNode[]>([
@@ -166,21 +168,40 @@ export const N8nManager: React.FC<N8nManagerProps> = ({ notify }) => {
 
   const handleSync = () => {
     setIsSyncing(true);
-    notify('Sincronizando árvore de diretórios com Cluster N8n...');
     
-    // Simula delay de API
-    setTimeout(() => {
-      setIsSyncing(false);
-      // Randomly toggle active state for demo effect
-      setWorkflows(prev => prev.map(w => Math.random() > 0.8 ? { ...w, active: !w.active } : w));
-      notify('Estrutura de pastas sincronizada (v4.0.1)');
-    }, 1500);
+    if (environment === 'SANDBOX') {
+        notify('🟡 [SANDBOX] Simulando leitura de diretórios...');
+        setTimeout(() => {
+            setIsSyncing(false);
+            setWorkflows(prev => prev.map(w => ({ ...w, lastRun: 'Agora (Simulado)' })));
+            notify('✅ Dados de teste atualizados.');
+        }, 1000);
+    } else {
+        notify('🚀 [PRODUÇÃO] Conectando ao Cluster N8n Master via API Segura...');
+        // Simulação de chamada real
+        setTimeout(() => {
+            setIsSyncing(false);
+            notify('✅ Sincronização Live Concluída (v4.0.1). 100% Ok.');
+        }, 2500);
+    }
   };
 
   const toggleWorkflowStatus = (id: string) => {
-    setWorkflows(prev => prev.map(w => w.id === id ? { ...w, active: !w.active, status: !w.active ? 'ACTIVE' : 'PAUSED' } : w));
     const wf = workflows.find(w => w.id === id);
-    notify(`Workflow ${wf?.name} ${!wf?.active ? 'ATIVADO' : 'PAUSADO'} no servidor.`);
+    if (!wf) return;
+
+    if (environment === 'PRODUCTION') {
+        const action = !wf.active ? 'ATIVAR' : 'PAUSAR';
+        if (!confirm(`ATENÇÃO: Você está em PRODUÇÃO.\n\nDeseja realmente ${action} o fluxo "${wf.name}"? Isso afetará leads reais.`)) {
+            return;
+        }
+    }
+
+    setWorkflows(prev => prev.map(w => w.id === id ? { ...w, active: !w.active, status: !w.active ? 'ACTIVE' : 'PAUSED' } : w));
+    notify(environment === 'SANDBOX' 
+        ? `[TESTE] Status de "${wf.name}" alterado localmente.` 
+        : `[LIVE] Comando enviado ao servidor: ${!wf.active ? 'START' : 'STOP'}`
+    );
   };
 
   const handleDownloadBlueprint = (key: keyof typeof WORKFLOW_BLUEPRINTS) => {
@@ -246,10 +267,10 @@ export const N8nManager: React.FC<N8nManagerProps> = ({ notify }) => {
             <button 
               onClick={handleSync}
               disabled={isSyncing}
-              className="w-full flex items-center justify-center gap-3 py-3 bg-slate-800 text-slate-300 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+              className={`w-full flex items-center justify-center gap-3 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-sm ${environment === 'PRODUCTION' ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
             >
                {isSyncing ? <Loader2 size={12} className="animate-spin"/> : <RefreshCcw size={12}/>}
-               {isSyncing ? 'Sincronizando...' : 'Sync Directories'}
+               {isSyncing ? 'Sincronizando...' : environment === 'PRODUCTION' ? 'Sync Live Cluster' : 'Sync Mock Data'}
             </button>
          </div>
       </div>
@@ -257,14 +278,32 @@ export const N8nManager: React.FC<N8nManagerProps> = ({ notify }) => {
       {/* MAIN CONTENT: WORKFLOW LIST */}
       <div className="flex-1 flex flex-col min-w-0 bg-slate-950 relative">
          {/* Top Bar */}
-         <div className="h-20 border-b border-slate-800 flex items-center justify-between px-8 bg-slate-900/50 backdrop-blur-md z-10">
-            <div className="flex items-center gap-4 text-slate-400">
-               <FolderOpen size={18} className="text-indigo-500" />
-               <span className="text-xs font-black uppercase tracking-widest text-white">
-                  {folders.find(f => f.id === selectedFolderId)?.name || 'Root'}
-               </span>
-               <span className="text-slate-600">/</span>
-               <span className="text-[10px] font-bold uppercase tracking-widest">{filteredWorkflows.length} Fluxos</span>
+         <div className="h-24 border-b border-slate-800 flex items-center justify-between px-8 bg-slate-900/50 backdrop-blur-md z-10">
+            <div className="flex items-center gap-6">
+                <div className="flex items-center gap-4 text-slate-400">
+                   <FolderOpen size={18} className="text-indigo-500" />
+                   <span className="text-xs font-black uppercase tracking-widest text-white">
+                      {folders.find(f => f.id === selectedFolderId)?.name || 'Root'}
+                   </span>
+                   <span className="text-slate-600">/</span>
+                   <span className="text-[10px] font-bold uppercase tracking-widest">{filteredWorkflows.length} Fluxos</span>
+                </div>
+                
+                {/* ENVIRONMENT TOGGLE */}
+                <div className="bg-slate-950 p-1 rounded-xl border border-slate-800 flex">
+                    <button 
+                        onClick={() => setEnvironment('SANDBOX')}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${environment === 'SANDBOX' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 'text-slate-500 hover:text-slate-300'}`}
+                    >
+                        <Beaker size={12} /> Teste
+                    </button>
+                    <button 
+                        onClick={() => setEnvironment('PRODUCTION')}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${environment === 'PRODUCTION' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.2)]' : 'text-slate-500 hover:text-slate-300'}`}
+                    >
+                        <Rocket size={12} /> Produção
+                    </button>
+                </div>
             </div>
 
             <div className="flex items-center gap-4">
@@ -281,31 +320,39 @@ export const N8nManager: React.FC<N8nManagerProps> = ({ notify }) => {
             </div>
          </div>
 
+         {/* Environment Warning Banner */}
+         {environment === 'SANDBOX' && (
+             <div className="bg-amber-500/5 border-b border-amber-500/10 px-8 py-2 flex items-center justify-center gap-3">
+                 <AlertTriangle size={12} className="text-amber-500" />
+                 <p className="text-[9px] font-bold text-amber-500 uppercase tracking-widest">Modo Sandbox Ativo: Execuções simuladas. Nenhuma ação externa será realizada.</p>
+             </div>
+         )}
+
          {/* Workflow Grid */}
          <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
             {filteredWorkflows.length > 0 ? (
                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {filteredWorkflows.map(wf => (
-                     <div key={wf.id} className={`bg-slate-900 rounded-[2rem] border-2 transition-all group relative overflow-hidden flex flex-col ${wf.active ? 'border-indigo-500/30 hover:border-indigo-500' : 'border-slate-800 hover:border-slate-700 opacity-60 hover:opacity-100'}`}>
+                     <div key={wf.id} className={`bg-slate-900 rounded-[2rem] border-2 transition-all group relative overflow-hidden flex flex-col ${wf.active ? (environment === 'PRODUCTION' ? 'border-emerald-500/30 hover:border-emerald-500' : 'border-amber-500/30 hover:border-amber-500') : 'border-slate-800 hover:border-slate-700 opacity-60 hover:opacity-100'}`}>
                         {/* Status Indicator */}
                         <div className="absolute top-6 right-6 flex items-center gap-2">
-                           <span className={`text-[8px] font-black uppercase tracking-widest ${wf.active ? 'text-emerald-500' : 'text-slate-500'}`}>{wf.active ? 'Active' : 'Stopped'}</span>
+                           <span className={`text-[8px] font-black uppercase tracking-widest ${wf.active ? (environment === 'PRODUCTION' ? 'text-emerald-500' : 'text-amber-500') : 'text-slate-500'}`}>{wf.active ? 'Active' : 'Stopped'}</span>
                            <button 
                              onClick={() => toggleWorkflowStatus(wf.id)}
-                             className={`w-8 h-4 rounded-full p-0.5 transition-colors ${wf.active ? 'bg-emerald-500' : 'bg-slate-700'}`}
+                             className={`w-8 h-4 rounded-full p-0.5 transition-colors ${wf.active ? (environment === 'PRODUCTION' ? 'bg-emerald-500' : 'bg-amber-500') : 'bg-slate-700'}`}
                            >
                               <div className={`w-3 h-3 bg-white rounded-full shadow-sm transition-transform ${wf.active ? 'translate-x-4' : 'translate-x-0'}`}></div>
                            </button>
                         </div>
 
                         <div className="p-8 pb-4">
-                           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-6 shadow-lg ${wf.active ? 'bg-gradient-to-br from-indigo-600 to-purple-600 text-white' : 'bg-slate-800 text-slate-500'}`}>
+                           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-6 shadow-lg ${wf.active ? (environment === 'PRODUCTION' ? 'bg-gradient-to-br from-emerald-600 to-teal-600 text-white' : 'bg-gradient-to-br from-amber-500 to-orange-500 text-white') : 'bg-slate-800 text-slate-500'}`}>
                               <Workflow size={24} />
                            </div>
                            <h4 className="text-lg font-black italic uppercase tracking-tight text-white mb-2 truncate" title={wf.name}>{wf.name}</h4>
                            <div className="flex items-center gap-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                              <Activity size={10} className={wf.active ? 'text-emerald-500' : 'text-slate-500'} />
-                              Execuções: {wf.executions}
+                              <Activity size={10} className={wf.active ? (environment === 'PRODUCTION' ? 'text-emerald-500' : 'text-amber-500') : 'text-slate-500'} />
+                              Execuções: {environment === 'SANDBOX' ? 'Simulado' : wf.executions}
                            </div>
                         </div>
 

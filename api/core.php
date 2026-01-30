@@ -47,6 +47,42 @@ switch ($action) {
         echo json_encode(["success" => true, "status" => "Online", "database" => "Connected"]);
         break;
 
+    // --- TENANT & SYSTEM STATUS ---
+    case 'get-current-tenant':
+        $stmt = $pdo->prepare("SELECT * FROM tenants WHERE id = ? LIMIT 1");
+        $stmt->execute([$tenant_id]);
+        $t = $stmt->fetch();
+        if ($t) {
+            echo json_encode([
+                'id' => (string)$t['id'],
+                'name' => $t['name'],
+                'status' => $t['status'],
+                'niche' => 'SaaS Master', 
+                'healthScore' => 98,
+                'revenue' => 0, 
+                'activeLeads' => 0, 
+                // Agora lê o status real do banco, com fallback se a coluna estiver vazia
+                'instanceStatus' => $t['instance_status'] ?? 'DISCONNECTED' 
+            ]);
+        } else {
+            // Provision default if missing
+            $stmt = $pdo->prepare("INSERT INTO tenants (id, name, status, instance_status) VALUES (1, 'Unidade Master', 'ONLINE', 'DISCONNECTED')");
+            $stmt->execute();
+            echo json_encode([
+                'id' => '1', 'name' => 'Unidade Master', 'status' => 'ONLINE', 'instanceStatus' => 'DISCONNECTED'
+            ]);
+        }
+        break;
+
+    case 'update-instance-status':
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
+        $input = json_decode(file_get_contents('php://input'), true);
+        // Atualiza apenas o status da conexão do WhatsApp
+        $stmt = $pdo->prepare("UPDATE tenants SET instance_status = ? WHERE id = ?");
+        $stmt->execute([$input['status'], $tenant_id]);
+        echo json_encode(["success" => true]);
+        break;
+
     // --- USER PROFILE ---
     case 'get-user':
         $stmt = $pdo->prepare("SELECT * FROM users WHERE tenant_id = ? LIMIT 1");
@@ -55,7 +91,6 @@ switch ($action) {
         if ($user) {
             echo json_encode($user);
         } else {
-            // Fallback user creation if table empty
             $stmt = $pdo->prepare("INSERT INTO users (tenant_id, name, email, role) VALUES (?, 'Operador Master', 'admin@zprospector.com', 'SUPER_ADMIN')");
             $stmt->execute([$tenant_id]);
             echo json_encode(['name' => 'Operador Master', 'email' => 'admin@zprospector.com', 'role' => 'SUPER_ADMIN']);
@@ -65,7 +100,6 @@ switch ($action) {
     case 'update-user':
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
         $input = json_decode(file_get_contents('php://input'), true);
-        // Build dynamic update query
         $fields = [];
         $params = [];
         if (isset($input['name'])) { $fields[] = "name = ?"; $params[] = $input['name']; }
@@ -138,7 +172,7 @@ switch ($action) {
         echo json_encode(["success" => true]);
         break;
 
-    // --- CHAT MESSAGES (PERSISTENCE) ---
+    // --- CHAT MESSAGES ---
     case 'get-messages':
         $lead_id = $_GET['lead_id'] ?? 0;
         $stmt = $pdo->prepare("SELECT id, sender, content as text, DATE_FORMAT(created_at, '%H:%i') as time FROM messages WHERE lead_id = ? AND tenant_id = ? ORDER BY created_at ASC");
@@ -157,7 +191,58 @@ switch ($action) {
             ':content' => $input['text'],
             ':type' => 'text'
         ]);
+        
+        // Atualiza a última interação do lead
+        $stmt = $pdo->prepare("UPDATE leads SET last_interaction = ? WHERE id = ?");
+        $stmt->execute(["Msg: " . substr($input['text'], 0, 30) . "...", $input['lead_id']]);
+        
         echo json_encode(["success" => true]);
+        break;
+
+    // --- INTELLIGENT INBOUND WEBHOOK (AUTO-MATCH) ---
+    case 'webhook-incoming':
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
+        $input = json_decode(file_get_contents('php://input'), true);
+        
+        $phone = $input['phone'] ?? '';
+        $text = $input['text'] ?? '';
+        $name = $input['name'] ?? 'Cliente WhatsApp';
+        
+        if (!$phone || !$text) {
+            http_response_code(400);
+            echo json_encode(["error" => "Phone and Text required"]);
+            exit;
+        }
+
+        // 1. Tentar encontrar o Lead pelo telefone
+        // Remove caracteres não numéricos para comparação
+        $cleanPhone = preg_replace('/[^0-9]/', '', $phone);
+        
+        // Busca flexível (pode conter ou não o 9 digito, ou código do país)
+        $stmt = $pdo->prepare("SELECT id FROM leads WHERE tenant_id = ? AND (phone LIKE ? OR phone LIKE ?) LIMIT 1");
+        $stmt->execute([$tenant_id, "%$cleanPhone%", "%" . substr($cleanPhone, -8) . "%"]);
+        $lead = $stmt->fetch();
+        
+        $leadId = 0;
+        
+        if ($lead) {
+            $leadId = $lead['id'];
+        } else {
+            // 2. Se não existir, criar novo Lead
+            $stmt = $pdo->prepare("INSERT INTO leads (tenant_id, name, phone, status, stage, source, created_at) VALUES (?, ?, ?, 'WARM', 'NEW', 'WhatsApp Inbound', NOW())");
+            $stmt->execute([$tenant_id, $name, $phone]);
+            $leadId = $pdo->lastInsertId();
+        }
+        
+        // 3. Salvar Mensagem
+        $stmt = $pdo->prepare("INSERT INTO messages (tenant_id, lead_id, sender, content, type, created_at) VALUES (?, ?, 'lead', ?, 'text', NOW())");
+        $stmt->execute([$tenant_id, $leadId, $text]);
+        
+        // 4. Atualizar Interação
+        $stmt = $pdo->prepare("UPDATE leads SET last_interaction = ? WHERE id = ?");
+        $stmt->execute(["Recebido: " . substr($text, 0, 20) . "...", $leadId]);
+        
+        echo json_encode(["success" => true, "lead_id" => $leadId, "action" => $lead ? "matched" : "created"]);
         break;
 
     // --- FINANCEIRO ---
@@ -165,11 +250,21 @@ switch ($action) {
         $stmt = $pdo->prepare("SELECT * FROM transactions WHERE tenant_id = ? ORDER BY created_at DESC");
         $stmt->execute([$tenant_id]);
         $results = $stmt->fetchAll();
-        foreach ($results as &$row) {
-            $row['isWithdraw'] = (bool)$row['is_withdraw'];
-            $row['date'] = date('d/m/Y H:i', strtotime($row['created_at']));
-        }
-        echo json_encode($results);
+        
+        $mapped = array_map(function($row) {
+            return [
+                'id' => $row['id'],
+                'client' => $row['client'],
+                'type' => $row['type'],
+                'typeId' => $row['type_id'], 
+                'value' => (float)$row['value'],
+                'status' => $row['status'],
+                'isWithdraw' => (bool)$row['is_withdraw'],
+                'date' => date('d/m/Y H:i', strtotime($row['created_at']))
+            ];
+        }, $results);
+        
+        echo json_encode($mapped);
         break;
 
     case 'save-transaction':
@@ -438,7 +533,7 @@ switch ($action) {
         $tId = $input['tenant_id'] ?? 0;
         if($tId) {
              // 1. Criar/Atualizar Registro de Tenant
-             $stmt = $pdo->prepare("INSERT INTO tenants (id, name, status) VALUES (?, ?, 'ONLINE') ON DUPLICATE KEY UPDATE status='ONLINE'");
+             $stmt = $pdo->prepare("INSERT INTO tenants (id, name, status, instance_status) VALUES (?, ?, 'ONLINE', 'DISCONNECTED') ON DUPLICATE KEY UPDATE status='ONLINE'");
              $tenantName = "Unidade " . $tId;
              $stmt->execute([$tId, $tenantName]);
 

@@ -6,7 +6,7 @@ import {
   Smartphone, QrCode, AlertCircle, ShieldCheck, RefreshCcw,
   Terminal, CheckCircle2, Wifi, Zap, X, Copy, Cpu, SmartphoneIcon,
   CreditCard, Landmark, Building2, ChevronRight, Activity, Database,
-  MoreVertical, User, Calendar, Brain, Flame
+  MoreVertical, User, Calendar, Brain, Flame, Lock
 } from 'lucide-react';
 import { Lead, Appointment, Tenant, EvolutionConfig } from '../types';
 
@@ -114,6 +114,13 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
     const baseUrl = evolutionConfig.baseUrl.replace(/\/$/, '');
     const apiKey = evolutionConfig.apiKey;
 
+    if (!baseUrl || !apiKey) {
+        addLog('ERR: Configuração de API (URL/Key) não encontrada.');
+        notify('Configure a Evolution API no painel Admin.');
+        setIsConnecting(false);
+        return;
+    }
+
     addLog(`INIT: Conectando ao Cluster Evolution (${baseUrl})...`);
     
     try {
@@ -174,7 +181,6 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
 
              if (createRes.ok) {
                  const createData = await createRes.json();
-                 // Tenta pegar QR code diretamente da resposta de criação (comum na v1/v2)
                  qrData = createData.qrcode?.base64 || createData.base64 || createData.code;
                  setIsInstanceCreated(true);
                  addLog(`SUCCESS: Instância criada com sucesso.`);
@@ -197,7 +203,6 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
       if (!qrData) {
           if (instanceExists || isInstanceCreated) {
               addLog(`SYNC: Solicitando QR Code de conexão...`);
-              // Delay para garantir propagação
               await new Promise(r => setTimeout(r, 1500));
 
               const connectRes = await fetch(`${baseUrl}/instance/connect/${instanceName}`, { 
@@ -214,12 +219,7 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
               }
 
               const connectData = await connectRes.json();
-              
-              qrData = 
-                connectData.base64 || 
-                connectData.qrcode?.base64 || 
-                connectData.code || 
-                (typeof connectData === 'string' && connectData.startsWith('data:') ? connectData : null);
+              qrData = connectData.base64 || connectData.qrcode?.base64 || connectData.code || (typeof connectData === 'string' && connectData.startsWith('data:') ? connectData : null);
           }
       }
 
@@ -228,16 +228,13 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
         setQrCode(finalQr);
         addLog(`READY: QR Code gerado. Escaneie agora.`);
       } else {
-        // Se não tem QR mas não deu erro, pode estar conectado
         addLog(`CHECK: Verificando conexão final...`);
-        // Uma última verificação de estado
         handleConnectionSuccess();
       }
 
     } catch (err: any) {
       console.error(err);
       addLog(`FATAL: ${err.message || 'Falha crítica de conexão'}`);
-      // Removido fallback estático para evitar confusão do usuário
     } finally {
       setIsConnecting(false);
     }
@@ -247,6 +244,8 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
     if (!activeChat || !messageInput.trim()) return;
 
     setIsSending(true);
+    
+    // 1. Optimistic UI Update
     const newMessage: Message = {
       id: `local_${Date.now()}`,
       sender: 'me',
@@ -254,14 +253,13 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       status: 'sent'
     };
-
-    // Optimistic Update
     setMessages(prev => [...prev, newMessage]);
+    
     const textToSend = messageInput;
     setMessageInput('');
 
     try {
-      // 1. Save to Database
+      // 2. Persist to Database (So we have history even if API fails)
       await fetch(`${API_URL}?action=save-message`, {
         method: 'POST',
         body: JSON.stringify({
@@ -271,16 +269,32 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
         })
       });
 
-      // 2. Send via Evolution API (Simulated if not connected)
-      if (connStatus === 'CONNECTED') {
-         // Logic to call evolution sendText would go here.
-         // For now, persistence is key.
+      // 3. Send via Evolution API (Real Sending)
+      if (connStatus === 'CONNECTED' && evolutionConfig.baseUrl && evolutionConfig.apiKey) {
+         const baseUrl = evolutionConfig.baseUrl.replace(/\/$/, '');
+         const cleanPhone = activeChat.phone.replace(/\D/g, '');
+         const jid = cleanPhone.includes('@s.whatsapp.net') ? cleanPhone : `${cleanPhone}@s.whatsapp.net`;
+
+         await fetch(`${baseUrl}/message/sendText/${instanceName}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': evolutionConfig.apiKey
+            },
+            body: JSON.stringify({
+                number: jid,
+                text: textToSend,
+                delay: 1200,
+                linkPreview: true
+            })
+         });
       }
 
     } catch (e) {
       console.error("Failed to send message", e);
-      notify("Erro ao salvar mensagem.");
+      notify("Erro ao enviar. Mensagem salva localmente.");
     } finally {
+      // Small delay to allow UI animation
       setTimeout(() => setIsSending(false), 400);
     }
   };
@@ -349,9 +363,9 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
 
                        <button 
                          onClick={() => setConnStatus('CONNECTED')}
-                         className="text-[9px] font-black uppercase text-indigo-500 hover:underline tracking-widest opacity-50 hover:opacity-100"
+                         className="text-[9px] font-black uppercase text-indigo-500 hover:underline tracking-widest opacity-50 hover:opacity-100 flex items-center justify-center gap-2"
                        >
-                         Ignorar e Ver Interface (Modo Demo)
+                         <Lock size={10} /> Entrar em Modo Demonstração
                        </button>
                     </div>
                  ) : (
