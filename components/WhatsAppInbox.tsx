@@ -6,7 +6,7 @@ import {
   Smartphone, QrCode, AlertCircle, ShieldCheck, RefreshCcw,
   Terminal, CheckCircle2, Wifi, Zap, X, Copy, Cpu, SmartphoneIcon,
   CreditCard, Landmark, Building2, ChevronRight, Activity, Database,
-  MoreVertical, User, Calendar, Brain, Flame, Lock, Mic, Image as ImageIcon, Play
+  MoreVertical, User, Calendar, Brain, Flame, Lock, Mic, Image as ImageIcon, Play, Settings
 } from 'lucide-react';
 import { Lead, Appointment, Tenant, EvolutionConfig } from '../types';
 
@@ -27,11 +27,12 @@ interface WhatsAppInboxProps {
   evolutionConfig: EvolutionConfig;
   notify: (msg: string) => void;
   onConnectionChange?: (status: boolean) => void;
+  onEvolutionConfigChange?: (config: EvolutionConfig) => void;
 }
 
 const API_URL = '/api/core.php';
 
-export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads, onSchedule, tenant, evolutionConfig, notify, onConnectionChange }) => {
+export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads, onSchedule, tenant, evolutionConfig, notify, onConnectionChange, onEvolutionConfigChange }) => {
   const [activeChat, setActiveChat] = useState<Lead | null>(activeLeads[0] || null);
   const [messageInput, setMessageInput] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -47,6 +48,10 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isInstanceCreated, setIsInstanceCreated] = useState(false);
   const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
+  
+  // State for inline API configuration
+  const [showApiConfig, setShowApiConfig] = useState(false);
+  const [tempApiKey, setTempApiKey] = useState('');
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -121,7 +126,8 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
 
     if (!baseUrl || !apiKey) {
         addLog('ERR: Configuração de API (URL/Key) não encontrada.');
-        notify('Configure a Evolution API no painel Admin.');
+        notify('Chave de API necessária. Configure agora.');
+        setShowApiConfig(true); // Open config modal
         setIsConnecting(false);
         return;
     }
@@ -245,6 +251,36 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
     }
   };
 
+  const handleSaveApiKey = async () => {
+      if (!tempApiKey.trim()) return;
+      
+      const newConfig = { ...evolutionConfig, apiKey: tempApiKey.trim() };
+      
+      // Update local state via parent callback
+      if (onEvolutionConfigChange) {
+          onEvolutionConfigChange(newConfig);
+      }
+
+      // Persist to backend
+      try {
+          await fetch(`${API_URL}?action=save-integration`, {
+              method: 'POST',
+              body: JSON.stringify({
+                  id: 'sys_evolution',
+                  provider: 'SYSTEM_EVOLUTION',
+                  name: newConfig.baseUrl,
+                  status: 'CONNECTED',
+                  keys: { apiKey: newConfig.apiKey },
+                  lastSync: 'Agora'
+              })
+          });
+          notify("API Key salva com sucesso!");
+          setShowApiConfig(false);
+      } catch (e) {
+          notify("Erro ao salvar configuração.");
+      }
+  };
+
   const handleSendMessage = async (type: 'text' | 'image' = 'text', content?: string) => {
     if (!activeChat) return;
     const textToSend = content || messageInput;
@@ -342,6 +378,38 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
         </div>
       )}
 
+      {/* API CONFIG MODAL (INLINE FIX) */}
+      {showApiConfig && (
+          <div className="absolute inset-0 z-[250] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
+              <div className="bg-slate-900 border border-slate-800 p-8 rounded-[2rem] max-w-md w-full shadow-2xl relative">
+                  <button onClick={() => setShowApiConfig(false)} className="absolute top-4 right-4 p-2 text-slate-500 hover:text-white transition-colors"><X size={20}/></button>
+                  <div className="text-center mb-6">
+                      <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white"><Settings size={32}/></div>
+                      <h3 className="text-xl font-black text-white uppercase tracking-tight">Configuração de Gateway</h3>
+                      <p className="text-xs text-slate-400 font-bold mt-2">Para conectar seu WhatsApp, precisamos da sua Chave de API Global.</p>
+                  </div>
+                  <div className="space-y-4">
+                      <div>
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Endpoint (Padrão)</label>
+                          <input disabled value={evolutionConfig.baseUrl} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-slate-400 text-xs font-mono" />
+                      </div>
+                      <div>
+                          <label className="text-[10px] font-black text-indigo-500 uppercase tracking-widest block mb-2">Global API Key</label>
+                          <input 
+                            value={tempApiKey}
+                            onChange={(e) => setTempApiKey(e.target.value)}
+                            placeholder="Cole sua API Key aqui..."
+                            className="w-full bg-slate-950 border border-indigo-500/50 rounded-xl px-4 py-3 text-white text-xs font-mono focus:ring-2 ring-indigo-500 outline-none"
+                          />
+                      </div>
+                      <button onClick={handleSaveApiKey} className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase text-xs rounded-xl transition-all shadow-lg mt-2">
+                          Salvar e Continuar
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
       {/* CONNECTION SCREEN (QR CODE) */}
       {connStatus !== 'CONNECTED' && (
         <div className="absolute inset-0 z-[100] bg-slate-950/98 backdrop-blur-3xl flex items-center justify-center p-8 animate-in fade-in">
@@ -383,18 +451,29 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                           <p className="text-sm font-bold text-slate-400 uppercase tracking-widest leading-relaxed italic max-w-sm mx-auto">Conecte o WhatsApp Master para iniciar a máquina de vendas.</p>
                        </div>
 
-                       <button 
-                         onClick={handleStartConnection}
-                         disabled={isConnecting}
-                         className="w-full py-10 bg-indigo-600 text-white font-black rounded-[2.5rem] shadow-[0_30px_60px_-15px_rgba(79,70,229,0.5)] hover:bg-indigo-700 hover:scale-105 active:scale-95 transition-all uppercase text-xs tracking-[0.4em] flex items-center justify-center gap-4 group disabled:opacity-50"
-                       >
-                          {isConnecting ? <Loader2 className="animate-spin" size={32} /> : <Zap size={28} className="group-hover:rotate-12 transition-transform" />}
-                          {isConnecting ? 'Provisionando...' : 'Gerar QR Code Master'}
-                       </button>
+                       <div className="flex flex-col gap-3">
+                           <button 
+                             onClick={handleStartConnection}
+                             disabled={isConnecting}
+                             className="w-full py-10 px-12 bg-indigo-600 text-white font-black rounded-[2.5rem] shadow-[0_30px_60px_-15px_rgba(79,70,229,0.5)] hover:bg-indigo-700 hover:scale-105 active:scale-95 transition-all uppercase text-xs tracking-[0.4em] flex items-center justify-center gap-4 group disabled:opacity-50"
+                           >
+                              {isConnecting ? <Loader2 className="animate-spin" size={32} /> : <Zap size={28} className="group-hover:rotate-12 transition-transform" />}
+                              {isConnecting ? 'Provisionando...' : 'Gerar QR Code Master'}
+                           </button>
+                           
+                           {!evolutionConfig.apiKey && (
+                               <button 
+                                 onClick={() => setShowApiConfig(true)}
+                                 className="text-[10px] font-black uppercase text-indigo-400 hover:text-white transition-colors tracking-widest underline flex items-center justify-center gap-2"
+                               >
+                                   <Settings size={12} /> Configurar API Key
+                               </button>
+                           )}
+                       </div>
 
                        <button 
                          onClick={() => setConnStatus('CONNECTED')}
-                         className="text-[9px] font-black uppercase text-indigo-500 hover:underline tracking-widest opacity-50 hover:opacity-100 flex items-center justify-center gap-2"
+                         className="text-[9px] font-black uppercase text-indigo-500 hover:underline tracking-widest opacity-50 hover:opacity-100 flex items-center justify-center gap-2 mt-4"
                        >
                          <Lock size={10} /> Entrar em Modo Demonstração
                        </button>

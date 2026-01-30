@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef, ErrorInfo, ReactNode } from 'react';
 import { 
   MessageSquare, Calendar, Zap, Menu, Package, Target, 
@@ -53,7 +54,8 @@ const DEFAULT_N8N_CONFIG = {
 
 // --- ERROR BOUNDARY (PRODUCTION SAFETY) ---
 interface ErrorBoundaryProps {
-  children: ReactNode;
+  // Fix: children must be optional to avoid instantiation type errors in some TS environments
+  children?: ReactNode;
 }
 
 interface ErrorBoundaryState {
@@ -62,9 +64,11 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Fix: Explicitly define state property to resolve "Property 'state' does not exist on type 'ErrorBoundary'" errors
+  public override state: ErrorBoundaryState = { hasError: false, error: null };
+
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false, error: null };
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
@@ -629,6 +633,7 @@ const AppContent: React.FC = () => {
                   }
                 }}
                 notify={(msg) => { notify(msg); addNotification({ type: 'INBOX', title: 'Mensagem Recebida', description: msg }); }} 
+                onEvolutionConfigChange={setEvolutionConfig}
               />
             )}
             {activeModule === 'followup' && <FollowUpAutomation />}
