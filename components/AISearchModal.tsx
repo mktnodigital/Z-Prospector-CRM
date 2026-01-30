@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Search, X, Sparkles, Loader2, ArrowRight, Bot, Target, User, MessageSquare } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 
 interface AISearchModalProps {
   isOpen: boolean;
@@ -30,13 +30,33 @@ export const AISearchModal: React.FC<AISearchModalProps> = ({ isOpen, onClose, o
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const prompt = `Aja como o assistente central do CRM Z-Prospector. O usuário perguntou: "${searchQuery}". 
       Com base na pergunta, sugira qual módulo do sistema ele deve acessar e forneça um insight curto.
-      Módulos disponíveis: admin, results, capture, prospecting, inbox, broadcast, scheduling, products, payments.
-      Retorne JSON: { "targetModule": "string", "insight": "string", "actionLabel": "string" }`;
+      Módulos disponíveis: admin, results, capture, prospecting, inbox, broadcast, scheduling, products, payments.`;
 
+      // Optimized generateContent with a defined responseSchema for consistent JSON output.
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: prompt,
-        config: { responseMimeType: "application/json" }
+        config: { 
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              targetModule: {
+                type: Type.STRING,
+                description: "The machine-readable ID of the module to navigate to."
+              },
+              insight: {
+                type: Type.STRING,
+                description: "A short, actionable insight related to the query."
+              },
+              actionLabel: {
+                type: Type.STRING,
+                description: "Text for the navigation button (e.g., 'Ver Dashboard')."
+              }
+            },
+            required: ["targetModule", "insight", "actionLabel"]
+          }
+        }
       });
 
       setResult(JSON.parse(response.text || '{}'));
