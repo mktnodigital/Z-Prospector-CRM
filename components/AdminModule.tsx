@@ -9,7 +9,7 @@ import {
   ArrowRight, CheckCircle2, ShoppingCart, CreditCard, Landmark, Globe, Palette, Building2,
   Image as ImageIcon, Type, Layout, Save, X, Ban, Edit3, Smartphone, Globe2,
   Lock, ShieldAlert, Fingerprint, History, Monitor, Shield, UploadCloud, ImagePlus, Workflow,
-  Check, AlertTriangle, Layers
+  Check, AlertTriangle, Layers, Sun, Moon
 } from 'lucide-react';
 import { BrandingConfig, EvolutionConfig, Tenant } from '../types';
 import { IntegrationSettings } from './IntegrationSettings';
@@ -20,6 +20,8 @@ interface AdminModuleProps {
   onNicheChange: (niche: string) => void;
   evolutionConfig: EvolutionConfig;
   onEvolutionConfigChange: (config: EvolutionConfig) => void;
+  n8nConfig: { baseUrl: string; apiKey: string; status: string };
+  onN8nConfigChange: (config: { baseUrl: string; apiKey: string; status: string }) => void;
   notify: (msg: string) => void;
 }
 
@@ -43,7 +45,7 @@ const SYSTEM_WORKFLOWS = {
           "url": "https://api.clikai.com.br/instance/create", 
           "method": "POST",
           "bodyParameters": { "parameters": [{ "name": "instanceName", "value": "={{$json.body.instanceName}}" }, { "name": "token", "value": "={{$json.body.token}}" }] },
-          "headerParameters": { "parameters": [{ "name": "apikey", "value": "MASTER_KEY_ENV_VAR" }] }
+          "headerParameters": { "parameters": [{ "name": "apikey", "value": "MASTER_KEY" }] }
         },
         "position": [300, 300] 
       },
@@ -71,20 +73,35 @@ const SYSTEM_WORKFLOWS = {
     }
   },
   billing: {
-    "name": "Sys - Global Billing Sync v3 (API)",
+    "name": "Sys - Multi-Gateway Billing Sync (Universal)",
     "nodes": [
-      { "name": "Stripe Trigger", "type": "n8n-nodes-base.stripeTrigger", "parameters": { "event": ["charge.succeeded", "invoice.payment_failed"] }, "position": [100, 300] },
-      { "name": "Switch Status", "type": "n8n-nodes-base.switch", "position": [300, 300] },
-      { "name": "API: Unlock Tenant", "type": "n8n-nodes-base.httpRequest", "parameters": { "url": "https://zprospector.com.br/api/core.php?action=sys-update-tenant-status", "method": "POST", "bodyParameters": { "parameters": [{ "name": "status", "value": "ONLINE" }, { "name": "tenant_id", "value": "={{$json.body.client_reference_id}}" }] } }, "position": [500, 200] },
-      { "name": "API: Lock Tenant", "type": "n8n-nodes-base.httpRequest", "parameters": { "url": "https://zprospector.com.br/api/core.php?action=sys-update-tenant-status", "method": "POST", "bodyParameters": { "parameters": [{ "name": "status", "value": "OFFLINE" }, { "name": "tenant_id", "value": "={{$json.body.client_reference_id}}" }] } }, "position": [500, 400] }
+      { 
+        "name": "Webhook - Global Payment Gateways", 
+        "type": "n8n-nodes-base.webhook", 
+        "parameters": { "path": "global-billing-sync", "httpMethod": "POST", "responseMode": "lastNode" }, 
+        "position": [100, 300],
+        "notes": "Receives payloads from Stripe, Hotmart, Eduzz, Kiwify & MercadoPago"
+      },
+      { 
+        "name": "Normalize Payload", 
+        "type": "n8n-nodes-base.function", 
+        "parameters": { "functionCode": "// Normalize payment status from different providers\nconst status = items[0].json.status;\n// Map 'paid', 'approved', 'succeeded' to PAID\n// Map 'failed', 'refused', 'cancelled' to FAILED\nreturn { ...items[0].json, unified_status: ['paid', 'approved', 'succeeded'].includes(status) ? 'PAID' : 'FAILED' };" },
+        "position": [300, 300] 
+      },
+      { "name": "Switch Status", "type": "n8n-nodes-base.switch", "position": [500, 300] },
+      { "name": "API: Unlock Tenant", "type": "n8n-nodes-base.httpRequest", "parameters": { "url": "https://zprospector.com.br/api/core.php?action=sys-update-tenant-status", "method": "POST", "bodyParameters": { "parameters": [{ "name": "status", "value": "ONLINE" }, { "name": "tenant_id", "value": "={{$json.tenant_id}}" }] } }, "position": [700, 200] },
+      { "name": "API: Lock Tenant", "type": "n8n-nodes-base.httpRequest", "parameters": { "url": "https://zprospector.com.br/api/core.php?action=sys-update-tenant-status", "method": "POST", "bodyParameters": { "parameters": [{ "name": "status", "value": "OFFLINE" }, { "name": "tenant_id", "value": "={{$json.tenant_id}}" }] } }, "position": [700, 400] }
     ],
-    "connections": { "Stripe Trigger": { "main": [[{ "node": "Switch Status", "type": "main", "index": 0 }]] } }
+    "connections": { 
+      "Webhook - Global Payment Gateways": { "main": [[{ "node": "Normalize Payload", "type": "main", "index": 0 }]] },
+      "Normalize Payload": { "main": [[{ "node": "Switch Status", "type": "main", "index": 0 }]] }
+    }
   },
   monitoring: {
     "name": "Sys - Health Check Monitor v3 (API)",
     "nodes": [
       { "name": "Cron 5min", "type": "n8n-nodes-base.cron", "parameters": { "triggerTimes": { "item": [{ "mode": "everyMinute", "value": 5 }] } }, "position": [100, 300] },
-      { "name": "API: Ping Evolution", "type": "n8n-nodes-base.httpRequest", "parameters": { "url": "https://api.clikai.com.br/instance/fetchInstances", "headerParameters": { "parameters": [{ "name": "apikey", "value": "MASTER_KEY_ENV_VAR" }] } }, "position": [300, 300] },
+      { "name": "API: Ping Evolution", "type": "n8n-nodes-base.httpRequest", "parameters": { "url": "https://api.clikai.com.br/instance/fetchInstances", "headerParameters": { "parameters": [{ "name": "apikey", "value": "MASTER_KEY" }] } }, "position": [300, 300] },
       { "name": "API: Check DB Latency", "type": "n8n-nodes-base.httpRequest", "parameters": { "url": "https://zprospector.com.br/api/core.php?action=sys-db-latency", "method": "GET" }, "position": [300, 500] },
       { "name": "API: Report Dashboard", "type": "n8n-nodes-base.httpRequest", "parameters": { "url": "https://zprospector.com.br/api/health", "method": "POST" }, "position": [600, 400] }
     ],
@@ -92,19 +109,18 @@ const SYSTEM_WORKFLOWS = {
   }
 };
 
-export const AdminModule: React.FC<AdminModuleProps> = ({ branding, onBrandingChange, evolutionConfig, onEvolutionConfigChange, notify }) => {
+export const AdminModule: React.FC<AdminModuleProps> = ({ branding, onBrandingChange, evolutionConfig, onEvolutionConfigChange, n8nConfig, onN8nConfigChange, notify }) => {
   const [activeTab, setActiveTab] = useState<AdminSubTab>('branding');
   const [isSyncing, setIsSyncing] = useState(false);
   const [isTestingInfra, setIsTestingInfra] = useState<string | null>(null);
+  const [isSavingInfra, setIsSavingInfra] = useState(false);
   
-  const [n8nConfig, setN8nConfig] = useState({
-    baseUrl: 'https://n8n.clikai.com.br',
-    apiKey: '', // Removido hardcoded placeholder
-    status: 'ONLINE'
-  });
+  // Controle de Preview do Branding
+  const [previewMode, setPreviewMode] = useState<'light' | 'dark'>('dark');
 
   // Refs para Inputs de Arquivo
-  const logoInputRef = useRef<HTMLInputElement>(null);
+  const logoLightInputRef = useRef<HTMLInputElement>(null);
+  const logoDarkInputRef = useRef<HTMLInputElement>(null);
   const iconInputRef = useRef<HTMLInputElement>(null);
 
   // --- STATE: TENANT MANAGEMENT ---
@@ -128,7 +144,7 @@ export const AdminModule: React.FC<AdminModuleProps> = ({ branding, onBrandingCh
   ];
 
   // --- HANDLERS: BRANDING ---
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, field: keyof BrandingConfig) => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'logo_light' | 'logo_dark' | 'icon') => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) {
@@ -137,20 +153,45 @@ export const AdminModule: React.FC<AdminModuleProps> = ({ branding, onBrandingCh
       }
       const reader = new FileReader();
       reader.onloadend = () => {
-        onBrandingChange({ ...branding, [field]: reader.result as string });
-        notify('Asset carregado com sucesso!');
+        const base64 = reader.result as string;
+        
+        if (type === 'logo_light') {
+            // Logo para fundo claro (geralmente escura/colorida)
+            onBrandingChange({ ...branding, fullLogo: base64 });
+        } else if (type === 'logo_dark') {
+            // Logo para fundo escuro (geralmente branca/clara)
+            onBrandingChange({ ...branding, fullLogoDark: base64 });
+        } else {
+            // Ícones (geralmente quadrados, aplicamos a ambos se for o mesmo, ou permitiria separado se necessário)
+            // Por simplificação UX, aplicamos o mesmo ícone para ambos os temas, atualizando favicon também
+            onBrandingChange({ 
+                ...branding, 
+                iconLogo: base64,
+                iconLogoDark: base64, 
+                favicon: base64
+            });
+        }
+        notify('Asset visual atualizado com sucesso!');
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleSaveBranding = (e: React.FormEvent) => {
+  const handleSaveBranding = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSyncing(true);
-    setTimeout(() => {
-      setIsSyncing(false);
-      notify('Visual da Marca Atualizado Globalmente!');
-    }, 1000);
+    
+    try {
+        await fetch(`${'/api/core.php'}?action=save-branding`, {
+            method: 'POST',
+            body: JSON.stringify(branding)
+        });
+        notify('Identidade Visual Sincronizada Globalmente!');
+    } catch (e) {
+        notify('Erro ao salvar no servidor.');
+    } finally {
+        setIsSyncing(false);
+    }
   };
 
   // --- HANDLERS: TENANTS ---
@@ -198,6 +239,43 @@ export const AdminModule: React.FC<AdminModuleProps> = ({ branding, onBrandingCh
       setIsTestingInfra(null);
       notify(`Conexão com ${service === 'evolution' ? 'Evolution API' : 'N8n Cluster'} estabelecida (200 OK).`);
     }, 1500);
+  };
+
+  const handleSaveInfra = async () => {
+    setIsSavingInfra(true);
+    try {
+        // Save Evolution Config as a System Integration
+        await fetch(`${'/api/core.php'}?action=save-integration`, {
+            method: 'POST',
+            body: JSON.stringify({
+                id: 'sys_evolution',
+                provider: 'SYSTEM_EVOLUTION',
+                name: evolutionConfig.baseUrl,
+                status: 'CONNECTED',
+                keys: { apiKey: evolutionConfig.apiKey },
+                lastSync: 'Agora'
+            })
+        });
+
+        // Save N8N Config
+        await fetch(`${'/api/core.php'}?action=save-integration`, {
+            method: 'POST',
+            body: JSON.stringify({
+                id: 'sys_n8n',
+                provider: 'SYSTEM_N8N',
+                name: n8nConfig.baseUrl,
+                status: 'CONNECTED',
+                keys: { apiKey: n8nConfig.apiKey },
+                lastSync: 'Agora'
+            })
+        });
+
+        notify('Configurações de Infraestrutura Persistidas no Cluster!');
+    } catch (e) {
+        notify('Erro ao salvar configurações de infraestrutura.');
+    } finally {
+        setIsSavingInfra(false);
+    }
   };
 
   const handleGlobalSync = () => {
@@ -392,9 +470,9 @@ export const AdminModule: React.FC<AdminModuleProps> = ({ branding, onBrandingCh
 
                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div className="space-y-3">
-                             <label className="text-[10px] font-black uppercase text-slate-400 px-4">Logotipo Principal</label>
+                             <label className="text-[10px] font-black uppercase text-slate-400 px-4">Logo (Modo Claro)</label>
                              <div 
-                                onClick={() => logoInputRef.current?.click()}
+                                onClick={() => logoLightInputRef.current?.click()}
                                 className="h-40 bg-slate-50 dark:bg-slate-800 rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center cursor-pointer hover:border-orange-500 hover:bg-orange-50/10 transition-all group overflow-hidden relative"
                              >
                                 {branding.fullLogo ? (
@@ -402,14 +480,32 @@ export const AdminModule: React.FC<AdminModuleProps> = ({ branding, onBrandingCh
                                 ) : (
                                    <div className="text-center">
                                       <UploadCloud className="mx-auto text-slate-300 group-hover:text-orange-500" size={32} />
-                                      <span className="text-[8px] font-black uppercase text-slate-400 mt-2 block">Upload PNG/SVG</span>
+                                      <span className="text-[8px] font-black uppercase text-slate-400 mt-2 block">Upload Escuro/Color</span>
                                    </div>
                                 )}
-                                <input type="file" ref={logoInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'fullLogo')} />
+                                <input type="file" ref={logoLightInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'logo_light')} />
                              </div>
                           </div>
 
                           <div className="space-y-3">
+                             <label className="text-[10px] font-black uppercase text-slate-400 px-4">Logo (Modo Escuro)</label>
+                             <div 
+                                onClick={() => logoDarkInputRef.current?.click()}
+                                className="h-40 bg-slate-900 rounded-[2rem] border-2 border-dashed border-slate-700 flex flex-col items-center justify-center cursor-pointer hover:border-orange-500 hover:bg-white/5 transition-all group overflow-hidden relative"
+                             >
+                                {branding.fullLogoDark ? (
+                                   <img src={branding.fullLogoDark} className="max-h-16 w-auto object-contain transition-transform group-hover:scale-110" />
+                                ) : (
+                                   <div className="text-center">
+                                      <UploadCloud className="mx-auto text-slate-500 group-hover:text-orange-500" size={32} />
+                                      <span className="text-[8px] font-black uppercase text-slate-500 mt-2 block">Upload Branco/Claro</span>
+                                   </div>
+                                )}
+                                <input type="file" ref={logoDarkInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'logo_dark')} />
+                             </div>
+                          </div>
+
+                          <div className="space-y-3 md:col-span-2">
                              <label className="text-[10px] font-black uppercase text-slate-400 px-4">Ícone Sidebar (1:1)</label>
                              <div 
                                 onClick={() => iconInputRef.current?.click()}
@@ -423,25 +519,40 @@ export const AdminModule: React.FC<AdminModuleProps> = ({ branding, onBrandingCh
                                       <span className="text-[8px] font-black uppercase text-slate-400 mt-2 block">Upload Quadrado</span>
                                    </div>
                                 )}
-                                <input type="file" ref={iconInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'iconLogo')} />
+                                <input type="file" ref={iconInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'icon')} />
                              </div>
                           </div>
                        </div>
                     </div>
 
                     <div className="space-y-8">
-                       <label className="text-[10px] font-black uppercase text-slate-400 px-4 flex items-center gap-2"><Monitor size={14}/> Simulador de Interface</label>
-                       <div className="bg-slate-950 p-8 rounded-[3.5rem] border-4 border-slate-900 shadow-2xl flex flex-col gap-10">
+                       <div className="flex justify-between items-center px-4">
+                          <label className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-2"><Monitor size={14}/> Simulador de Interface</label>
+                          <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+                             <button type="button" onClick={() => setPreviewMode('light')} className={`p-1.5 rounded-md transition-all ${previewMode === 'light' ? 'bg-white text-orange-500 shadow-sm' : 'text-slate-400'}`}><Sun size={14}/></button>
+                             <button type="button" onClick={() => setPreviewMode('dark')} className={`p-1.5 rounded-md transition-all ${previewMode === 'dark' ? 'bg-slate-700 text-indigo-400 shadow-sm' : 'text-slate-400'}`}><Moon size={14}/></button>
+                          </div>
+                       </div>
+                       
+                       <div className={`p-8 rounded-[3.5rem] border-4 shadow-2xl flex flex-col gap-10 transition-colors duration-500 ${previewMode === 'dark' ? 'bg-slate-950 border-slate-900' : 'bg-white border-slate-100'}`}>
                           <div className="flex flex-col items-center gap-6">
-                             <img src={branding.fullLogo} className="h-8 w-auto object-contain" />
+                             {/* Preview Logo Principal */}
+                             <div className="h-16 w-full flex items-center justify-center">
+                                <img 
+                                  src={previewMode === 'dark' ? (branding.fullLogoDark || branding.fullLogo) : branding.fullLogo} 
+                                  className="max-h-12 w-auto object-contain transition-all" 
+                                  alt="Logo Preview"
+                                />
+                             </div>
+                             
                              <div className="flex gap-4 w-full">
-                                <div className="p-4 bg-white/5 rounded-2xl border border-white/10 flex-1 flex flex-col items-center gap-2">
+                                <div className={`p-4 rounded-2xl border flex-1 flex flex-col items-center gap-2 ${previewMode === 'dark' ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
                                    <img src={branding.iconLogo} className="w-10 h-10 object-contain" />
-                                   <p className="text-[7px] font-black text-white/30 uppercase">Ícone</p>
+                                   <p className={`text-[7px] font-black uppercase ${previewMode === 'dark' ? 'text-white/30' : 'text-slate-400'}`}>Ícone</p>
                                 </div>
-                                <div className="p-4 bg-white/5 rounded-2xl border border-white/10 flex-1 flex flex-col items-center justify-center gap-1">
-                                   <h4 className="text-white font-black italic uppercase text-xs truncate max-w-full">{branding.appName}</h4>
-                                   <p className="text-[7px] font-black text-white/30 uppercase">Texto</p>
+                                <div className={`p-4 rounded-2xl border flex-1 flex flex-col items-center justify-center gap-1 ${previewMode === 'dark' ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                                   <h4 className={`font-black italic uppercase text-xs truncate max-w-full ${previewMode === 'dark' ? 'text-white' : 'text-slate-900'}`}>{branding.appName}</h4>
+                                   <p className={`text-[7px] font-black uppercase ${previewMode === 'dark' ? 'text-white/30' : 'text-slate-400'}`}>Texto</p>
                                 </div>
                              </div>
                           </div>
@@ -507,11 +618,11 @@ export const AdminModule: React.FC<AdminModuleProps> = ({ branding, onBrandingCh
                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                   <div className="space-y-4">
                      <label className="text-[10px] font-black uppercase text-slate-400 px-4">N8n Endpoint Base</label>
-                     <input value={n8nConfig.baseUrl} onChange={e => setN8nConfig({...n8nConfig, baseUrl: e.target.value})} className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold border-none outline-none focus:ring-4 ring-orange-500/10 shadow-inner dark:text-white" />
+                     <input value={n8nConfig.baseUrl} onChange={e => onN8nConfigChange({...n8nConfig, baseUrl: e.target.value})} className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold border-none outline-none focus:ring-4 ring-orange-500/10 shadow-inner dark:text-white" />
                   </div>
                   <div className="space-y-4">
                      <label className="text-[10px] font-black uppercase text-slate-400 px-4">Cluster API Key</label>
-                     <input type="password" value={n8nConfig.apiKey} onChange={e => setN8nConfig({...n8nConfig, apiKey: e.target.value})} className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold border-none outline-none focus:ring-4 ring-orange-500/10 shadow-inner dark:text-white" />
+                     <input type="password" value={n8nConfig.apiKey} onChange={e => onN8nConfigChange({...n8nConfig, apiKey: e.target.value})} className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold border-none outline-none focus:ring-4 ring-orange-500/10 shadow-inner dark:text-white" />
                   </div>
                </div>
 
@@ -541,8 +652,11 @@ export const AdminModule: React.FC<AdminModuleProps> = ({ branding, onBrandingCh
                </div>
 
                <div className="pt-4 flex justify-end gap-4">
+                  <button onClick={handleSaveInfra} disabled={isSavingInfra} className="px-12 py-6 bg-indigo-600 text-white font-black rounded-3xl shadow-xl uppercase text-[10px] tracking-widest hover:scale-105 transition-all flex items-center gap-3">
+                     {isSavingInfra ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} Salvar Configuração de Infra
+                  </button>
                   <button onClick={handleGlobalSync} disabled={isSyncing} className="px-12 py-6 bg-orange-600 text-white font-black rounded-3xl shadow-xl uppercase text-[10px] tracking-widest hover:scale-105 transition-all flex items-center gap-3">
-                     {isSyncing ? <Loader2 size={18} className="animate-spin" /> : <RefreshCcw size={18} />} Sincronizar Cluster Master
+                     {isSyncing ? <Loader2 size={18} className="animate-spin" /> : <RefreshCcw size={18} />} Sync Manual
                   </button>
                </div>
             </div>
