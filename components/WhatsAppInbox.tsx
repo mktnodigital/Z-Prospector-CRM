@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Search, Send, Paperclip, Smile, CheckCheck, 
@@ -5,7 +6,7 @@ import {
   Smartphone, QrCode, AlertCircle, ShieldCheck, RefreshCcw,
   Terminal, CheckCircle2, Wifi, Zap, X, Copy, Cpu, SmartphoneIcon,
   CreditCard, Landmark, Building2, ChevronRight, Activity, Database,
-  MoreVertical, User, Calendar, Brain, Flame
+  MoreVertical, User, Calendar, Brain, Flame, ShoppingCart
 } from 'lucide-react';
 import { Lead, Appointment, Tenant, EvolutionConfig } from '../types';
 
@@ -238,6 +239,33 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
     setTimeout(() => setIsSending(false), 400);
   };
 
+  // Funções de Ação Rápida
+  const handleMainAction = () => {
+    if (!activeChat) return;
+    
+    if (tenant.salesMode === 'DIRECT') {
+      // MODO 1: Enviar Checkout
+      const checkoutMsg = `Aqui está o seu link seguro para garantir a oferta: https://zprospector.com.br/pay/${Math.random().toString(36).substr(2,6)}`;
+      setMessageInput(checkoutMsg);
+      // O usuário ainda clica em enviar, ou podemos enviar direto
+      notify('Link de checkout gerado!');
+    } else {
+      // MODO 2: Agendar
+      notify('Abrindo calendário para agendamento assistido...');
+      onSchedule({
+        id: Math.random().toString(),
+        lead: activeChat.name,
+        service: 'Reunião',
+        date: new Date().getDate(),
+        month: new Date().getMonth(),
+        year: new Date().getFullYear(),
+        time: '14:00',
+        status: 'PENDING',
+        ia: false
+      });
+    }
+  };
+
   return (
     <div className="h-full flex flex-col bg-slate-900 overflow-hidden relative">
       
@@ -253,6 +281,7 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
 
       {connStatus !== 'CONNECTED' && (
         <div className="absolute inset-0 z-[100] bg-slate-950/98 backdrop-blur-3xl flex items-center justify-center p-8 animate-in fade-in">
+           {/* ... Lógica de conexão mantida ... */}
            <div className="max-w-5xl w-full bg-slate-900 rounded-[4rem] shadow-2xl border border-white/10 overflow-hidden flex flex-col md:flex-row min-h-[600px]">
               
               <div className="w-full md:w-5/12 p-12 bg-slate-900/50 border-r border-slate-800 flex flex-col justify-between">
@@ -410,8 +439,21 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                 <div className="flex gap-3">
                   <button className="p-4 bg-slate-800 text-slate-400 hover:text-indigo-500 rounded-2xl transition-all shadow-sm"><Activity size={20}/></button>
                   <button className="p-4 bg-slate-800 text-slate-400 hover:text-rose-500 rounded-2xl transition-all shadow-sm"><MoreVertical size={20}/></button>
-                  <button className="flex items-center gap-3 px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl hover:shadow-indigo-500/20">
-                    <Calendar size={16} /> Agendar Agora
+                  
+                  {/* BOTÃO DE AÇÃO PRINCIPAL - DINÂMICO */}
+                  <button 
+                    onClick={handleMainAction}
+                    className="flex items-center gap-3 px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl hover:shadow-indigo-500/20"
+                  >
+                    {tenant.salesMode === 'DIRECT' ? (
+                      <>
+                        <ShoppingCart size={16} /> Link de Pagamento
+                      </>
+                    ) : (
+                      <>
+                        <Calendar size={16} /> Agendar Agora
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -421,7 +463,10 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
                  <div className="bg-indigo-900/80 backdrop-blur-md border border-indigo-500/30 px-6 py-3 rounded-full flex items-center gap-3 shadow-2xl">
                     <Brain size={16} className="text-indigo-300 animate-pulse"/>
                     <p className="text-[10px] font-bold text-indigo-100 uppercase tracking-widest">
-                       Sugestão: "O cliente mostrou interesse no preço. Foque no valor agora."
+                       {tenant.salesMode === 'DIRECT' 
+                         ? 'Sugestão: "Envie o catálogo agora, o cliente está aquecido."'
+                         : 'Sugestão: "O cliente mostrou interesse. Tente agendar para amanhã."'
+                       }
                     </p>
                     <button className="text-[9px] font-black text-white bg-indigo-600 px-3 py-1 rounded-lg hover:bg-indigo-500">USAR</button>
                  </div>
@@ -453,9 +498,12 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
               </div>
 
               <div className="bg-slate-900 border-t border-slate-800 p-8 z-10 shadow-2xl relative">
-                {/* BARRA DE SUGESTÕES RÁPIDAS */}
+                {/* BARRA DE SUGESTÕES RÁPIDAS DINÂMICA */}
                 <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar pb-2">
-                   {["Preço", "Agendar", "Áudio Explicativo", "Quebra de Objeção"].map(tag => (
+                   {(tenant.salesMode === 'DIRECT' 
+                     ? ["Catálogo PDF", "Link Checkout", "Promoção Relâmpago", "Quebra de Objeção Preço"]
+                     : ["Agendar Visita", "Pedir Disponibilidade", "Qualificar Perfil", "Áudio Explicativo"]
+                   ).map(tag => (
                       <button key={tag} className="px-4 py-2 bg-slate-800 text-slate-400 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all whitespace-nowrap border border-slate-700 hover:border-indigo-500">{tag}</button>
                    ))}
                 </div>

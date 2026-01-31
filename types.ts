@@ -15,6 +15,7 @@ export enum PipelineStage {
 }
 
 export type SalesPhase = 'ATRAIR' | 'CONVERSAR' | 'QUALIFICAR' | 'AGENDAR' | 'FECHAR';
+export type SalesMode = 'DIRECT' | 'ASSISTED'; // Modo 1 vs Modo 2
 
 export interface Lead {
   id: string;
@@ -40,6 +41,7 @@ export interface Appointment {
   status: 'CONFIRMED' | 'PENDING';
   ia: boolean;
   value?: number;
+  paymentMethod?: string; // Novo: Rastreia como foi pago (Pix, Cartão)
 }
 
 export interface AppNotification {
@@ -114,6 +116,7 @@ export interface Tenant {
   instanceName?: string;
   instanceStatus?: 'DISCONNECTED' | 'CONNECTED' | 'CONNECTING';
   n8nWorkflows?: N8nWorkflow[];
+  salesMode: SalesMode; // Configuração do Modo de Operação
 }
 
 export type AppModule = 
@@ -129,5 +132,4 @@ export type AppModule =
   | 'payments'
   | 'profile'
   | 'broadcast'
-  | 'search'
-  | 'n8n';
+  | 'search';

@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, MessageSquare, Calendar, 
   Package, Megaphone, Settings, CreditCard, 
   Menu, Bell, Search, Zap, Moon, User,
-  LogOut, X, ChevronRight, Activity, Cloud,
+  LogOut, X, ChevronRight, Activity,
   Target, Rocket, Monitor, CheckCircle, Sun
 } from 'lucide-react';
 
@@ -17,7 +17,6 @@ import { ProductManager } from './components/ProductManager';
 import { ScheduleManager } from './components/ScheduleManager';
 import { BroadcastManager } from './components/BroadcastManager';
 import { PaymentManager } from './components/PaymentManager';
-import { N8nManager } from './components/N8nManager';
 import { AdminModule } from './components/AdminModule';
 import { UserProfile } from './components/UserProfile';
 import { OfferPage } from './components/OfferPage';
@@ -43,7 +42,8 @@ const INITIAL_TENANT: Tenant = {
   revenue: 15400,
   activeLeads: 124,
   status: 'ONLINE',
-  instanceStatus: 'CONNECTED'
+  instanceStatus: 'CONNECTED',
+  salesMode: 'DIRECT' // Padrão: Venda Direta
 };
 
 const INITIAL_BRANDING: BrandingConfig = {
@@ -66,7 +66,6 @@ const MODULE_THEME: Record<string, { color: string, activeClass: string, textCla
   broadcast: { color: 'cyan', activeClass: 'bg-cyan-600 shadow-cyan-500/30', textClass: 'text-cyan-600', borderClass: 'border-cyan-200 dark:border-cyan-800' },
   capture: { color: 'emerald', activeClass: 'bg-emerald-600 shadow-emerald-500/30', textClass: 'text-emerald-600', borderClass: 'border-emerald-200 dark:border-emerald-800' },
   followup: { color: 'blue', activeClass: 'bg-blue-600 shadow-blue-500/30', textClass: 'text-blue-600', borderClass: 'border-blue-200 dark:border-blue-800' },
-  n8n: { color: 'amber', activeClass: 'bg-amber-600 shadow-amber-500/30', textClass: 'text-amber-600', borderClass: 'border-amber-200 dark:border-amber-800' },
   payments: { color: 'teal', activeClass: 'bg-teal-600 shadow-teal-500/30', textClass: 'text-teal-600', borderClass: 'border-teal-200 dark:border-teal-800' },
   admin: { color: 'slate', activeClass: 'bg-slate-700 shadow-slate-500/30', textClass: 'text-slate-600', borderClass: 'border-slate-200 dark:border-slate-800' },
   profile: { color: 'indigo', activeClass: 'bg-indigo-600 shadow-indigo-500/30', textClass: 'text-indigo-600', borderClass: 'border-indigo-200 dark:border-indigo-800' },
@@ -75,7 +74,7 @@ const MODULE_THEME: Record<string, { color: string, activeClass: string, textCla
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeModule, setActiveModule] = useState<AppModule>('results');
-  const [performanceMode, setPerformanceMode] = useState(false); // Agora atua como Dark Mode Toggle
+  const [performanceMode, setPerformanceMode] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -126,19 +125,72 @@ export default function App() {
     setNotifications(prev => [newNotif, ...prev]);
   };
 
-  const menuItems = [
-    { id: 'results', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'prospecting', label: 'Kanban CRM', icon: Users },
-    { id: 'inbox', label: 'Inbox & IA', icon: MessageSquare },
-    { id: 'scheduling', label: 'Agenda', icon: Calendar },
-    { id: 'products', label: 'Catálogo', icon: Package },
-    { id: 'broadcast', label: 'Disparos', icon: Megaphone },
-    { id: 'capture', label: 'Captura', icon: Target },
-    { id: 'followup', label: 'Automação', icon: Rocket },
-    { id: 'n8n', label: 'N8n Flows', icon: Cloud },
-    { id: 'payments', label: 'Financeiro', icon: CreditCard },
-    { id: 'admin', label: 'Admin', icon: Settings },
-  ];
+  // --- ORQUESTRAÇÃO GLOBAL DE AUTOMATIZAÇÃO ---
+  // Função que conecta Venda (Payment) -> Agenda (Schedule) -> Notificação (Whatsapp)
+  const handleAutomatedSale = (amount: number, method: 'PIX' | 'CREDIT_CARD') => {
+    // 1. Atualizar Receita
+    const newRevenue = tenant.revenue + amount;
+    setTenant(prev => ({ ...prev, revenue: newRevenue }));
+
+    // 2. Criar Agendamento Automático (Simulação)
+    const newAppt: Appointment = {
+      id: `auto_${Date.now()}`,
+      lead: 'Cliente Webhook (Auto)',
+      time: '14:00', // Mock: Next available slot
+      date: new Date().getDate(),
+      month: new Date().getMonth(),
+      year: new Date().getFullYear(),
+      service: tenant.salesMode === 'ASSISTED' ? 'Consultoria Premium' : 'Entrega Produto',
+      serviceId: 'auto',
+      status: 'CONFIRMED',
+      ia: true, // Marcado como IA/Automático
+      value: amount,
+      paymentMethod: method
+    };
+    setAppointments(prev => [...prev, newAppt]);
+
+    // 3. Notificar Sistema e "Enviar WhatsApp"
+    const notifTitle = tenant.salesMode === 'ASSISTED' ? 'Agenda Bloqueada (Pago)' : 'Venda Realizada';
+    
+    // Simula envio de WhatsApp
+    setTimeout(() => {
+        notify(`WhatsApp de confirmação enviado para o cliente (${method})`);
+    }, 1000);
+
+    const newNotif: AppNotification = {
+      id: Math.random().toString(),
+      type: 'SALE',
+      title: notifTitle,
+      description: `Recebido R$ ${amount} via ${method}. Auto-agendado.`,
+      time: 'Agora',
+      read: false
+    };
+    setNotifications(prev => [newNotif, ...prev]);
+  };
+
+  // Menu Items Dinâmicos baseados no Modo de Venda
+  const menuItems = useMemo(() => {
+    const baseItems = [
+      { id: 'results', label: 'Dashboard', icon: LayoutDashboard },
+      { id: 'prospecting', label: 'Kanban CRM', icon: Users },
+      { id: 'inbox', label: 'Inbox & IA', icon: MessageSquare },
+      { id: 'scheduling', label: 'Agenda', icon: Calendar },
+      // Product Manager é condicional
+      { id: 'broadcast', label: 'Disparos', icon: Megaphone },
+      { id: 'capture', label: 'Captura', icon: Target },
+      { id: 'followup', label: 'Automação', icon: Rocket },
+      { id: 'payments', label: 'Financeiro', icon: CreditCard },
+      { id: 'admin', label: 'Admin', icon: Settings },
+    ];
+
+    if (tenant.salesMode === 'DIRECT') {
+      // Modo 1: Venda Direta -> Inserir Catálogo antes de Disparos
+      baseItems.splice(4, 0, { id: 'products', label: 'Catálogo', icon: Package });
+    }
+    // Modo 2: Venda Assistida -> Sem produto (remove catálogo, mantém o resto)
+
+    return baseItems;
+  }, [tenant.salesMode]);
 
   if (!isAuthenticated) {
     return (
@@ -211,7 +263,9 @@ export default function App() {
               {isSidebarOpen && (
                 <div className="text-left overflow-hidden">
                    <p className="text-xs font-black truncate dark:text-white">Admin Master</p>
-                   <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold truncate">Online</p>
+                   <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold truncate">
+                     Modo: {tenant.salesMode === 'DIRECT' ? 'Venda Direta' : 'Assistida'}
+                   </p>
                 </div>
               )}
            </button>
@@ -294,7 +348,7 @@ export default function App() {
 
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto custom-scrollbar relative p-4 md:p-6">
-           {activeModule === 'results' && <Dashboard performanceMode={performanceMode} leads={leads} />}
+           {activeModule === 'results' && <Dashboard performanceMode={performanceMode} leads={leads} tenant={tenant} />}
            {activeModule === 'prospecting' && <CRMKanban leads={leads} onLeadsChange={setLeads} notify={notify} onNavigate={setActiveModule} />}
            {activeModule === 'inbox' && (
              <WhatsAppInbox 
@@ -308,7 +362,7 @@ export default function App() {
            )}
            {activeModule === 'capture' && <CaptureManagement onAddLead={(l) => { setLeads([l, ...leads]); notify('Lead adicionado!'); }} notify={notify} />}
            {activeModule === 'followup' && <FollowUpAutomation niche={tenant.niche} />}
-           {activeModule === 'products' && <ProductManager notify={notify} />}
+           {activeModule === 'products' && tenant.salesMode === 'DIRECT' && <ProductManager notify={notify} />}
            {activeModule === 'scheduling' && (
               <ScheduleManager 
                 appointments={appointments} 
@@ -318,10 +372,17 @@ export default function App() {
               />
            )}
            {activeModule === 'broadcast' && <BroadcastManager leads={leads} isWhatsAppConnected={tenant.instanceStatus === 'CONNECTED'} onNavigate={setActiveModule} notify={notify} />}
-           {activeModule === 'n8n' && <N8nManager notify={notify} />}
-           {activeModule === 'payments' && <PaymentManager totalVolume={tenant.revenue} pipelineVolume={leads.reduce((acc, l) => acc + (l.value || 0), 0)} />}
+           {activeModule === 'payments' && (
+             <PaymentManager 
+               totalVolume={tenant.revenue} 
+               pipelineVolume={leads.reduce((acc, l) => acc + (l.value || 0), 0)}
+               onSimulateIncomingTransaction={handleAutomatedSale}
+             />
+           )}
            {activeModule === 'admin' && (
              <AdminModule 
+               tenant={tenant}
+               onTenantChange={(t) => setTenant(t)}
                branding={branding} 
                onBrandingChange={setBranding} 
                onNicheChange={(n) => setTenant({...tenant, niche: n})} 

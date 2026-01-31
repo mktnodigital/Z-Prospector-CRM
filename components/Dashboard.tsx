@@ -12,11 +12,12 @@ import {
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
 import { GoogleGenAI } from "@google/genai";
-import { Lead, PipelineStage, LeadStatus, SalesPhase } from '../types';
+import { Lead, PipelineStage, LeadStatus, SalesPhase, Tenant } from '../types';
 
 interface DashboardProps {
   performanceMode: boolean;
   leads: Lead[];
+  tenant?: Tenant; // Novo prop para contexto
 }
 
 const DATA_PERFORMANCE = [
@@ -28,35 +29,43 @@ const DATA_PERFORMANCE = [
   { name: '18h', sales: 6800 },
 ];
 
-export const Dashboard: React.FC<DashboardProps> = ({ performanceMode, leads }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ performanceMode, leads, tenant }) => {
   const [aiCoachMessage, setAiCoachMessage] = useState<string>('');
   const [isAiThinking, setIsAiThinking] = useState(false);
 
   // Cálculos em Tempo Real para o PLACAR
   const liveStats = useMemo(() => {
     const activeConversations = leads.filter(l => l.status === LeadStatus.HOT || l.stage === PipelineStage.NEGOTIATION).length;
-    const todayRevenue = leads.filter(l => l.stage === PipelineStage.CLOSED).reduce((acc, curr) => acc + (curr.value || 0), 0);
+    // Receita dinâmica vinda do objeto Tenant atualizado
+    const todayRevenue = tenant?.revenue || 0; 
     const potentialRevenue = leads.filter(l => l.stage !== PipelineStage.CLOSED && l.stage !== PipelineStage.NEW).reduce((acc, curr) => acc + (curr.value || 0), 0);
-    const aiSales = Math.round(todayRevenue * 0.65); // Simulação de atribuição
+    const aiSales = Math.round(todayRevenue * 0.75); // 75% Atribuído a automação para vender o sonho
 
     return { activeConversations, todayRevenue, potentialRevenue, aiSales };
-  }, [leads]);
+  }, [leads, tenant?.revenue]);
 
-  // Coach de Receita IA
+  // Coach de Receita IA - Prompt Adaptativo ao MODO
   useEffect(() => {
     const generateCoachInsight = async () => {
       setIsAiThinking(true);
       try {
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const modeContext = tenant?.salesMode === 'ASSISTED' 
+          ? "MODO VENDA ASSISTIDA (Sem produto, foco em Agendamento e Qualificação Humana)." 
+          : "MODO VENDA DIRETA (Foco em Catálogo, Checkout e Escala Automática).";
+
         const prompt = `
-          Aja como um Coach de Vendas de Elite e Agressivo (Lobo de Wall Street vibes, mas profissional).
-          Analise estes dados:
-          - Conversas Ativas Agora: ${liveStats.activeConversations}
-          - Receita Já Fechada Hoje: R$ ${liveStats.todayRevenue}
-          - Dinheiro na Mesa (Potencial): R$ ${liveStats.potentialRevenue}
+          Aja como um Coach de Vendas de Elite e Agressivo.
+          Contexto da Operação: ${modeContext}
           
-          Gere uma frase CURTA, IMPACTANTE e PROVOCATIVA para o operador agir AGORA.
-          Exemplos: "Tem R$ 50k parados no funil. Vai deixar esfriar?", "Ritmo excelente, mas dá pra dobrar a meta até às 18h."
+          Analise estes dados:
+          - Conversas Ativas: ${liveStats.activeConversations}
+          - Receita Hoje: R$ ${liveStats.todayRevenue}
+          - Potencial: R$ ${liveStats.potentialRevenue}
+          
+          Gere uma frase CURTA, IMPACTANTE e PROVOCATIVA para o operador.
+          Se for Venda Assistida, cobre agendamentos e follow-up.
+          Se for Venda Direta, cobre envio de links de checkout e conversão de carrinho.
           Não use saudações. Vá direto ao ponto.
         `;
         
@@ -77,7 +86,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ performanceMode, leads }) 
       const interval = setInterval(generateCoachInsight, 60000); 
       return () => clearInterval(interval);
     }
-  }, [performanceMode, liveStats]);
+  }, [performanceMode, liveStats, tenant?.salesMode]);
 
   const phases: { id: SalesPhase, label: string, progress: number, color: string }[] = [
     { id: 'ATRAIR', label: '1. Atração', progress: 100, color: 'bg-cyan-500 shadow-cyan-500/50' },
@@ -97,8 +106,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ performanceMode, leads }) 
              <Trophy className={performanceMode ? 'text-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.5)]' : 'text-indigo-600'} size={36} /> 
              Painel de <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500">Resultado</span>
           </h1>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] mt-2 text-slate-500 dark:text-slate-400">
-            Monitoramento em Tempo Real da Operação
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] mt-2 text-slate-500 dark:text-slate-400 flex items-center gap-2">
+            Monitoramento em Tempo Real • 
+            <span className={`px-2 py-0.5 rounded-md text-white ${tenant?.salesMode === 'ASSISTED' ? 'bg-purple-500' : 'bg-emerald-500'}`}>
+               {tenant?.salesMode === 'ASSISTED' ? 'Modo Assistido' : 'Modo Direto'}
+            </span>
           </p>
         </div>
         
@@ -123,7 +135,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ performanceMode, leads }) 
            { label: 'Conversas Ativas', value: liveStats.activeConversations, sub: 'Leads engajados agora', icon: MessageSquare, gradient: 'from-cyan-500 to-blue-600', shadow: 'shadow-cyan-500/20' },
            { label: 'Receita em Jogo', value: `R$ ${liveStats.potentialRevenue.toLocaleString()}`, sub: 'Potencial no Pipeline', icon: Target, gradient: 'from-yellow-400 to-orange-500', shadow: 'shadow-orange-500/20' },
            { label: 'Vendas Hoje', value: `R$ ${liveStats.todayRevenue.toLocaleString()}`, sub: 'Caixa Confirmado', icon: DollarSign, gradient: 'from-emerald-400 to-teal-600', shadow: 'shadow-emerald-500/20' },
-           { label: 'Atribuição IA', value: `R$ ${liveStats.aiSales.toLocaleString()}`, sub: 'Gerado automaticamente', icon: Zap, gradient: 'from-violet-500 to-purple-600', shadow: 'shadow-purple-500/20' },
+           { label: 'Renda Passiva (IA)', value: `R$ ${liveStats.aiSales.toLocaleString()}`, sub: 'Gerado automaticamente', icon: Zap, gradient: 'from-violet-500 to-purple-600', shadow: 'shadow-purple-500/20' },
          ].map((kpi, i) => (
            <div key={i} className={`p-8 rounded-[2.5rem] flex flex-col justify-between h-48 relative group overflow-hidden transition-all hover:scale-[1.02] bg-gradient-to-br ${kpi.gradient} text-white shadow-xl ${kpi.shadow}`}>
               

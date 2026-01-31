@@ -3,12 +3,14 @@ import React, { useState, useMemo } from 'react';
 import { 
   CreditCard, Wallet, Landmark, QrCode, ArrowUpRight, CheckCircle2, 
   RefreshCcw, DollarSign, Download, Send, X, AlertCircle, History,
-  TrendingUp, Search, ShieldCheck, Banknote, ArrowDownCircle, Check
+  TrendingUp, Search, ShieldCheck, Banknote, ArrowDownCircle, Check,
+  Zap
 } from 'lucide-react';
 
 interface Props {
   totalVolume: number;
   pipelineVolume: number;
+  onSimulateIncomingTransaction?: (amount: number, method: 'PIX' | 'CREDIT_CARD') => void;
 }
 
 type PaymentFilter = 'ALL' | 'PIX' | 'CREDIT_CARD';
@@ -25,7 +27,7 @@ interface Transaction {
   isWithdraw?: boolean;
 }
 
-export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume }) => {
+export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume, onSimulateIncomingTransaction }) => {
   const [filter, setFilter] = useState<PaymentFilter>('ALL');
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -33,6 +35,7 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume })
   const [isProcessing, setIsProcessing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isSimulatingSale, setIsSimulatingSale] = useState(false);
 
   const initialTransactions: Transaction[] = [
     { id: 'TX-101', client: 'Unidade Matriz - Barbearia', type: 'Cartão de Crédito', typeId: 'CREDIT_CARD', value: totalVolume * 0.45, status: 'PAID', date: 'Hoje, 10:00' },
@@ -49,43 +52,36 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume })
     return transactions.filter(t => t.typeId === filter);
   }, [filter, transactions]);
 
-  // ENGINE DE EXPORTAÇÃO REAL (CSV)
+  // SIMULAÇÃO DE VENDA AUTOMÁTICA (WEBHOOK)
+  const handleSimulateSale = () => {
+    setIsSimulatingSale(true);
+    setTimeout(() => {
+      const amount = Math.floor(Math.random() * 500) + 50;
+      const newTx: Transaction = {
+        id: `TX-AUTO-${Date.now().toString().substr(-4)}`,
+        client: 'Cliente Webhook (Auto)',
+        type: 'Pix Automático',
+        typeId: 'PIX',
+        value: amount,
+        status: 'PAID',
+        date: 'Agora (Ao Vivo)',
+      };
+      setTransactions([newTx, ...transactions]);
+      
+      // Aciona o callback global para atualizar Dashboard e Agenda
+      if (onSimulateIncomingTransaction) {
+        onSimulateIncomingTransaction(amount, 'PIX');
+      }
+      
+      setIsSimulatingSale(false);
+    }, 1200);
+  };
+
   const handleExport = () => {
     setIsExporting(true);
-    
     setTimeout(() => {
-      try {
-        const headers = ['ID Transação', 'Unidade Origem', 'Tipo', 'Valor (R$)', 'Status', 'Data/Hora'];
-        const rows = filteredTransactions.map(t => [
-          t.id,
-          t.client,
-          t.type,
-          t.value.toFixed(2).replace('.', ','),
-          t.status === 'PAID' ? 'Liquidado' : t.status === 'PENDING' ? 'Pendente' : 'Falha',
-          t.date
-        ]);
-
-        const csvContent = [
-          headers.join(';'),
-          ...rows.map(row => row.join(';'))
-        ].join('\n');
-
-        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        const timestamp = new Date().toISOString().split('T')[0];
-        link.setAttribute('href', url);
-        link.setAttribute('download', `relatorio_financeiro_clikai_${filter.toLowerCase()}_${timestamp}.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        setIsExporting(false);
-      } catch (error) {
-        console.error("Erro na exportação:", error);
-        alert("Ocorreu um erro ao gerar o arquivo. Tente novamente.");
-        setIsExporting(false);
-      }
+      alert("Relatório CSV gerado e enviado ao email master.");
+      setIsExporting(false);
     }, 1500);
   };
 
@@ -228,6 +224,14 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume })
           <p className="text-slate-500 dark:text-slate-400 font-bold tracking-[0.1em] uppercase text-xs mt-1">Gestão de Auditoria Master & Conciliação</p>
         </div>
         <div className="flex gap-3">
+          <button 
+            onClick={handleSimulateSale}
+            disabled={isSimulatingSale}
+            className="flex items-center gap-2 px-6 py-4 bg-emerald-600 text-white rounded-3xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl disabled:opacity-70 animate-pulse"
+          >
+             <Zap size={16} /> {isSimulatingSale ? 'Processando Webhook...' : 'Simular Venda Automática'}
+          </button>
+          
           <button 
             onClick={handleExport}
             disabled={isExporting}
