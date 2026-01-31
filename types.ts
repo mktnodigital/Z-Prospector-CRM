@@ -131,4 +131,6 @@ export type AppModule =
   | 'profile'
   | 'broadcast'
   | 'search'
-  | 'concierge';
+  | 'concierge'
+  | 'capture'    // Adicionado para Scraper
+  | 'automation'; // Adicionado para Fluxos

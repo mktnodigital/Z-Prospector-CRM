@@ -5,7 +5,8 @@ import {
   Package, Megaphone, Settings, CreditCard, 
   Menu, Bell, Search, Zap, Moon, User,
   LogOut, X, ChevronRight, Activity,
-  Target, Rocket, Monitor, CheckCircle, Sun, Sparkles
+  Target, Rocket, Monitor, CheckCircle, Sun, Sparkles,
+  Radar, Workflow
 } from 'lucide-react';
 
 import { Dashboard } from './components/Dashboard';
@@ -20,6 +21,8 @@ import { UserProfile } from './components/UserProfile';
 import { OfferPage } from './components/OfferPage';
 import { AISearchModal } from './components/AISearchModal';
 import { ConciergeService } from './components/ConciergeService';
+import { CaptureManagement } from './components/CaptureManagement';
+import { FollowUpAutomation } from './components/FollowUpAutomation';
 import { api } from './services/api';
 
 import { 
@@ -68,6 +71,8 @@ const MODULE_THEME: Record<string, { color: string, activeClass: string, textCla
   admin: { color: 'slate', activeClass: 'bg-slate-800 shadow-lg shadow-slate-500/40', textClass: 'text-slate-600', borderClass: 'border-slate-200 dark:border-slate-800', lightBg: 'bg-slate-100/50' },
   profile: { color: 'indigo', activeClass: 'bg-indigo-600 shadow-lg shadow-indigo-500/40', textClass: 'text-indigo-600', borderClass: 'border-indigo-200 dark:border-indigo-800', lightBg: 'bg-indigo-50/50' },
   concierge: { color: 'amber', activeClass: 'bg-amber-500 shadow-lg shadow-amber-500/40', textClass: 'text-amber-600', borderClass: 'border-amber-200 dark:border-amber-800', lightBg: 'bg-amber-50/50' },
+  capture: { color: 'emerald', activeClass: 'bg-emerald-600 shadow-lg shadow-emerald-500/40', textClass: 'text-emerald-600', borderClass: 'border-emerald-200 dark:border-emerald-800', lightBg: 'bg-emerald-50/50' },
+  automation: { color: 'cyan', activeClass: 'bg-cyan-600 shadow-lg shadow-cyan-500/40', textClass: 'text-cyan-600', borderClass: 'border-cyan-200 dark:border-cyan-800', lightBg: 'bg-cyan-50/50' },
 };
 
 export default function App() {
@@ -191,20 +196,20 @@ export default function App() {
   const menuItems = useMemo(() => {
     const baseItems = [
       { id: 'results', label: 'Dashboard', icon: LayoutDashboard },
-      { id: 'prospecting', label: 'Kanban CRM', icon: Users },
-      { id: 'inbox', label: 'Inbox & IA', icon: MessageSquare },
-      { id: 'scheduling', label: 'Agenda', icon: Calendar },
-      // Product Manager é condicional
-      { id: 'broadcast', label: 'Disparos', icon: Megaphone },
-      // Capture removed - leads come from Concierge/Ads
-      { id: 'concierge', label: 'Concierge', icon: Sparkles }, // Novo módulo Done-For-You
+      { id: 'capture', label: 'Captação IA', icon: Radar }, // ATIVADO: Scraper
+      { id: 'prospecting', label: 'Kanban CRM', icon: Users }, // ATIVADO: Separação Térmica
+      { id: 'inbox', label: 'Inbox & IA', icon: MessageSquare }, // ATIVADO: WhatsApp
+      { id: 'scheduling', label: 'Agenda', icon: Calendar }, // ATIVADO: Agendamento
+      { id: 'automation', label: 'Fluxos & Bots', icon: Workflow }, // ATIVADO: Follow-up Automático
+      { id: 'broadcast', label: 'Disparos', icon: Megaphone }, // ATIVADO: Notificações em Massa
+      { id: 'concierge', label: 'Concierge', icon: Sparkles },
       { id: 'payments', label: 'Financeiro', icon: CreditCard },
       { id: 'admin', label: 'Configurações', icon: Settings },
     ];
 
     if (tenant.salesMode === 'DIRECT') {
       // Modo 1: Venda Direta -> Inserir Catálogo antes de Disparos
-      baseItems.splice(4, 0, { id: 'products', label: 'Catálogo', icon: Package });
+      baseItems.splice(6, 0, { id: 'products', label: 'Catálogo', icon: Package });
     }
     // Modo 2: Venda Assistida -> Sem produto (remove catálogo, mantém o resto)
 
@@ -368,6 +373,7 @@ export default function App() {
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto custom-scrollbar relative p-4 md:p-6">
            {activeModule === 'results' && <Dashboard performanceMode={performanceMode} leads={leads} tenant={tenant} />}
+           {activeModule === 'capture' && <CaptureManagement onAddLead={(l) => { setLeads([l, ...leads]); notify('Novo Lead Capturado!'); api.saveLead(l); }} notify={notify} />}
            {activeModule === 'prospecting' && <CRMKanban leads={leads} onLeadsChange={(l) => { setLeads(l); api.saveLead(l[0]); }} notify={notify} onNavigate={setActiveModule} />}
            {activeModule === 'inbox' && (
              <WhatsAppInbox 
@@ -389,6 +395,7 @@ export default function App() {
                 onDeleteAppointment={(id) => { setAppointments(appointments.filter(a => a.id !== id)); notify('Removido!'); }}
               />
            )}
+           {activeModule === 'automation' && <FollowUpAutomation niche={tenant.niche} />}
            {activeModule === 'broadcast' && <BroadcastManager leads={leads} isWhatsAppConnected={tenant.instanceStatus === 'CONNECTED'} onNavigate={setActiveModule} notify={notify} />}
            {activeModule === 'payments' && (
              <PaymentManager 

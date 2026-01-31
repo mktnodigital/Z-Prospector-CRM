@@ -6,7 +6,8 @@ import {
   Brain, Target, Calendar,
   Loader2, Mail, Menu as MenuIcon, 
   Wallet, Eye, EyeOff, PlayCircle,
-  MessageSquare, Filter, Bot, RefreshCcw, History
+  MessageSquare, Filter, Bot, RefreshCcw, History,
+  Globe, Zap, Smartphone, CreditCard, BellRing
 } from 'lucide-react';
 import { BrandingConfig } from '../types';
 
@@ -355,17 +356,17 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
       <section id="metodo" className="py-24 bg-slate-50 dark:bg-slate-950 border-y border-slate-200 dark:border-slate-800 scroll-mt-24">
          <div className="max-w-7xl mx-auto px-6">
             <div className="text-center mb-20">
-               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-600 bg-indigo-100 dark:bg-indigo-900/30 px-4 py-2 rounded-full">Metodologia Exclusiva</span>
-               <h2 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter mt-8 text-slate-900 dark:text-white">O Ciclo de <span className="text-indigo-600">5 Fases</span></h2>
+               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-600 bg-indigo-100 dark:bg-indigo-900/30 px-4 py-2 rounded-full">Sistema de 5 Pilares</span>
+               <h2 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter mt-8 text-slate-900 dark:text-white">O Ciclo de <span className="text-indigo-600">Venda Automática</span></h2>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                {[
-                  { step: '01', title: 'ATRAIR', desc: 'Centralização de leads de todas as fontes.', icon: Target, color: 'from-slate-700 to-slate-900' },
-                  { step: '02', title: 'CONVERSAR', desc: 'IA inicia o diálogo em < 1 minuto.', icon: MessageSquare, color: 'from-blue-500 to-blue-600' },
-                  { step: '03', title: 'QUALIFICAR', desc: 'Filtro automático de quem tem potencial.', icon: Filter, color: 'from-indigo-500 to-indigo-600' },
-                  { step: '04', title: 'AGENDAR', desc: 'Compromisso marcado direto na agenda.', icon: Calendar, color: 'from-violet-500 to-purple-600' },
-                  { step: '05', title: 'FECHAR', desc: 'Checkout e pagamento garantido.', icon: CheckCircle2, color: 'from-emerald-500 to-teal-600' },
+                  { step: '01', title: 'CAPTAÇÃO AUTOMÁTICA', desc: 'Google Maps e Redes Sociais varridos 24/7.', icon: Globe, color: 'from-slate-700 to-slate-900' },
+                  { step: '02', title: 'SEPARAÇÃO TÉRMICA', desc: 'Classificação automática: Frio, Morno e Quente.', icon: Filter, color: 'from-blue-500 to-blue-600' },
+                  { step: '03', title: 'FOLLOW-UP INFINITO', desc: 'A IA persegue o lead até ele responder.', icon: RefreshCcw, color: 'from-indigo-500 to-indigo-600' },
+                  { step: '04', title: 'AGENDA & VENDA', desc: 'Venda Direta (Link) ou Assistida (Agenda).', icon: Calendar, color: 'from-violet-500 to-purple-600' },
+                  { step: '05', title: 'NOTIFICAÇÕES', desc: 'Alertas no WhatsApp de venda e agendamento.', icon: BellRing, color: 'from-emerald-500 to-teal-600' },
                ].map((phase, i) => (
                   <div key={i} className="relative p-6 rounded-[2rem] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-xl hover:-translate-y-2 transition-all duration-300 group overflow-hidden h-full flex flex-col">
                      <div className="absolute top-0 right-0 p-4 text-6xl font-black text-slate-100 dark:text-slate-800 select-none -z-0 opacity-50">{phase.step}</div>
@@ -374,7 +375,7 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
                         <phase.icon size={24} />
                      </div>
                      
-                     <h3 className="relative z-10 text-lg font-black italic uppercase tracking-tight text-slate-900 dark:text-white mb-2">{phase.title}</h3>
+                     <h3 className="relative z-10 text-sm font-black italic uppercase tracking-tight text-slate-900 dark:text-white mb-2">{phase.title}</h3>
                      <p className="relative z-10 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide leading-relaxed">{phase.desc}</p>
                   </div>
                ))}
@@ -406,10 +407,17 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
                         </div>
                      </li>
                      <li className="flex items-center gap-4">
-                        <div className="p-3 bg-emerald-500/20 rounded-xl text-emerald-400"><RefreshCcw size={24}/></div>
+                        <div className="p-3 bg-emerald-500/20 rounded-xl text-emerald-400"><Smartphone size={24}/></div>
                         <div>
-                           <h4 className="font-black uppercase text-sm">Follow-up Infinito</h4>
-                           <p className="text-xs text-slate-400">A IA continua tentando contato até o cliente responder.</p>
+                           <h4 className="font-black uppercase text-sm">Venda Híbrida (Direta ou Assistida)</h4>
+                           <p className="text-xs text-slate-400">Envio de Link de Pagamento ou Agendamento Automático.</p>
+                        </div>
+                     </li>
+                     <li className="flex items-center gap-4">
+                        <div className="p-3 bg-pink-500/20 rounded-xl text-pink-400"><BellRing size={24}/></div>
+                        <div>
+                           <h4 className="font-black uppercase text-sm">Notificações WhatsApp</h4>
+                           <p className="text-xs text-slate-400">Avisos automáticos de Agendamento, Venda e Pagamento.</p>
                         </div>
                      </li>
                   </ul>
