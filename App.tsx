@@ -37,17 +37,30 @@ const INITIAL_LEADS: Lead[] = [
   { id: 'l3', name: 'Empresa Tech', phone: '5511977776666', email: 'contato@tech.com', status: LeadStatus.COLD, stage: PipelineStage.CONTACTED, lastInteraction: 'Sem resposta há 2 dias', value: 5000, source: 'Linkedin' },
 ];
 
-const INITIAL_TENANT: Tenant = {
-  id: 'master_01',
-  name: 'Z-Prospector HQ (Master)',
-  niche: 'SaaS & High Ticket',
-  healthScore: 100,
-  revenue: 154000,
-  activeLeads: 1240,
-  status: 'ONLINE',
-  instanceStatus: 'CONNECTED',
-  salesMode: 'DIRECT' // Modo Direto ativa Catálogo + Todos os Módulos
-};
+const INITIAL_TENANT_LIST: Tenant[] = [
+  {
+    id: 'master_01',
+    name: 'Z-Prospector HQ (Master)',
+    niche: 'SaaS & High Ticket',
+    healthScore: 100,
+    revenue: 154000,
+    activeLeads: 1240,
+    status: 'ONLINE',
+    instanceStatus: 'CONNECTED',
+    salesMode: 'DIRECT'
+  },
+  {
+    id: 'unit_02',
+    name: 'Barbearia Viking',
+    niche: 'Estética & Beleza',
+    healthScore: 92,
+    revenue: 45000,
+    activeLeads: 320,
+    status: 'ONLINE',
+    instanceStatus: 'CONNECTED',
+    salesMode: 'ASSISTED'
+  }
+];
 
 const INITIAL_BRANDING: BrandingConfig = {
   fullLogo: 'https://via.placeholder.com/150x40?text=Z-Prospector+Master',
@@ -84,7 +97,9 @@ export default function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   
   const [leads, setLeads] = useState<Lead[]>(INITIAL_LEADS);
-  const [tenant, setTenant] = useState<Tenant>(INITIAL_TENANT);
+  const [allTenants, setAllTenants] = useState<Tenant[]>(INITIAL_TENANT_LIST);
+  const [tenant, setTenant] = useState<Tenant>(INITIAL_TENANT_LIST[0]); // Active Tenant
+  
   const [branding, setBranding] = useState<BrandingConfig>(INITIAL_BRANDING);
   const [evolutionConfig, setEvolutionConfig] = useState<EvolutionConfig>({ baseUrl: 'https://api.clikai.com.br/', apiKey: '', enabled: false });
   const [notifications, setNotifications] = useState<AppNotification[]>([
@@ -146,12 +161,37 @@ export default function App() {
     setNotifications(prev => [newNotif, ...prev]);
   };
 
+  // --- MULTI-TENANT MANAGEMENT FUNCTIONS ---
+  const handleAddTenant = (newTenant: Tenant) => {
+    setAllTenants([...allTenants, newTenant]);
+  };
+
+  const handleUpdateTenant = (updatedTenant: Tenant) => {
+    setAllTenants(prev => prev.map(t => t.id === updatedTenant.id ? updatedTenant : t));
+    // If updating the currently active tenant, update it immediately
+    if (tenant.id === updatedTenant.id) {
+      setTenant(updatedTenant);
+    }
+  };
+
+  const handleDeleteTenant = (id: string) => {
+    setAllTenants(prev => prev.filter(t => t.id !== id));
+  };
+
+  const handleSwitchTenant = (targetTenant: Tenant) => {
+    setTenant(targetTenant);
+    notify(`Painel alternado para: ${targetTenant.name}`);
+    setActiveModule('results'); // Reset to Dashboard on switch
+  };
+
   // --- ORQUESTRAÇÃO GLOBAL DE AUTOMATIZAÇÃO ---
   // Função que conecta Venda (Payment) -> Agenda (Schedule) -> Notificação (Whatsapp)
   const handleAutomatedSale = (amount: number, method: 'PIX' | 'CREDIT_CARD') => {
     // 1. Atualizar Receita
     const newRevenue = tenant.revenue + amount;
-    setTenant(prev => ({ ...prev, revenue: newRevenue }));
+    const updatedTenant = { ...tenant, revenue: newRevenue };
+    setTenant(updatedTenant);
+    handleUpdateTenant(updatedTenant); // Update in list
 
     // 2. Criar Agendamento Automático (Simulação)
     const newAppt: Appointment = {
@@ -239,12 +279,12 @@ export default function App() {
       <aside className={`flex-shrink-0 transition-all duration-300 ${isSidebarOpen ? 'w-64' : 'w-20'} ${performanceMode ? 'bg-slate-900 border-r border-slate-800' : 'bg-white/80 backdrop-blur-xl border-r border-white/50'} flex flex-col z-20 shadow-xl shadow-indigo-100/20 dark:shadow-none`}>
         <div className="h-24 flex items-center justify-center border-b border-transparent">
            {isSidebarOpen ? (
-             <h1 className="text-xl font-black italic uppercase tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 cursor-pointer drop-shadow-sm" onClick={() => setActiveModule('results')}>
-               {branding.appName}
+             <h1 className="text-xl font-black italic uppercase tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 cursor-pointer drop-shadow-sm truncate max-w-[200px]" onClick={() => setActiveModule('results')}>
+               {tenant.name}
              </h1>
            ) : (
              <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-black italic shadow-lg shadow-indigo-500/30 cursor-pointer" onClick={() => setIsSidebarOpen(true)}>
-               {branding.appName.charAt(0)}
+               {tenant.name.charAt(0)}
              </div>
            )}
         </div>
@@ -354,7 +394,7 @@ export default function App() {
                          {notifications.length > 0 ? notifications.map(n => (
                            <div key={n.id} className={`p-4 rounded-2xl border transition-all ${n.read ? 'opacity-50' : 'opacity-100'} ${performanceMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
                               <div className="flex justify-between items-start mb-1">
-                                 <span className={`text-[8px] font-black px-2 py-0.5 rounded-md uppercase ${n.type === 'SALE' ? 'bg-emerald-500 text-white' : 'bg-indigo-500 text-white'}`}>{n.type}</span>
+                                 <span className={`text-[8px] font-black px-2 py-0.5 rounded-md uppercase ${n.type === 'SALE' ? 'bg-emerald-50 text-white' : 'bg-indigo-50 text-white'}`}>{n.type}</span>
                                  <span className="text-[9px] text-slate-400">{n.time}</span>
                               </div>
                               <p className="text-xs font-bold mt-2 dark:text-slate-200">{n.title}</p>
@@ -407,10 +447,17 @@ export default function App() {
            {activeModule === 'admin' && (
              <AdminModule 
                tenant={tenant}
-               onTenantChange={(t) => setTenant(t)}
+               onTenantChange={(t) => { setTenant(t); handleUpdateTenant(t); }}
+               // Passando props de Multi-Empresa
+               allTenants={allTenants}
+               onAddTenant={handleAddTenant}
+               onUpdateTenant={handleUpdateTenant}
+               onDeleteTenant={handleDeleteTenant}
+               onSwitchTenant={handleSwitchTenant}
+               // ---
                branding={branding} 
                onBrandingChange={(b) => { setBranding(b); api.saveBranding(b); }}
-               onNicheChange={(n) => setTenant({...tenant, niche: n})} 
+               onNicheChange={(n) => { const updated = {...tenant, niche: n}; setTenant(updated); handleUpdateTenant(updated); }} 
                evolutionConfig={evolutionConfig}
                onEvolutionConfigChange={setEvolutionConfig}
                notify={notify} 

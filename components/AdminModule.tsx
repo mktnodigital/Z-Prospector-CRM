@@ -9,14 +9,22 @@ import {
   ArrowRight, CheckCircle2, ShoppingCart, CreditCard, Landmark, Globe, Palette, Building2,
   Image as ImageIcon, Type, Layout, Save, X, Ban, Edit3, Smartphone, Globe2,
   Lock, ShieldAlert, Fingerprint, History, Monitor, Shield, UploadCloud, ImagePlus, Workflow,
-  Check, AlertTriangle, Layers, Briefcase, Handshake, Link as LinkIcon, Wifi
+  Check, AlertTriangle, Layers, Briefcase, Handshake, Link as LinkIcon, Wifi, Network
 } from 'lucide-react';
 import { BrandingConfig, EvolutionConfig, Tenant, SalesMode } from '../types';
 import { IntegrationSettings } from './IntegrationSettings';
+import { TenantManager } from './TenantManager';
 
 interface AdminModuleProps {
   tenant?: Tenant;
   onTenantChange?: (t: Tenant) => void;
+  // Novos Props para Gestão Multi-Tenant
+  allTenants?: Tenant[];
+  onAddTenant?: (t: Tenant) => void;
+  onUpdateTenant?: (t: Tenant) => void;
+  onDeleteTenant?: (id: string) => void;
+  onSwitchTenant?: (t: Tenant) => void;
+  // ---
   branding: BrandingConfig;
   onBrandingChange: (branding: BrandingConfig) => void;
   onNicheChange: (niche: string) => void;
@@ -25,17 +33,22 @@ interface AdminModuleProps {
   notify: (msg: string) => void;
 }
 
-type AdminSubTab = 'business' | 'branding' | 'integrations' | 'payments';
+type AdminSubTab = 'tenants' | 'business' | 'branding' | 'integrations' | 'payments';
 
-export const AdminModule: React.FC<AdminModuleProps> = ({ tenant, onTenantChange, branding, onBrandingChange, evolutionConfig, onEvolutionConfigChange, notify }) => {
-  const [activeTab, setActiveTab] = useState<AdminSubTab>('business');
+export const AdminModule: React.FC<AdminModuleProps> = ({ 
+  tenant, onTenantChange, 
+  allTenants, onAddTenant, onUpdateTenant, onDeleteTenant, onSwitchTenant,
+  branding, onBrandingChange, evolutionConfig, onEvolutionConfigChange, notify 
+}) => {
+  const [activeTab, setActiveTab] = useState<AdminSubTab>('tenants');
   const [isSyncing, setIsSyncing] = useState(false);
   
   // Refs para Inputs de Arquivo
   const logoInputRef = useRef<HTMLInputElement>(null);
   
   const subTabs = [
-    { id: 'business' as const, label: 'Empresa', icon: Building2 },
+    { id: 'tenants' as const, label: 'Multi-Empresa', icon: Network }, // Nova Aba
+    { id: 'business' as const, label: 'Dados da Unidade', icon: Building2 },
     { id: 'branding' as const, label: 'Visual', icon: Palette },
     { id: 'integrations' as const, label: 'Conexões API', icon: Wifi },
     { id: 'payments' as const, label: 'Financeiro', icon: CreditCard },
@@ -124,6 +137,19 @@ export const AdminModule: React.FC<AdminModuleProps> = ({ tenant, onTenantChange
 
       <div className="bg-white/80 dark:bg-slate-900 p-12 rounded-[4.5rem] border-2 border-white dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none relative overflow-hidden min-h-[600px] backdrop-blur-sm">
          
+         {/* ABA 0: GESTÃO MULTI-TENANT (NOVO) */}
+         {activeTab === 'tenants' && allTenants && tenant && (
+            <TenantManager 
+              tenants={allTenants} 
+              currentTenantId={tenant.id}
+              onAdd={onAddTenant!} 
+              onUpdate={onUpdateTenant!} 
+              onDelete={onDeleteTenant!} 
+              onSwitch={onSwitchTenant!} 
+              notify={notify}
+            />
+         )}
+
          {/* ABA 1: DADOS DA EMPRESA E MODO DE OPERAÇÃO */}
          {activeTab === 'business' && tenant && onTenantChange && (
             <div className="space-y-12 animate-in slide-in-from-left-4">
@@ -135,7 +161,7 @@ export const AdminModule: React.FC<AdminModuleProps> = ({ tenant, onTenantChange
                          <h3 className="text-xl font-black italic uppercase tracking-tight text-slate-800 dark:text-white flex items-center gap-3">
                             <Zap size={20} className="text-orange-500"/> Modo de Operação
                          </h3>
-                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 italic">Como sua unidade vende hoje?</p>
+                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 italic">Como esta unidade vende hoje?</p>
                       </div>
                       
                       <div className="flex bg-white dark:bg-slate-900 p-1.5 rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-sm">
