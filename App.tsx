@@ -5,14 +5,12 @@ import {
   Package, Megaphone, Settings, CreditCard, 
   Menu, Bell, Search, Zap, Moon, User,
   LogOut, X, ChevronRight, Activity,
-  Target, Rocket, Monitor, CheckCircle, Sun
+  Target, Rocket, Monitor, CheckCircle, Sun, Sparkles
 } from 'lucide-react';
 
 import { Dashboard } from './components/Dashboard';
 import { CRMKanban } from './components/CRMKanban';
 import { WhatsAppInbox } from './components/WhatsAppInbox';
-import { CaptureManagement } from './components/CaptureManagement';
-import { FollowUpAutomation } from './components/FollowUpAutomation';
 import { ProductManager } from './components/ProductManager';
 import { ScheduleManager } from './components/ScheduleManager';
 import { BroadcastManager } from './components/BroadcastManager';
@@ -21,6 +19,7 @@ import { AdminModule } from './components/AdminModule';
 import { UserProfile } from './components/UserProfile';
 import { OfferPage } from './components/OfferPage';
 import { AISearchModal } from './components/AISearchModal';
+import { ConciergeService } from './components/ConciergeService';
 
 import { 
   Lead, Appointment, Tenant, BrandingConfig, 
@@ -64,11 +63,10 @@ const MODULE_THEME: Record<string, { color: string, activeClass: string, textCla
   scheduling: { color: 'pink', activeClass: 'bg-pink-600 shadow-pink-500/30', textClass: 'text-pink-600', borderClass: 'border-pink-200 dark:border-pink-800' },
   products: { color: 'orange', activeClass: 'bg-orange-600 shadow-orange-500/30', textClass: 'text-orange-600', borderClass: 'border-orange-200 dark:border-orange-800' },
   broadcast: { color: 'cyan', activeClass: 'bg-cyan-600 shadow-cyan-500/30', textClass: 'text-cyan-600', borderClass: 'border-cyan-200 dark:border-cyan-800' },
-  capture: { color: 'emerald', activeClass: 'bg-emerald-600 shadow-emerald-500/30', textClass: 'text-emerald-600', borderClass: 'border-emerald-200 dark:border-emerald-800' },
-  followup: { color: 'blue', activeClass: 'bg-blue-600 shadow-blue-500/30', textClass: 'text-blue-600', borderClass: 'border-blue-200 dark:border-blue-800' },
   payments: { color: 'teal', activeClass: 'bg-teal-600 shadow-teal-500/30', textClass: 'text-teal-600', borderClass: 'border-teal-200 dark:border-teal-800' },
   admin: { color: 'slate', activeClass: 'bg-slate-700 shadow-slate-500/30', textClass: 'text-slate-600', borderClass: 'border-slate-200 dark:border-slate-800' },
   profile: { color: 'indigo', activeClass: 'bg-indigo-600 shadow-indigo-500/30', textClass: 'text-indigo-600', borderClass: 'border-indigo-200 dark:border-indigo-800' },
+  concierge: { color: 'amber', activeClass: 'bg-amber-500 shadow-amber-500/30', textClass: 'text-amber-600', borderClass: 'border-amber-200 dark:border-amber-800' },
 };
 
 export default function App() {
@@ -177,10 +175,10 @@ export default function App() {
       { id: 'scheduling', label: 'Agenda', icon: Calendar },
       // Product Manager é condicional
       { id: 'broadcast', label: 'Disparos', icon: Megaphone },
-      { id: 'capture', label: 'Captura', icon: Target },
-      { id: 'followup', label: 'Automação', icon: Rocket },
+      // Capture removed - leads come from Concierge/Ads
+      { id: 'concierge', label: 'Concierge', icon: Sparkles }, // Novo módulo Done-For-You
       { id: 'payments', label: 'Financeiro', icon: CreditCard },
-      { id: 'admin', label: 'Admin', icon: Settings },
+      { id: 'admin', label: 'Configurações', icon: Settings },
     ];
 
     if (tenant.salesMode === 'DIRECT') {
@@ -360,9 +358,8 @@ export default function App() {
                notify={notify}
              />
            )}
-           {activeModule === 'capture' && <CaptureManagement onAddLead={(l) => { setLeads([l, ...leads]); notify('Lead adicionado!'); }} notify={notify} />}
-           {activeModule === 'followup' && <FollowUpAutomation niche={tenant.niche} />}
            {activeModule === 'products' && tenant.salesMode === 'DIRECT' && <ProductManager notify={notify} />}
+           {activeModule === 'concierge' && <ConciergeService notify={notify} />}
            {activeModule === 'scheduling' && (
               <ScheduleManager 
                 appointments={appointments} 

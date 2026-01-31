@@ -120,9 +120,7 @@ export interface Tenant {
 }
 
 export type AppModule = 
-  | 'capture' 
   | 'prospecting' 
-  | 'followup' 
   | 'products' 
   | 'scheduling' 
   | 'results' 
@@ -132,4 +130,5 @@ export type AppModule =
   | 'payments'
   | 'profile'
   | 'broadcast'
-  | 'search';
+  | 'search'
+  | 'concierge';
