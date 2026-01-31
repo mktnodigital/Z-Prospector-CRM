@@ -9,7 +9,7 @@ import {
   ArrowRight, CheckCircle2, ShoppingCart, CreditCard, Landmark, Globe, Palette, Building2,
   Image as ImageIcon, Type, Layout, Save, X, Ban, Edit3, Smartphone, Globe2,
   Lock, ShieldAlert, Fingerprint, History, Monitor, Shield, UploadCloud, ImagePlus, Workflow,
-  Check, AlertTriangle, Layers, Briefcase, Handshake
+  Check, AlertTriangle, Layers, Briefcase, Handshake, Link as LinkIcon, Wifi
 } from 'lucide-react';
 import { BrandingConfig, EvolutionConfig, Tenant, SalesMode } from '../types';
 import { IntegrationSettings } from './IntegrationSettings';
@@ -25,7 +25,7 @@ interface AdminModuleProps {
   notify: (msg: string) => void;
 }
 
-type AdminSubTab = 'business' | 'branding' | 'payments';
+type AdminSubTab = 'business' | 'branding' | 'integrations' | 'payments';
 
 export const AdminModule: React.FC<AdminModuleProps> = ({ tenant, onTenantChange, branding, onBrandingChange, evolutionConfig, onEvolutionConfigChange, notify }) => {
   const [activeTab, setActiveTab] = useState<AdminSubTab>('business');
@@ -35,9 +35,10 @@ export const AdminModule: React.FC<AdminModuleProps> = ({ tenant, onTenantChange
   const logoInputRef = useRef<HTMLInputElement>(null);
   
   const subTabs = [
-    { id: 'business' as const, label: 'Dados da Empresa', icon: Building2 },
-    { id: 'branding' as const, label: 'Marca & Visual', icon: Palette },
-    { id: 'payments' as const, label: 'Meios de Pagamento', icon: CreditCard },
+    { id: 'business' as const, label: 'Empresa', icon: Building2 },
+    { id: 'branding' as const, label: 'Visual', icon: Palette },
+    { id: 'integrations' as const, label: 'Conexões API', icon: Wifi },
+    { id: 'payments' as const, label: 'Financeiro', icon: CreditCard },
   ];
 
   // --- HANDLERS: BRANDING ---
@@ -84,6 +85,17 @@ export const AdminModule: React.FC<AdminModuleProps> = ({ tenant, onTenantChange
     }, 1000);
   };
 
+  // HANDLER PARA INTEGRAÇÕES
+  const handleSaveIntegrations = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSyncing(true);
+    // Aqui chamaria a API real para salvar
+    setTimeout(() => {
+      setIsSyncing(false);
+      notify('Conexões com Evolution e N8n Atualizadas!');
+    }, 1200);
+  };
+
   return (
     <div className="p-10 space-y-10 animate-in fade-in pb-40">
       
@@ -91,37 +103,37 @@ export const AdminModule: React.FC<AdminModuleProps> = ({ tenant, onTenantChange
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-10">
         <div>
            <div className="flex items-center gap-4">
-              <div className="p-4 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-200 rounded-2xl shadow-sm"><Settings size={32} /></div>
-              <h1 className="text-4xl font-black italic uppercase tracking-tighter text-slate-800 dark:text-slate-100">Configurações <span className="text-indigo-600">Gerais</span></h1>
+              <div className="p-4 bg-white/50 dark:bg-slate-800 text-slate-600 dark:text-slate-200 rounded-2xl shadow-sm border border-white dark:border-slate-700 backdrop-blur-sm"><Settings size={32} /></div>
+              <h1 className="text-4xl font-black italic uppercase tracking-tighter text-slate-800 dark:text-slate-100">Configurações <span className="text-indigo-600">Master</span></h1>
            </div>
-           <p className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px] mt-2 italic">Ajustes da sua Unidade</p>
+           <p className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px] mt-2 italic">Painel de Controle da Unidade</p>
         </div>
 
-        <div className="flex bg-white dark:bg-slate-900 p-2.5 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-x-auto no-scrollbar max-w-full gap-1">
+        <div className="flex bg-white/60 dark:bg-slate-900 p-2.5 rounded-[2.5rem] shadow-sm border border-white dark:border-slate-800 overflow-x-auto no-scrollbar max-w-full gap-1 backdrop-blur-md">
            {subTabs.map(tab => (
              <button
                key={tab.id}
                onClick={() => setActiveTab(tab.id)}
-               className={`flex items-center gap-3.5 px-9 py-5 rounded-[1.8rem] text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-xl' : 'text-slate-500 hover:text-slate-700'}`}
+               className={`flex items-center gap-3.5 px-8 py-4 rounded-[1.8rem] text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' : 'text-slate-500 hover:text-slate-700'}`}
              >
-                <tab.icon size={22} /> {tab.label}
+                <tab.icon size={18} /> {tab.label}
              </button>
            ))}
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 p-12 rounded-[4.5rem] border-2 border-slate-50 dark:border-slate-800 shadow-sm relative overflow-hidden min-h-[600px]">
+      <div className="bg-white/80 dark:bg-slate-900 p-12 rounded-[4.5rem] border-2 border-white dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none relative overflow-hidden min-h-[600px] backdrop-blur-sm">
          
          {/* ABA 1: DADOS DA EMPRESA E MODO DE OPERAÇÃO */}
          {activeTab === 'business' && tenant && onTenantChange && (
             <div className="space-y-12 animate-in slide-in-from-left-4">
                 
                 {/* SELETOR DE MODO DE VENDA */}
-                <div className="p-8 bg-slate-50 dark:bg-slate-800/50 rounded-[3rem] border border-slate-100 dark:border-slate-700">
+                <div className="p-8 bg-indigo-50/50 dark:bg-slate-800/50 rounded-[3rem] border border-indigo-100 dark:border-slate-700">
                    <div className="flex flex-col md:flex-row justify-between items-center gap-8">
                       <div>
                          <h3 className="text-xl font-black italic uppercase tracking-tight text-slate-800 dark:text-white flex items-center gap-3">
-                            <Zap size={20} className="text-orange-500"/> Modo de Operação Ativo
+                            <Zap size={20} className="text-orange-500"/> Modo de Operação
                          </h3>
                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 italic">Como sua unidade vende hoje?</p>
                       </div>
@@ -142,12 +154,12 @@ export const AdminModule: React.FC<AdminModuleProps> = ({ tenant, onTenantChange
                       </div>
                    </div>
                    
-                   <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700 grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className={`p-6 rounded-3xl border transition-all ${tenant.salesMode === 'DIRECT' ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800' : 'opacity-50 border-transparent'}`}>
+                   <div className="mt-6 pt-6 border-t border-indigo-100 dark:border-slate-700 grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className={`p-6 rounded-3xl border transition-all ${tenant.salesMode === 'DIRECT' ? 'bg-white dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 shadow-md' : 'opacity-50 border-transparent'}`}>
                          <p className="text-[9px] font-black uppercase text-indigo-600 mb-2">Modo 1: Catálogo Digital</p>
                          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">Ideal para delivery, e-commerce e varejo. O cliente escolhe no catálogo e faz checkout (Pix/Cartão). A IA foca em tirar dúvidas sobre produtos.</p>
                       </div>
-                      <div className={`p-6 rounded-3xl border transition-all ${tenant.salesMode === 'ASSISTED' ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800' : 'opacity-50 border-transparent'}`}>
+                      <div className={`p-6 rounded-3xl border transition-all ${tenant.salesMode === 'ASSISTED' ? 'bg-white dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 shadow-md' : 'opacity-50 border-transparent'}`}>
                          <p className="text-[9px] font-black uppercase text-indigo-600 mb-2">Modo 2: Agendamento & Serviço</p>
                          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">Ideal para clínicas, barbearias e consultorias. O foco é agendar um horário na agenda. A IA qualifica e busca disponibilidade.</p>
                       </div>
@@ -247,7 +259,74 @@ export const AdminModule: React.FC<AdminModuleProps> = ({ tenant, onTenantChange
             </div>
          )}
 
-         {/* ABA 3: PAGAMENTOS (INTEGRAÇÃO) */}
+         {/* ABA 3: INTEGRAÇÕES (Evolution API / N8n) */}
+         {activeTab === 'integrations' && (
+            <div className="animate-in slide-in-from-right-4 space-y-8">
+               <div className="p-8 bg-blue-50 dark:bg-blue-900/10 rounded-[3rem] border border-blue-100 dark:border-blue-800/30">
+                  <div className="flex items-center gap-4 mb-4 text-blue-600 dark:text-blue-400">
+                     <Wifi size={24} />
+                     <h3 className="text-xl font-black italic uppercase tracking-tight">Core Connections</h3>
+                  </div>
+                  <p className="text-[11px] font-bold text-blue-800/70 dark:text-blue-200 leading-relaxed max-w-2xl">
+                     Configuração crítica da infraestrutura. Aponte para seus clusters privados para garantir que o Dashboard receba eventos em tempo real.
+                  </p>
+               </div>
+
+               <form onSubmit={handleSaveIntegrations} className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                  <div className="space-y-6">
+                     <div className="flex items-center gap-3 mb-2">
+                        <Smartphone size={18} className="text-emerald-500" />
+                        <h4 className="text-sm font-black uppercase text-slate-700 dark:text-slate-200">Evolution API (WhatsApp)</h4>
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-[9px] font-black uppercase text-slate-400 px-4">Base URL</label>
+                        <input 
+                           value={evolutionConfig.baseUrl} 
+                           onChange={e => onEvolutionConfigChange({...evolutionConfig, baseUrl: e.target.value})}
+                           placeholder="https://api.clikai.com.br" 
+                           className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold border-none outline-none focus:ring-4 ring-emerald-500/10 shadow-inner" 
+                        />
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-[9px] font-black uppercase text-slate-400 px-4">Global API Key</label>
+                        <input 
+                           type="password"
+                           value={evolutionConfig.apiKey} 
+                           onChange={e => onEvolutionConfigChange({...evolutionConfig, apiKey: e.target.value})}
+                           className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold border-none outline-none focus:ring-4 ring-emerald-500/10 shadow-inner" 
+                        />
+                     </div>
+                  </div>
+
+                  <div className="space-y-6">
+                     <div className="flex items-center gap-3 mb-2">
+                        <Workflow size={18} className="text-rose-500" />
+                        <h4 className="text-sm font-black uppercase text-slate-700 dark:text-slate-200">N8n Orchestrator</h4>
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-[9px] font-black uppercase text-slate-400 px-4">Webhook CRM Sync</label>
+                        <input 
+                           placeholder="https://n8n.clikai.com.br/webhook/..." 
+                           className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold border-none outline-none focus:ring-4 ring-rose-500/10 shadow-inner" 
+                        />
+                     </div>
+                     <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase text-slate-500">Status Cluster</span>
+                        <span className="px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-full text-[9px] font-black uppercase border border-emerald-500/20">Online</span>
+                     </div>
+                  </div>
+
+                  <div className="md:col-span-2 pt-6 flex justify-end">
+                     <button type="submit" disabled={isSyncing} className="px-12 py-6 bg-slate-900 dark:bg-indigo-600 text-white font-black rounded-3xl shadow-xl hover:scale-[1.02] transition-transform uppercase text-[10px] tracking-widest flex items-center gap-3">
+                        {isSyncing ? <Loader2 className="animate-spin" /> : <Save size={18} />}
+                        Salvar Conexões
+                     </button>
+                  </div>
+               </form>
+            </div>
+         )}
+
+         {/* ABA 4: PAGAMENTOS (INTEGRAÇÃO) */}
          {activeTab === 'payments' && <IntegrationSettings />}
 
       </div>

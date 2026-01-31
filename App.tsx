@@ -20,13 +20,14 @@ import { UserProfile } from './components/UserProfile';
 import { OfferPage } from './components/OfferPage';
 import { AISearchModal } from './components/AISearchModal';
 import { ConciergeService } from './components/ConciergeService';
+import { api } from './services/api';
 
 import { 
   Lead, Appointment, Tenant, BrandingConfig, 
   EvolutionConfig, AppNotification, AppModule, LeadStatus, PipelineStage 
 } from './types';
 
-// INITIAL DATA
+// INITIAL DATA (Fallback se API falhar)
 const INITIAL_LEADS: Lead[] = [
   { id: 'l1', name: 'Roberto Silva', phone: '5511999998888', email: 'roberto@email.com', status: LeadStatus.HOT, stage: PipelineStage.NEGOTIATION, lastInteraction: 'Interessado no plano anual', value: 1500, source: 'Instagram' },
   { id: 'l2', name: 'Julia Martins', phone: '5511988887777', email: 'julia@email.com', status: LeadStatus.WARM, stage: PipelineStage.QUALIFIED, lastInteraction: 'Pediu apresentação', value: 800, source: 'Google Ads' },
@@ -55,18 +56,18 @@ const INITIAL_BRANDING: BrandingConfig = {
   appName: 'Z-Prospector'
 };
 
-// --- CONFIGURAÇÃO DE CORES POR FASE (MÓDULO) ---
-const MODULE_THEME: Record<string, { color: string, activeClass: string, textClass: string, borderClass: string }> = {
-  results: { color: 'indigo', activeClass: 'bg-indigo-600 shadow-indigo-500/30', textClass: 'text-indigo-600', borderClass: 'border-indigo-200 dark:border-indigo-800' },
-  prospecting: { color: 'rose', activeClass: 'bg-rose-600 shadow-rose-500/30', textClass: 'text-rose-600', borderClass: 'border-rose-200 dark:border-rose-800' },
-  inbox: { color: 'violet', activeClass: 'bg-violet-600 shadow-violet-500/30', textClass: 'text-violet-600', borderClass: 'border-violet-200 dark:border-violet-800' },
-  scheduling: { color: 'pink', activeClass: 'bg-pink-600 shadow-pink-500/30', textClass: 'text-pink-600', borderClass: 'border-pink-200 dark:border-pink-800' },
-  products: { color: 'orange', activeClass: 'bg-orange-600 shadow-orange-500/30', textClass: 'text-orange-600', borderClass: 'border-orange-200 dark:border-orange-800' },
-  broadcast: { color: 'cyan', activeClass: 'bg-cyan-600 shadow-cyan-500/30', textClass: 'text-cyan-600', borderClass: 'border-cyan-200 dark:border-cyan-800' },
-  payments: { color: 'teal', activeClass: 'bg-teal-600 shadow-teal-500/30', textClass: 'text-teal-600', borderClass: 'border-teal-200 dark:border-teal-800' },
-  admin: { color: 'slate', activeClass: 'bg-slate-700 shadow-slate-500/30', textClass: 'text-slate-600', borderClass: 'border-slate-200 dark:border-slate-800' },
-  profile: { color: 'indigo', activeClass: 'bg-indigo-600 shadow-indigo-500/30', textClass: 'text-indigo-600', borderClass: 'border-indigo-200 dark:border-indigo-800' },
-  concierge: { color: 'amber', activeClass: 'bg-amber-500 shadow-amber-500/30', textClass: 'text-amber-600', borderClass: 'border-amber-200 dark:border-amber-800' },
+// --- CONFIGURAÇÃO DE CORES POR FASE (MÓDULO) - VIBRANTE ---
+const MODULE_THEME: Record<string, { color: string, activeClass: string, textClass: string, borderClass: string, lightBg: string }> = {
+  results: { color: 'indigo', activeClass: 'bg-indigo-600 shadow-lg shadow-indigo-500/40', textClass: 'text-indigo-600', borderClass: 'border-indigo-200 dark:border-indigo-800', lightBg: 'bg-indigo-50/50' },
+  prospecting: { color: 'rose', activeClass: 'bg-rose-600 shadow-lg shadow-rose-500/40', textClass: 'text-rose-600', borderClass: 'border-rose-200 dark:border-rose-800', lightBg: 'bg-rose-50/50' },
+  inbox: { color: 'violet', activeClass: 'bg-violet-600 shadow-lg shadow-violet-500/40', textClass: 'text-violet-600', borderClass: 'border-violet-200 dark:border-violet-800', lightBg: 'bg-violet-50/50' },
+  scheduling: { color: 'pink', activeClass: 'bg-pink-600 shadow-lg shadow-pink-500/40', textClass: 'text-pink-600', borderClass: 'border-pink-200 dark:border-pink-800', lightBg: 'bg-pink-50/50' },
+  products: { color: 'orange', activeClass: 'bg-orange-600 shadow-lg shadow-orange-500/40', textClass: 'text-orange-600', borderClass: 'border-orange-200 dark:border-orange-800', lightBg: 'bg-orange-50/50' },
+  broadcast: { color: 'cyan', activeClass: 'bg-cyan-600 shadow-lg shadow-cyan-500/40', textClass: 'text-cyan-600', borderClass: 'border-cyan-200 dark:border-cyan-800', lightBg: 'bg-cyan-50/50' },
+  payments: { color: 'teal', activeClass: 'bg-teal-600 shadow-lg shadow-teal-500/40', textClass: 'text-teal-600', borderClass: 'border-teal-200 dark:border-teal-800', lightBg: 'bg-teal-50/50' },
+  admin: { color: 'slate', activeClass: 'bg-slate-800 shadow-lg shadow-slate-500/40', textClass: 'text-slate-600', borderClass: 'border-slate-200 dark:border-slate-800', lightBg: 'bg-slate-100/50' },
+  profile: { color: 'indigo', activeClass: 'bg-indigo-600 shadow-lg shadow-indigo-500/40', textClass: 'text-indigo-600', borderClass: 'border-indigo-200 dark:border-indigo-800', lightBg: 'bg-indigo-50/50' },
+  concierge: { color: 'amber', activeClass: 'bg-amber-500 shadow-lg shadow-amber-500/40', textClass: 'text-amber-600', borderClass: 'border-amber-200 dark:border-amber-800', lightBg: 'bg-amber-50/50' },
 };
 
 export default function App() {
@@ -80,7 +81,7 @@ export default function App() {
   const [leads, setLeads] = useState<Lead[]>(INITIAL_LEADS);
   const [tenant, setTenant] = useState<Tenant>(INITIAL_TENANT);
   const [branding, setBranding] = useState<BrandingConfig>(INITIAL_BRANDING);
-  const [evolutionConfig, setEvolutionConfig] = useState<EvolutionConfig>({ baseUrl: '', apiKey: '', enabled: false });
+  const [evolutionConfig, setEvolutionConfig] = useState<EvolutionConfig>({ baseUrl: 'https://api.clikai.com.br/', apiKey: '', enabled: false });
   const [notifications, setNotifications] = useState<AppNotification[]>([
      { id: 'n1', type: 'SYSTEM', title: 'Bem-vindo ao Z-Prospector', description: 'Sua operação foi iniciada com sucesso.', time: 'Agora', read: false },
      { id: 'n2', type: 'SALE', title: 'Venda Aprovada', description: 'Lead Roberto pagou R$ 1.500,00', time: 'Há 5 min', read: false }
@@ -91,6 +92,23 @@ export default function App() {
 
   const unreadCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications]);
   const currentTheme = MODULE_THEME[activeModule] || MODULE_THEME.results;
+
+  // Carregar dados reais da API ao iniciar
+  useEffect(() => {
+    if (isAuthenticated) {
+      const loadData = async () => {
+        const loadedLeads = await api.getLeads();
+        if (loadedLeads.length > 0) setLeads(loadedLeads);
+        
+        const loadedBranding = await api.getBranding();
+        if (loadedBranding) setBranding(loadedBranding);
+
+        const loadedAppts = await api.getAppointments();
+        if (loadedAppts.length > 0) setAppointments(loadedAppts);
+      };
+      loadData();
+    }
+  }, [isAuthenticated]);
 
   // Sync Dark Mode with Body Class
   useEffect(() => {
@@ -146,6 +164,9 @@ export default function App() {
       paymentMethod: method
     };
     setAppointments(prev => [...prev, newAppt]);
+    
+    // Persistir via API
+    api.saveAppointment(newAppt);
 
     // 3. Notificar Sistema e "Enviar WhatsApp"
     const notifTitle = tenant.salesMode === 'ASSISTED' ? 'Agenda Bloqueada (Pago)' : 'Venda Realizada';
@@ -200,7 +221,7 @@ export default function App() {
   }
 
   return (
-    <div className={`flex h-screen overflow-hidden transition-colors duration-500 ${performanceMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+    <div className={`flex h-screen overflow-hidden transition-all duration-500 ${performanceMode ? 'bg-slate-950 text-slate-100' : 'bg-gradient-to-br from-indigo-50/40 via-white to-cyan-50/40 text-slate-900'}`}>
       
       {/* AISearch Modal */}
       <AISearchModal 
@@ -210,14 +231,14 @@ export default function App() {
       />
 
       {/* Sidebar Dinâmica */}
-      <aside className={`flex-shrink-0 transition-all duration-300 ${isSidebarOpen ? 'w-64' : 'w-20'} ${performanceMode ? 'bg-slate-900 border-r border-slate-800' : 'bg-white border-r border-slate-200'} flex flex-col z-20`}>
-        <div className="h-20 flex items-center justify-center border-b border-transparent">
+      <aside className={`flex-shrink-0 transition-all duration-300 ${isSidebarOpen ? 'w-64' : 'w-20'} ${performanceMode ? 'bg-slate-900 border-r border-slate-800' : 'bg-white/80 backdrop-blur-xl border-r border-white/50'} flex flex-col z-20 shadow-xl shadow-indigo-100/20 dark:shadow-none`}>
+        <div className="h-24 flex items-center justify-center border-b border-transparent">
            {isSidebarOpen ? (
-             <h1 className="text-xl font-black italic uppercase tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-600 cursor-pointer" onClick={() => setActiveModule('results')}>
+             <h1 className="text-xl font-black italic uppercase tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 cursor-pointer drop-shadow-sm" onClick={() => setActiveModule('results')}>
                {branding.appName}
              </h1>
            ) : (
-             <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-black italic shadow-lg cursor-pointer" onClick={() => setIsSidebarOpen(true)}>
+             <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-black italic shadow-lg shadow-indigo-500/30 cursor-pointer" onClick={() => setIsSidebarOpen(true)}>
                {branding.appName.charAt(0)}
              </div>
            )}
@@ -237,7 +258,7 @@ export default function App() {
                    ? `${itemTheme.activeClass} text-white` 
                    : performanceMode 
                      ? 'text-slate-400 hover:bg-slate-800 hover:text-white' 
-                     : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                     : `text-slate-500 hover:${itemTheme.lightBg} hover:${itemTheme.textClass}`
                  }`}
                >
                   <item.icon size={20} className={`shrink-0 transition-transform group-hover:scale-110 ${isActive ? 'animate-pulse' : ''}`} />
@@ -255,12 +276,12 @@ export default function App() {
         <div className="p-4 border-t border-transparent">
            <button 
              onClick={() => setActiveModule('profile')}
-             className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all ${performanceMode ? 'bg-slate-800 hover:bg-slate-700' : 'bg-slate-100 hover:bg-slate-200'}`}
+             className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all ${performanceMode ? 'bg-slate-800 hover:bg-slate-700' : 'bg-white shadow-md border border-slate-100 hover:bg-slate-50'}`}
            >
-              <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-xs">A</div>
+              <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-xs shadow-lg shadow-indigo-500/30">A</div>
               {isSidebarOpen && (
                 <div className="text-left overflow-hidden">
-                   <p className="text-xs font-black truncate dark:text-white">Admin Master</p>
+                   <p className="text-xs font-black truncate dark:text-white text-slate-800">Admin Master</p>
                    <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold truncate">
                      Modo: {tenant.salesMode === 'DIRECT' ? 'Venda Direta' : 'Assistida'}
                    </p>
@@ -274,7 +295,7 @@ export default function App() {
       <main className="flex-1 flex flex-col h-full overflow-hidden relative">
         
         {/* Top Header Dinâmico */}
-        <header className={`h-20 flex items-center justify-between px-8 z-10 transition-colors ${performanceMode ? 'bg-slate-950/80 backdrop-blur-md' : 'bg-white/80 backdrop-blur-md'}`}>
+        <header className={`h-20 flex items-center justify-between px-8 z-10 transition-colors ${performanceMode ? 'bg-slate-950/80 backdrop-blur-md' : 'bg-white/60 backdrop-blur-md'}`}>
            <div className="flex items-center gap-4">
               <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className={`p-2 rounded-xl transition-all ${performanceMode ? 'text-slate-400 hover:text-white' : 'text-slate-400 hover:text-indigo-600'}`}>
                  <Menu size={20} />
@@ -285,7 +306,7 @@ export default function App() {
                 className={`flex items-center gap-3 px-4 py-2.5 rounded-2xl transition-all w-64 cursor-text border ${
                   performanceMode 
                   ? `bg-slate-900 ${currentTheme.borderClass} text-slate-300` 
-                  : `bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300`
+                  : `bg-white border-slate-200 text-slate-500 hover:border-indigo-300 shadow-sm`
                 }`} 
                 onClick={() => setIsSearchOpen(true)}
               >
@@ -296,13 +317,13 @@ export default function App() {
            </div>
 
            <div className="flex items-center gap-3 md:gap-6">
-             {/* THEME TOGGLE (SIMPLIFICADO) */}
+             {/* THEME TOGGLE */}
              <button 
                onClick={() => setPerformanceMode(!performanceMode)}
                className={`p-3 rounded-2xl transition-all border hover:scale-105 active:scale-95 ${
                  performanceMode 
                  ? 'bg-slate-800/50 border-slate-700 text-slate-400 hover:text-white' 
-                 : 'bg-white border-slate-200 text-slate-400 hover:text-slate-900 shadow-sm'
+                 : 'bg-white border-slate-200 text-slate-400 hover:text-orange-500 shadow-sm'
                }`}
                title={performanceMode ? 'Modo Claro' : 'Modo Escuro'}
              >
@@ -314,7 +335,7 @@ export default function App() {
                   onClick={() => setShowNotifications(!showNotifications)}
                   className={`p-3 rounded-2xl transition-all relative group ${performanceMode ? 'bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-700' : 'bg-white text-slate-500 hover:text-indigo-600 shadow-sm border border-indigo-50'}`}
                 >
-                   {unreadCount > 0 && <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full animate-bounce"></span>}
+                   {unreadCount > 0 && <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full animate-bounce shadow-lg shadow-rose-500/50"></span>}
                    <Bell size={20} />
                 </button>
 
@@ -347,7 +368,7 @@ export default function App() {
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto custom-scrollbar relative p-4 md:p-6">
            {activeModule === 'results' && <Dashboard performanceMode={performanceMode} leads={leads} tenant={tenant} />}
-           {activeModule === 'prospecting' && <CRMKanban leads={leads} onLeadsChange={setLeads} notify={notify} onNavigate={setActiveModule} />}
+           {activeModule === 'prospecting' && <CRMKanban leads={leads} onLeadsChange={(l) => { setLeads(l); api.saveLead(l[0]); }} notify={notify} onNavigate={setActiveModule} />}
            {activeModule === 'inbox' && (
              <WhatsAppInbox 
                niche={tenant.niche} 
@@ -363,7 +384,7 @@ export default function App() {
            {activeModule === 'scheduling' && (
               <ScheduleManager 
                 appointments={appointments} 
-                onAddAppointment={(a) => { setAppointments([...appointments, a]); notify('Agendado!'); }} 
+                onAddAppointment={(a) => { setAppointments([...appointments, a]); notify('Agendado!'); api.saveAppointment(a); }} 
                 onUpdateAppointment={(a) => { setAppointments(appointments.map(app => app.id === a.id ? a : app)); notify('Atualizado!'); }}
                 onDeleteAppointment={(id) => { setAppointments(appointments.filter(a => a.id !== id)); notify('Removido!'); }}
               />
@@ -381,7 +402,7 @@ export default function App() {
                tenant={tenant}
                onTenantChange={(t) => setTenant(t)}
                branding={branding} 
-               onBrandingChange={setBranding} 
+               onBrandingChange={(b) => { setBranding(b); api.saveBranding(b); }}
                onNicheChange={(n) => setTenant({...tenant, niche: n})} 
                evolutionConfig={evolutionConfig}
                onEvolutionConfigChange={setEvolutionConfig}
