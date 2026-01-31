@@ -128,16 +128,16 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans overflow-x-hidden selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans overflow-x-hidden selection:bg-indigo-500 selection:text-white transition-colors duration-300">
       
       {/* MODAL DE LOGIN MASTER (MOBILE OPTIMIZED) */}
       {isLoginModalOpen && (
         <div className="fixed inset-0 z-[500] bg-slate-950/90 backdrop-blur-3xl flex items-center justify-center p-4 md:p-6 animate-in fade-in duration-300">
-           <div className="bg-white w-full max-w-lg rounded-[2.5rem] md:rounded-[3.5rem] shadow-[0_0_100px_rgba(99,102,241,0.3)] overflow-hidden relative animate-in zoom-in-95 border border-white/20 flex flex-col max-h-[90vh] overflow-y-auto no-scrollbar">
+           <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[2.5rem] md:rounded-[3.5rem] shadow-[0_0_100px_rgba(99,102,241,0.3)] overflow-hidden relative animate-in zoom-in-95 border border-white/20 dark:border-slate-800 flex flex-col max-h-[90vh] overflow-y-auto no-scrollbar">
               <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
               <button 
                 onClick={() => setIsLoginModalOpen(false)}
-                className="absolute top-4 right-4 md:top-8 md:right-8 p-2 md:p-3 bg-slate-50 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-2xl transition-all z-10"
+                className="absolute top-4 right-4 md:top-8 md:right-8 p-2 md:p-3 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-2xl transition-all z-10"
               >
                 <X size={20} />
               </button>
@@ -148,8 +148,8 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
                        <Lock size={32} className="md:w-10 md:h-10" />
                     </div>
                     <div>
-                       <h3 className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter text-slate-900">Central do Operador</h3>
-                       <p className="text-[10px] md:text-xs font-bold text-indigo-600 uppercase tracking-widest bg-indigo-50 py-1 px-4 rounded-full w-fit mx-auto mt-2">Acesso Seguro SSL</p>
+                       <h3 className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white">Central do Operador</h3>
+                       <p className="text-[10px] md:text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-900/30 py-1 px-4 rounded-full w-fit mx-auto mt-2">Acesso Seguro SSL</p>
                     </div>
                  </div>
 
@@ -157,14 +157,14 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
                     <div className="space-y-2">
                        <label className="text-[10px] font-black uppercase text-slate-400 px-4 tracking-widest">Identificação</label>
                        <div className="relative group">
-                          <Mail className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={20} />
+                          <Mail className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-500 group-focus-within:text-indigo-500 transition-colors" size={20} />
                           <input 
                             required
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             placeholder="Seu e-mail de acesso"
-                            className="w-full pl-16 pr-8 py-4 md:py-5 bg-slate-50 border-2 border-slate-100 rounded-[2rem] font-bold text-slate-800 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all text-sm md:text-base"
+                            className="w-full pl-16 pr-8 py-4 md:py-5 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-[2rem] font-bold text-slate-800 dark:text-slate-100 outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-900 focus:ring-4 focus:ring-indigo-500/10 transition-all text-sm md:text-base"
                           />
                        </div>
                     </div>
@@ -172,14 +172,14 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
                     <div className="space-y-2">
                        <label className="text-[10px] font-black uppercase text-slate-400 px-4 tracking-widest">Credencial</label>
                        <div className="relative group">
-                          <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={20} />
+                          <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-500 group-focus-within:text-indigo-500 transition-colors" size={20} />
                           <input 
                             required
                             type={showPassword ? 'text' : 'password'}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="••••••••••••"
-                            className="w-full pl-16 pr-16 py-4 md:py-5 bg-slate-50 border-2 border-slate-100 rounded-[2rem] font-bold text-slate-800 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all text-sm md:text-base"
+                            className="w-full pl-16 pr-16 py-4 md:py-5 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-[2rem] font-bold text-slate-800 dark:text-slate-100 outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-900 focus:ring-4 focus:ring-indigo-500/10 transition-all text-sm md:text-base"
                           />
                           <button 
                             type="button"
@@ -192,7 +192,7 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
                     </div>
 
                     {loginError && (
-                       <div className="px-6 py-4 bg-rose-50 text-rose-600 rounded-2xl flex items-center gap-3 text-[10px] font-black uppercase border border-rose-100 animate-in slide-in-from-top-2">
+                       <div className="px-6 py-4 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-2xl flex items-center gap-3 text-[10px] font-black uppercase border border-rose-100 dark:border-rose-800 animate-in slide-in-from-top-2">
                           <ShieldAlert size={16} /> {loginError}
                        </div>
                     )}
@@ -301,30 +301,30 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
       </div>
 
       {/* 2. PROBLEMA REAL - HIGH CONTRAST */}
-      <section className="py-16 md:py-32 bg-white relative">
+      <section className="py-16 md:py-32 bg-white dark:bg-slate-950 relative transition-colors duration-300">
          <div className="max-w-6xl mx-auto px-4 md:px-6">
             <div className="text-center mb-12 md:mb-20 space-y-4 md:space-y-6">
-               <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-slate-900">
+               <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white">
                   O problema nunca foi o lead. <br className="hidden md:block"/>
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-500 to-orange-500">O problema é a falta de ritmo.</span>
                </h2>
-               <p className="text-base md:text-lg font-bold text-slate-500 max-w-3xl mx-auto leading-relaxed">
-                  Você perde vendas porque esquece de responder. Sua agenda oscila porque você para de prospectar quando está atendendo. O dinheiro fica na mesa por pura <span className="text-rose-500 bg-rose-50 px-2 rounded-md">falta de processo</span>.
+               <p className="text-base md:text-lg font-bold text-slate-500 dark:text-slate-400 max-w-3xl mx-auto leading-relaxed">
+                  Você perde vendas porque esquece de responder. Sua agenda oscila porque você para de prospectar quando está atendendo. O dinheiro fica na mesa por pura <span className="text-rose-500 bg-rose-50 dark:bg-rose-900/20 px-2 rounded-md">falta de processo</span>.
                </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
                {[
-                 { title: 'Leads Esquecidos', desc: 'Aquele cliente que pediu preço e você nunca mais respondeu.', icon: History, color: 'text-rose-500', bg: 'bg-rose-50', border: 'border-rose-100' },
-                 { title: 'Agenda Instável', desc: 'Dias lotados seguidos de dias vazios. Zero previsibilidade.', icon: Calendar, color: 'text-orange-500', bg: 'bg-orange-50', border: 'border-orange-100' },
-                 { title: 'Caixa "Montanha-Russa"', desc: 'Você nunca sabe quanto vai entrar no final do mês.', icon: Wallet, color: 'text-amber-500', bg: 'bg-amber-50', border: 'border-amber-100' },
+                 { title: 'Leads Esquecidos', desc: 'Aquele cliente que pediu preço e você nunca mais respondeu.', icon: History, color: 'text-rose-500', bg: 'bg-rose-50', border: 'border-rose-100', darkBg: 'dark:bg-rose-900/10', darkBorder: 'dark:border-rose-800' },
+                 { title: 'Agenda Instável', desc: 'Dias lotados seguidos de dias vazios. Zero previsibilidade.', icon: Calendar, color: 'text-orange-500', bg: 'bg-orange-50', border: 'border-orange-100', darkBg: 'dark:bg-orange-900/10', darkBorder: 'dark:border-orange-800' },
+                 { title: 'Caixa "Montanha-Russa"', desc: 'Você nunca sabe quanto vai entrar no final do mês.', icon: Wallet, color: 'text-amber-500', bg: 'bg-amber-50', border: 'border-amber-100', darkBg: 'dark:bg-amber-900/10', darkBorder: 'dark:border-amber-800' },
                ].map((item, i) => (
-                 <div key={i} className={`p-8 md:p-10 rounded-[2.5rem] md:rounded-[3rem] border-2 ${item.border} ${item.bg} hover:scale-105 transition-transform duration-300 shadow-lg hover:shadow-xl`}>
-                    <div className={`w-14 h-14 md:w-16 md:h-16 ${item.bg} rounded-2xl flex items-center justify-center mb-6 shadow-sm border ${item.border} bg-white`}>
+                 <div key={i} className={`p-8 md:p-10 rounded-[2.5rem] md:rounded-[3rem] border-2 ${item.border} ${item.darkBorder} ${item.bg} ${item.darkBg} hover:scale-105 transition-transform duration-300 shadow-lg hover:shadow-xl`}>
+                    <div className={`w-14 h-14 md:w-16 md:h-16 ${item.bg} ${item.darkBg} rounded-2xl flex items-center justify-center mb-6 shadow-sm border ${item.border} ${item.darkBorder} bg-white dark:bg-slate-900`}>
                        <item.icon size={28} className={item.color}/>
                     </div>
                     <h3 className={`text-lg md:text-xl font-black uppercase italic tracking-tight ${item.color} mb-3`}>{item.title}</h3>
-                    <p className="text-xs md:text-sm font-bold text-slate-600 leading-relaxed opacity-80">{item.desc}</p>
+                    <p className="text-xs md:text-sm font-bold text-slate-600 dark:text-slate-400 leading-relaxed opacity-80">{item.desc}</p>
                  </div>
                ))}
             </div>
@@ -332,11 +332,11 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
       </section>
 
       {/* 3. METODOLOGIA - VIBRANT */}
-      <section id="metodo" className="py-16 md:py-32 px-4 md:px-6 bg-slate-50 border-y border-slate-200">
+      <section id="metodo" className="py-16 md:py-32 px-4 md:px-6 bg-slate-50 dark:bg-slate-900/50 border-y border-slate-200 dark:border-slate-800 transition-colors duration-300">
          <div className="max-w-7xl mx-auto">
             <div className="text-center mb-16 md:mb-24">
                <span className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-white bg-indigo-600 px-5 py-2 md:px-6 md:py-3 rounded-full shadow-lg shadow-indigo-500/30">A Nova Operação</span>
-               <h2 className="text-3xl md:text-6xl font-black italic uppercase tracking-tighter mt-8 md:mt-10 text-slate-900">O Método de <span className="text-indigo-600">5 Fases</span></h2>
+               <h2 className="text-3xl md:text-6xl font-black italic uppercase tracking-tighter mt-8 md:mt-10 text-slate-900 dark:text-white">O Método de <span className="text-indigo-600 dark:text-indigo-400">5 Fases</span></h2>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -347,15 +347,15 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
                   { step: '04', title: 'AGENDAR', desc: 'Transformar intenção em compromisso na agenda.', icon: Calendar, from: 'from-violet-500', to: 'to-purple-600', shadow: 'shadow-purple-500/30' },
                   { step: '05', title: 'FECHAR', desc: 'Garantir o pagamento e reativar para próxima venda.', icon: CheckCircle2, from: 'from-emerald-500', to: 'to-teal-600', shadow: 'shadow-emerald-500/30' },
                ].map((phase, i) => (
-                  <div key={i} className={`relative p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] bg-white border border-slate-100 shadow-xl ${phase.shadow} hover:-translate-y-2 transition-all duration-300 group overflow-hidden`}>
-                     <div className={`absolute top-0 right-0 p-4 md:p-6 text-5xl md:text-6xl font-black text-slate-100 select-none group-hover:text-slate-50 transition-colors z-0`}>{phase.step}</div>
+                  <div key={i} className={`relative p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-xl ${phase.shadow} hover:-translate-y-2 transition-all duration-300 group overflow-hidden`}>
+                     <div className={`absolute top-0 right-0 p-4 md:p-6 text-5xl md:text-6xl font-black text-slate-100 dark:text-slate-800 select-none group-hover:text-slate-50 dark:group-hover:text-slate-700 transition-colors z-0`}>{phase.step}</div>
                      
                      <div className={`relative z-10 w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br ${phase.from} ${phase.to} flex items-center justify-center text-white mb-6 md:mb-8 shadow-lg group-hover:scale-110 transition-transform`}>
                         <phase.icon size={24} className="md:w-7 md:h-7" />
                      </div>
                      
-                     <h3 className="relative z-10 text-lg md:text-xl font-black italic uppercase tracking-tight text-slate-900 mb-2 md:mb-3">{phase.title}</h3>
-                     <p className="relative z-10 text-[10px] md:text-xs font-bold text-slate-500 leading-relaxed uppercase tracking-wide">{phase.desc}</p>
+                     <h3 className="relative z-10 text-lg md:text-xl font-black italic uppercase tracking-tight text-slate-900 dark:text-white mb-2 md:mb-3">{phase.title}</h3>
+                     <p className="relative z-10 text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 leading-relaxed uppercase tracking-wide">{phase.desc}</p>
                      
                      <div className={`absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r ${phase.from} ${phase.to}`}></div>
                   </div>
@@ -429,21 +429,21 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
       </section>
 
       {/* 5. PRICING - VIBRANT CARDS */}
-      <section id="precos" className="py-16 md:py-32 bg-slate-50">
+      <section id="precos" className="py-16 md:py-32 bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 md:px-6 text-center">
-          <h2 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter mb-4 md:mb-6 text-slate-900">
+          <h2 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter mb-4 md:mb-6 text-slate-900 dark:text-white">
             Ative sua <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">Operação</span>
           </h2>
-          <p className="text-xs md:text-sm font-bold text-slate-500 uppercase tracking-[0.2em] mb-10 md:mb-16">Você não compra um acesso. Você ativa um motor de vendas.</p>
+          <p className="text-xs md:text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] mb-10 md:mb-16">Você não compra um acesso. Você ativa um motor de vendas.</p>
           
-          <div className="inline-flex flex-col sm:flex-row bg-white p-2 rounded-[2rem] sm:rounded-[2.5rem] mb-12 md:mb-20 shadow-lg border border-slate-100 gap-2 sm:gap-0">
-            <button onClick={() => setBillingCycle('monthly')} className={`w-full sm:w-auto px-8 md:px-12 py-3 md:py-4 rounded-[1.5rem] md:rounded-[2rem] text-[10px] md:text-[11px] font-black uppercase tracking-widest transition-all ${billingCycle === 'monthly' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}>Mensal</button>
-            <button onClick={() => setBillingCycle('annual')} className={`w-full sm:w-auto px-8 md:px-12 py-3 md:py-4 rounded-[1.5rem] md:rounded-[2rem] text-[10px] md:text-[11px] font-black uppercase tracking-widest transition-all ${billingCycle === 'annual' ? 'bg-indigo-600 text-white shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}>Anual (20% OFF)</button>
+          <div className="inline-flex flex-col sm:flex-row bg-white dark:bg-slate-800 p-2 rounded-[2rem] sm:rounded-[2.5rem] mb-12 md:mb-20 shadow-lg border border-slate-100 dark:border-slate-700 gap-2 sm:gap-0">
+            <button onClick={() => setBillingCycle('monthly')} className={`w-full sm:w-auto px-8 md:px-12 py-3 md:py-4 rounded-[1.5rem] md:rounded-[2rem] text-[10px] md:text-[11px] font-black uppercase tracking-widest transition-all ${billingCycle === 'monthly' ? 'bg-slate-900 dark:bg-indigo-600 text-white shadow-xl' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>Mensal</button>
+            <button onClick={() => setBillingCycle('annual')} className={`w-full sm:w-auto px-8 md:px-12 py-3 md:py-4 rounded-[1.5rem] md:rounded-[2rem] text-[10px] md:text-[11px] font-black uppercase tracking-widest transition-all ${billingCycle === 'annual' ? 'bg-indigo-600 text-white shadow-xl' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>Anual (20% OFF)</button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
             {plans.map(plan => (
-              <div key={plan.id} className={`relative p-8 md:p-10 rounded-[2.5rem] md:rounded-[3.5rem] transition-all duration-500 group flex flex-col ${plan.popular ? 'bg-slate-900 text-white shadow-2xl scale-100 md:scale-110 z-10 border-4 border-indigo-500' : 'bg-white text-slate-900 shadow-xl border border-slate-100 hover:border-indigo-200 hover:scale-105'}`}>
+              <div key={plan.id} className={`relative p-8 md:p-10 rounded-[2.5rem] md:rounded-[3.5rem] transition-all duration-500 group flex flex-col ${plan.popular ? 'bg-slate-900 text-white shadow-2xl scale-100 md:scale-110 z-10 border-4 border-indigo-500' : 'bg-white dark:bg-slate-900 dark:border-slate-700 text-slate-900 dark:text-slate-100 shadow-xl border border-slate-100 hover:border-indigo-200 hover:scale-105'}`}>
                 {plan.popular && (
                    <div className="absolute -top-5 md:-top-6 left-1/2 -translate-x-1/2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-6 md:px-8 py-2 md:py-3 rounded-full font-black text-[9px] md:text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-indigo-500/40 whitespace-nowrap">
                       Escolha dos Líderes
@@ -464,15 +464,15 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
                 <div className="space-y-4 md:space-y-5 w-full mb-10 md:mb-12 text-left pl-2 md:pl-4 flex-1">
                    {plan.features.map((f, i) => (
                      <div key={i} className="flex items-center gap-3 md:gap-4">
-                        <div className={`p-1 rounded-full ${plan.popular ? 'bg-indigo-500 text-white' : 'bg-indigo-50 text-indigo-600'}`}>
+                        <div className={`p-1 rounded-full ${plan.popular ? 'bg-indigo-500 text-white' : 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'}`}>
                            <Check size={10} className="md:w-3 md:h-3" strokeWidth={4} />
                         </div>
-                        <span className={`text-[10px] md:text-xs font-bold uppercase tracking-wide ${plan.popular ? 'text-slate-300' : 'text-slate-600'}`}>{f}</span>
+                        <span className={`text-[10px] md:text-xs font-bold uppercase tracking-wide ${plan.popular ? 'text-slate-300' : 'text-slate-600 dark:text-slate-300'}`}>{f}</span>
                      </div>
                    ))}
                 </div>
 
-                <button onClick={() => { handleOpenLogin(); }} className={`w-full py-5 md:py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[9px] md:text-[10px] shadow-lg transition-all hover:scale-105 hover:shadow-xl ${plan.popular ? 'bg-white text-indigo-900 hover:bg-indigo-50' : 'bg-slate-900 text-white hover:bg-indigo-900'}`}>
+                <button onClick={() => { handleOpenLogin(); }} className={`w-full py-5 md:py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[9px] md:text-[10px] shadow-lg transition-all hover:scale-105 hover:shadow-xl ${plan.popular ? 'bg-white text-indigo-900 hover:bg-indigo-50' : 'bg-slate-900 dark:bg-indigo-600 text-white hover:bg-indigo-900 dark:hover:bg-indigo-700'}`}>
                    {plan.cta}
                 </button>
               </div>
@@ -512,13 +512,13 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
       </section>
 
       {/* RODAPÉ CLEAN */}
-      <footer className="py-12 md:py-16 px-4 md:px-6 bg-slate-50 border-t border-slate-200">
+      <footer className="py-12 md:py-16 px-4 md:px-6 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 transition-colors duration-300">
          <div className="max-w-7xl mx-auto flex flex-col items-center gap-6 md:gap-8">
             <ZLogoHero branding={branding} className="opacity-50 grayscale hover:grayscale-0 hover:opacity-100 transition-all scale-75" />
             <div className="flex flex-wrap justify-center gap-6 md:gap-8 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400">
-               <a href="#" className="hover:text-indigo-600 transition-colors">Termos de Uso</a>
-               <a href="#" className="hover:text-indigo-600 transition-colors">Privacidade</a>
-               <a href="#" className="hover:text-indigo-600 transition-colors">Suporte Master</a>
+               <a href="#" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Termos de Uso</a>
+               <a href="#" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Privacidade</a>
+               <a href="#" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Suporte Master</a>
             </div>
             <p className="text-[8px] md:text-[9px] font-bold text-slate-300 uppercase tracking-[0.2em] text-center">© 2024 Z-Prospector Operations Method.</p>
          </div>

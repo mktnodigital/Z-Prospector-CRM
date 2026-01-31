@@ -88,22 +88,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ performanceMode, leads }) 
   ];
 
   return (
-    <div className={`p-8 space-y-8 animate-in fade-in pb-32 ${performanceMode ? 'text-slate-100' : 'text-slate-900'}`}>
+    <div className={`p-8 space-y-8 animate-in fade-in pb-32`}>
       
       {/* HEADER DO PLACAR */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
-          <h1 className="text-4xl font-black italic uppercase tracking-tighter flex items-center gap-4">
+          <h1 className="text-4xl font-black italic uppercase tracking-tighter flex items-center gap-4 text-slate-900 dark:text-white">
              <Trophy className={performanceMode ? 'text-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.5)]' : 'text-indigo-600'} size={36} /> 
              Painel de <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500">Resultado</span>
           </h1>
-          <p className={`text-[10px] font-black uppercase tracking-[0.3em] mt-2 ${performanceMode ? 'text-slate-400' : 'text-slate-500'}`}>
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] mt-2 text-slate-500 dark:text-slate-400">
             Monitoramento em Tempo Real da Operação
           </p>
         </div>
         
         {/* WIDGET DO COACH IA */}
-        <div className={`flex-1 max-w-2xl p-6 rounded-[2rem] border relative overflow-hidden flex items-center gap-5 shadow-xl ${performanceMode ? 'bg-slate-900/40 border-indigo-500/30 backdrop-blur-md' : 'bg-white/80 border-slate-200'}`}>
+        <div className={`flex-1 max-w-2xl p-6 rounded-[2rem] border relative overflow-hidden flex items-center gap-5 shadow-xl ${performanceMode ? 'bg-slate-900/60 border-indigo-500/30 backdrop-blur-md' : 'bg-white/80 border-slate-200'}`}>
            <div className={`absolute inset-0 opacity-10 bg-gradient-to-r ${performanceMode ? 'from-indigo-600 to-purple-600' : 'from-indigo-200 to-purple-200'}`}></div>
            <div className={`p-4 rounded-2xl ${performanceMode ? 'bg-indigo-500/20 text-indigo-400' : 'bg-indigo-50 text-indigo-600'} shrink-0 shadow-lg`}>
               {isAiThinking ? <Loader2 className="animate-spin" size={24} /> : <Brain size={24} />}
@@ -150,8 +150,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ performanceMode, leads }) 
          <div className={`lg:col-span-2 p-8 rounded-[3rem] border shadow-lg relative overflow-hidden ${performanceMode ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-100'}`}>
             <div className="flex justify-between items-center mb-8">
                <div>
-                  <h3 className="text-xl font-black italic uppercase tracking-tight">Velocidade de Vendas</h3>
-                  <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Performance horária da operação</p>
+                  <h3 className={`text-xl font-black italic uppercase tracking-tight ${performanceMode ? 'text-white' : 'text-slate-900'}`}>Velocidade de Vendas</h3>
+                  <p className="text-[10px] font-black uppercase tracking-widest opacity-60 text-slate-500 dark:text-slate-400">Performance horária da operação</p>
                </div>
                <div className={`flex items-center gap-2 px-4 py-2 rounded-full border ${performanceMode ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-600'}`}>
                   <Activity size={14} className="animate-pulse"/>
@@ -192,12 +192,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ performanceMode, leads }) 
          </div>
 
          {/* FASES DA METODOLOGIA */}
-         <div className={`p-8 rounded-[3rem] border flex flex-col justify-between relative overflow-hidden shadow-lg ${performanceMode ? 'bg-indigo-950/30 border-indigo-500/20' : 'bg-white border-indigo-50'}`}>
+         <div className={`p-8 rounded-[3rem] border flex flex-col justify-between relative overflow-hidden shadow-lg ${performanceMode ? 'bg-slate-900 border-indigo-500/20' : 'bg-white border-indigo-50'}`}>
             <div className="mb-6 relative z-10">
-               <h3 className="text-xl font-black italic uppercase tracking-tight flex items-center gap-3">
+               <h3 className={`text-xl font-black italic uppercase tracking-tight flex items-center gap-3 ${performanceMode ? 'text-white' : 'text-slate-900'}`}>
                   <Flame size={20} className="text-orange-500" /> 5 Fases do Sucesso
                </h3>
-               <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mt-1">Onde estão seus leads agora?</p>
+               <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mt-1 text-slate-500 dark:text-slate-400">Onde estão seus leads agora?</p>
             </div>
 
             <div className="space-y-5 relative z-10">
