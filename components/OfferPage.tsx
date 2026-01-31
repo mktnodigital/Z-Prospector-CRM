@@ -50,8 +50,6 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
   
   // LOGIN MODAL STATE
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [securityCode, setSecurityCode] = useState('');
-  const [inputCode, setInputCode] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -70,32 +68,14 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
     return () => clearInterval(timer);
   }, []);
 
-  const generateSecurityCode = () => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let code = '';
-    for (let i = 0; i < 5; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    setSecurityCode(code);
-  };
-
   const handleOpenLogin = () => {
-    generateSecurityCode();
     setIsLoginModalOpen(true);
     setLoginError(null);
-    setInputCode('');
   };
 
   const handleAccess = (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
-
-    if (inputCode.toUpperCase() !== securityCode) {
-      setLoginError('Código de segurança inválido. Tente novamente.');
-      generateSecurityCode();
-      setInputCode('');
-      return;
-    }
 
     setIsAuthenticating(true);
     // Simulação de autenticação Master
@@ -153,7 +133,7 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
       {/* MODAL DE LOGIN MASTER (MOBILE OPTIMIZED) */}
       {isLoginModalOpen && (
         <div className="fixed inset-0 z-[500] bg-slate-950/90 backdrop-blur-3xl flex items-center justify-center p-4 md:p-6 animate-in fade-in duration-300">
-           <div className="bg-white w-full max-w-lg rounded-[2.5rem] md:rounded-[3.5rem] shadow-[0_0_100px_rgba(99,102,241,0.3)] overflow-hidden relative animate-in zoom-in-95 border border-white/20 flex flex-col max-h-[90vh] overflow-y-auto">
+           <div className="bg-white w-full max-w-lg rounded-[2.5rem] md:rounded-[3.5rem] shadow-[0_0_100px_rgba(99,102,241,0.3)] overflow-hidden relative animate-in zoom-in-95 border border-white/20 flex flex-col max-h-[90vh] overflow-y-auto no-scrollbar">
               <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
               <button 
                 onClick={() => setIsLoginModalOpen(false)}
@@ -208,27 +188,6 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
                           >
                              {showPassword ? <EyeOff size={20}/> : <Eye size={20}/>}
                           </button>
-                       </div>
-                    </div>
-
-                    <div className="space-y-4 p-4 md:p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100">
-                       <div className="flex justify-between items-center px-2">
-                          <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Token de Segurança</label>
-                          <button type="button" onClick={generateSecurityCode} className="text-indigo-600 hover:text-indigo-800 transition-colors"><RefreshCcw size={14}/></button>
-                       </div>
-                       <div className="flex flex-col sm:flex-row items-center gap-4">
-                          <div className="w-full sm:flex-1 bg-slate-900 text-white font-mono text-xl md:text-2xl font-black italic tracking-[0.5em] h-14 md:h-16 rounded-2xl flex items-center justify-center shadow-inner select-none relative overflow-hidden">
-                             <div className="absolute inset-0 bg-white/5 skew-x-12"></div>
-                             {securityCode}
-                          </div>
-                          <input 
-                             required
-                             maxLength={5}
-                             value={inputCode}
-                             onChange={(e) => setInputCode(e.target.value.toUpperCase())}
-                             placeholder="CODE"
-                             className="w-full sm:w-28 py-4 md:py-5 bg-white border-2 border-slate-200 rounded-2xl font-black text-center text-lg text-indigo-600 outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-500/10 transition-all uppercase placeholder-slate-300"
-                          />
                        </div>
                     </div>
 
