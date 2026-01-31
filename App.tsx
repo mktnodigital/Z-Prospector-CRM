@@ -35,20 +35,20 @@ const INITIAL_LEADS: Lead[] = [
 ];
 
 const INITIAL_TENANT: Tenant = {
-  id: 't1',
-  name: 'Minha Operação',
-  niche: 'SaaS',
-  healthScore: 98,
-  revenue: 15400,
-  activeLeads: 124,
+  id: 'master_01',
+  name: 'Z-Prospector HQ (Master)',
+  niche: 'SaaS & High Ticket',
+  healthScore: 100,
+  revenue: 154000,
+  activeLeads: 1240,
   status: 'ONLINE',
   instanceStatus: 'CONNECTED',
-  salesMode: 'DIRECT' // Padrão: Venda Direta
+  salesMode: 'DIRECT' // Modo Direto ativa Catálogo + Todos os Módulos
 };
 
 const INITIAL_BRANDING: BrandingConfig = {
-  fullLogo: 'https://via.placeholder.com/150x40?text=Z-Prospector',
-  fullLogoDark: 'https://via.placeholder.com/150x40?text=Z-Prospector&bg=000&textColor=fff',
+  fullLogo: 'https://via.placeholder.com/150x40?text=Z-Prospector+Master',
+  fullLogoDark: 'https://via.placeholder.com/150x40?text=Z-Prospector+Master&bg=000&textColor=fff',
   iconLogo: 'https://via.placeholder.com/40?text=Z',
   iconLogoDark: 'https://via.placeholder.com/40?text=Z&bg=000&textColor=fff',
   favicon: '',
@@ -83,7 +83,7 @@ export default function App() {
   const [branding, setBranding] = useState<BrandingConfig>(INITIAL_BRANDING);
   const [evolutionConfig, setEvolutionConfig] = useState<EvolutionConfig>({ baseUrl: 'https://api.clikai.com.br/', apiKey: '', enabled: false });
   const [notifications, setNotifications] = useState<AppNotification[]>([
-     { id: 'n1', type: 'SYSTEM', title: 'Bem-vindo ao Z-Prospector', description: 'Sua operação foi iniciada com sucesso.', time: 'Agora', read: false },
+     { id: 'n1', type: 'SYSTEM', title: 'Acesso Owner Liberado', description: 'Todos os módulos ativados para moisescosta.mkt@gmail.com', time: 'Agora', read: false },
      { id: 'n2', type: 'SALE', title: 'Venda Aprovada', description: 'Lead Roberto pagou R$ 1.500,00', time: 'Há 5 min', read: false }
   ]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -278,12 +278,12 @@ export default function App() {
              onClick={() => setActiveModule('profile')}
              className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all ${performanceMode ? 'bg-slate-800 hover:bg-slate-700' : 'bg-white shadow-md border border-slate-100 hover:bg-slate-50'}`}
            >
-              <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-xs shadow-lg shadow-indigo-500/30">A</div>
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-xs shadow-lg">MC</div>
               {isSidebarOpen && (
                 <div className="text-left overflow-hidden">
-                   <p className="text-xs font-black truncate dark:text-white text-slate-800">Admin Master</p>
-                   <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold truncate">
-                     Modo: {tenant.salesMode === 'DIRECT' ? 'Venda Direta' : 'Assistida'}
+                   <p className="text-xs font-black truncate dark:text-white text-slate-800">Moisés Costa</p>
+                   <p className="text-[9px] text-emerald-500 uppercase font-bold truncate">
+                     CEO & Founder
                    </p>
                 </div>
               )}
@@ -411,7 +411,11 @@ export default function App() {
            )}
            {activeModule === 'profile' && (
              <UserProfile 
-                user={{ name: 'Admin Master', email: 'admin@clikai.com.br', role: 'Super Admin' }} 
+                user={{ 
+                  name: 'Moisés Costa', 
+                  email: 'moisescosta.mkt@gmail.com', 
+                  role: 'CEO & Founder (Global Admin)' 
+                }} 
                 onUpdate={() => notify('Perfil atualizado')} 
                 onLogout={() => setIsAuthenticated(false)} 
                 notify={notify}
