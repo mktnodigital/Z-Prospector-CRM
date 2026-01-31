@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { 
   Sparkles, CheckCircle2, Clock, MessageSquare, 
   ArrowRight, Zap, PenTool, GitBranch, Bot, 
-  Send, Loader2, PlayCircle, Settings
+  Send, Loader2, PlayCircle, Settings, Crown, Phone
 } from 'lucide-react';
 
 interface ConciergeServiceProps {
@@ -160,25 +160,39 @@ export const ConciergeService: React.FC<ConciergeServiceProps> = ({ notify }) =>
                </form>
             </div>
 
-            {/* STATUS E DICAS */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-               <div className="p-8 bg-indigo-50 dark:bg-indigo-900/10 rounded-[2.5rem] border border-indigo-100 dark:border-indigo-800/30">
-                  <div className="flex items-center gap-3 mb-4 text-indigo-600">
-                     <PlayCircle size={24} />
-                     <h4 className="font-black italic uppercase tracking-tight">Tutorial Rápido</h4>
+            {/* GERENTE DE CONTA DEDICADO (NOVO) */}
+            <div className="p-8 bg-gradient-to-br from-slate-900 to-indigo-900 rounded-[3rem] shadow-2xl relative overflow-hidden text-white group cursor-pointer hover:shadow-indigo-500/20 transition-all">
+               <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full blur-3xl translate-x-10 -translate-y-10 group-hover:bg-white/10 transition-colors"></div>
+               
+               <div className="flex flex-col md:flex-row items-center gap-8 relative z-10">
+                  <div className="relative">
+                     <div className="w-24 h-24 rounded-[2rem] bg-white p-1 shadow-lg">
+                        <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200" className="w-full h-full object-cover rounded-[1.8rem]" />
+                     </div>
+                     <div className="absolute -bottom-3 -right-3 bg-emerald-500 text-white p-2 rounded-xl shadow-lg border-2 border-slate-900">
+                        <Phone size={14} className="animate-pulse" />
+                     </div>
                   </div>
-                  <p className="text-[11px] font-bold text-indigo-800/70 dark:text-indigo-300 leading-relaxed">
-                     Não gaste tempo configurando nós. Apenas descreva o resultado final (ex: "Quero vender mais X") e nossa engenharia constrói o fluxo para você.
-                  </p>
-               </div>
-               <div className="p-8 bg-emerald-50 dark:bg-emerald-900/10 rounded-[2.5rem] border border-emerald-100 dark:border-emerald-800/30">
-                  <div className="flex items-center gap-3 mb-4 text-emerald-600">
-                     <CheckCircle2 size={24} />
-                     <h4 className="font-black italic uppercase tracking-tight">Garantia Setup</h4>
+                  
+                  <div className="flex-1 text-center md:text-left">
+                     <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
+                        <Crown size={16} className="text-yellow-400" />
+                        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-indigo-300">Acesso Exclusivo</span>
+                     </div>
+                     <h3 className="text-2xl font-black italic uppercase tracking-tighter mb-2">Falar com Gerente de Contas</h3>
+                     <p className="text-[11px] font-bold text-slate-300 leading-relaxed mb-6">
+                        Você possui atendimento prioritário na Fila VIP. Agende reuniões estratégicas, peça análises de funil e suporte de crise diretamente.
+                     </p>
+                     
+                     <div className="flex gap-3 justify-center md:justify-start">
+                        <button onClick={() => notify("Chamando Gerente no WhatsApp VIP...")} className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-lg hover:scale-105">
+                           Chamar no WhatsApp
+                        </button>
+                        <button onClick={() => notify("Agendamento prioritário solicitado.")} className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all">
+                           Agendar Call
+                        </button>
+                     </div>
                   </div>
-                  <p className="text-[11px] font-bold text-emerald-800/70 dark:text-emerald-300 leading-relaxed">
-                     Todas as implementações são testadas por um humano antes de irem ao ar. Você receberá um aviso no WhatsApp quando estiver pronto.
-                  </p>
                </div>
             </div>
          </div>

@@ -105,6 +105,16 @@ export interface Integration {
 
 export type UserRole = 'SUPER_ADMIN' | 'TENANT_ADMIN' | 'MANAGER' | 'AGENT';
 
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  avatar?: string;
+  status: 'ACTIVE' | 'INACTIVE';
+  lastLogin?: string;
+}
+
 export interface Tenant {
   id: string;
   name: string;

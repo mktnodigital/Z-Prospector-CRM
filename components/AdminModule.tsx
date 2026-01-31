@@ -9,11 +9,13 @@ import {
   ArrowRight, CheckCircle2, ShoppingCart, CreditCard, Landmark, Globe, Palette, Building2,
   Image as ImageIcon, Type, Layout, Save, X, Ban, Edit3, Smartphone, Globe2,
   Lock, ShieldAlert, Fingerprint, History, Monitor, Shield, UploadCloud, ImagePlus, Workflow,
-  Check, AlertTriangle, Layers, Briefcase, Handshake, Link as LinkIcon, Wifi, Network
+  Check, AlertTriangle, Layers, Briefcase, Handshake, Link as LinkIcon, Wifi, Network, UserCog, CloudLightning
 } from 'lucide-react';
 import { BrandingConfig, EvolutionConfig, Tenant, SalesMode } from '../types';
 import { IntegrationSettings } from './IntegrationSettings';
 import { TenantManager } from './TenantManager';
+import { TeamManager } from './TeamManager';
+import { N8nManager } from './N8nManager';
 
 interface AdminModuleProps {
   tenant?: Tenant;
@@ -33,7 +35,7 @@ interface AdminModuleProps {
   notify: (msg: string) => void;
 }
 
-type AdminSubTab = 'tenants' | 'business' | 'branding' | 'integrations' | 'payments';
+type AdminSubTab = 'tenants' | 'team' | 'n8n' | 'business' | 'branding' | 'integrations' | 'payments';
 
 export const AdminModule: React.FC<AdminModuleProps> = ({ 
   tenant, onTenantChange, 
@@ -47,10 +49,12 @@ export const AdminModule: React.FC<AdminModuleProps> = ({
   const logoInputRef = useRef<HTMLInputElement>(null);
   
   const subTabs = [
-    { id: 'tenants' as const, label: 'Multi-Empresa', icon: Network }, // Nova Aba
+    { id: 'tenants' as const, label: 'Filiais', icon: Network }, // Multi-Tenant
+    { id: 'team' as const, label: 'Equipe', icon: UserCog }, // User Management
+    { id: 'n8n' as const, label: 'N8n API', icon: CloudLightning }, // Webhooks Avançados
     { id: 'business' as const, label: 'Dados da Unidade', icon: Building2 },
     { id: 'branding' as const, label: 'Visual', icon: Palette },
-    { id: 'integrations' as const, label: 'Conexões API', icon: Wifi },
+    { id: 'integrations' as const, label: 'Conexões', icon: Wifi },
     { id: 'payments' as const, label: 'Financeiro', icon: CreditCard },
   ];
 
@@ -117,9 +121,9 @@ export const AdminModule: React.FC<AdminModuleProps> = ({
         <div>
            <div className="flex items-center gap-4">
               <div className="p-4 bg-white/50 dark:bg-slate-800 text-slate-600 dark:text-slate-200 rounded-2xl shadow-sm border border-white dark:border-slate-700 backdrop-blur-sm"><Settings size={32} /></div>
-              <h1 className="text-4xl font-black italic uppercase tracking-tighter text-slate-800 dark:text-slate-100">Configurações <span className="text-indigo-600">Master</span></h1>
+              <h1 className="text-4xl font-black italic uppercase tracking-tighter text-slate-800 dark:text-slate-100">Controle <span className="text-indigo-600">Total</span></h1>
            </div>
-           <p className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px] mt-2 italic">Painel de Controle da Unidade</p>
+           <p className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px] mt-2 italic">Painel de Gestão da Franquia</p>
         </div>
 
         <div className="flex bg-white/60 dark:bg-slate-900 p-2.5 rounded-[2.5rem] shadow-sm border border-white dark:border-slate-800 overflow-x-auto no-scrollbar max-w-full gap-1 backdrop-blur-md">
@@ -137,7 +141,7 @@ export const AdminModule: React.FC<AdminModuleProps> = ({
 
       <div className="bg-white/80 dark:bg-slate-900 p-12 rounded-[4.5rem] border-2 border-white dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none relative overflow-hidden min-h-[600px] backdrop-blur-sm">
          
-         {/* ABA 0: GESTÃO MULTI-TENANT (NOVO) */}
+         {/* ABA 0: GESTÃO MULTI-TENANT */}
          {activeTab === 'tenants' && allTenants && tenant && (
             <TenantManager 
               tenants={allTenants} 
@@ -150,7 +154,13 @@ export const AdminModule: React.FC<AdminModuleProps> = ({
             />
          )}
 
-         {/* ABA 1: DADOS DA EMPRESA E MODO DE OPERAÇÃO */}
+         {/* ABA 1: EQUIPE (NOVO) */}
+         {activeTab === 'team' && <TeamManager notify={notify} />}
+
+         {/* ABA 2: N8N AVANÇADO (NOVO) */}
+         {activeTab === 'n8n' && <N8nManager notify={notify} />}
+
+         {/* ABA 3: DADOS DA EMPRESA E MODO DE OPERAÇÃO */}
          {activeTab === 'business' && tenant && onTenantChange && (
             <div className="space-y-12 animate-in slide-in-from-left-4">
                 
@@ -223,7 +233,7 @@ export const AdminModule: React.FC<AdminModuleProps> = ({
             </div>
          )}
 
-         {/* ABA 2: BRANDING (MARCA) */}
+         {/* ABA 4: BRANDING (MARCA) */}
          {activeTab === 'branding' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 animate-in slide-in-from-right-4">
                 <div className="space-y-8">
@@ -285,7 +295,7 @@ export const AdminModule: React.FC<AdminModuleProps> = ({
             </div>
          )}
 
-         {/* ABA 3: INTEGRAÇÕES (Evolution API / N8n) */}
+         {/* ABA 5: INTEGRAÇÕES (Evolution API) */}
          {activeTab === 'integrations' && (
             <div className="animate-in slide-in-from-right-4 space-y-8">
                <div className="p-8 bg-blue-50 dark:bg-blue-900/10 rounded-[3rem] border border-blue-100 dark:border-blue-800/30">
@@ -324,24 +334,6 @@ export const AdminModule: React.FC<AdminModuleProps> = ({
                      </div>
                   </div>
 
-                  <div className="space-y-6">
-                     <div className="flex items-center gap-3 mb-2">
-                        <Workflow size={18} className="text-rose-500" />
-                        <h4 className="text-sm font-black uppercase text-slate-700 dark:text-slate-200">N8n Orchestrator</h4>
-                     </div>
-                     <div className="space-y-2">
-                        <label className="text-[9px] font-black uppercase text-slate-400 px-4">Webhook CRM Sync</label>
-                        <input 
-                           placeholder="https://n8n.clikai.com.br/webhook/..." 
-                           className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold border-none outline-none focus:ring-4 ring-rose-500/10 shadow-inner" 
-                        />
-                     </div>
-                     <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase text-slate-500">Status Cluster</span>
-                        <span className="px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-full text-[9px] font-black uppercase border border-emerald-500/20">Online</span>
-                     </div>
-                  </div>
-
                   <div className="md:col-span-2 pt-6 flex justify-end">
                      <button type="submit" disabled={isSyncing} className="px-12 py-6 bg-slate-900 dark:bg-indigo-600 text-white font-black rounded-3xl shadow-xl hover:scale-[1.02] transition-transform uppercase text-[10px] tracking-widest flex items-center gap-3">
                         {isSyncing ? <Loader2 className="animate-spin" /> : <Save size={18} />}
@@ -352,7 +344,7 @@ export const AdminModule: React.FC<AdminModuleProps> = ({
             </div>
          )}
 
-         {/* ABA 4: PAGAMENTOS (INTEGRAÇÃO) */}
+         {/* ABA 6: PAGAMENTOS (INTEGRAÇÃO) */}
          {activeTab === 'payments' && <IntegrationSettings />}
 
       </div>
