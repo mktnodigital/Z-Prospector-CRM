@@ -1,33 +1,28 @@
+
 <?php
 /**
- * Z-PROSPECTOR - Produção Core Engine v2.4
- * HostGator Fix - Credenciais Explicitas
+ * Z-PROSPECTOR - Produção Core Engine v1.5
+ * Suporte Total Multi-tenant & CRUD Módulos
  */
 
-// 1. Buffer de saída para evitar erro "Headers already sent"
-ob_start();
+error_reporting(E_ALL);
+ini_set('display_errors', 0); 
+ini_set('log_errors', 1);
 
-// 2. Iniciar Sessão se não existir
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// 3. Headers CORS (Permitir acesso do React)
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With, X-Tenant-ID");
 
-// Preflight Request para CORS
 if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     http_response_code(200);
     exit;
 }
 
-// 4. CREDENCIAIS DO BANCO (HostGator - Dados Fornecidos)
+// Configurações DB HostGator
 $dbHost = 'localhost';
 $dbName = 'tinova31_zprospector_db';
-$dbUser = 'tinova31_zprospector';
+$dbUser = 'tinova31_zprospector_db';
 $dbPass = 'EASmfc#%3107';
 
 try {
@@ -37,83 +32,24 @@ try {
         PDO::ATTR_EMULATE_PREPARES => false,
     ]);
 } catch (PDOException $e) {
-    // Limpa qualquer saída anterior (warnings/notices)
-    ob_clean(); 
     http_response_code(500);
-    
-    // Retorna o erro exato do MySQL para diagnóstico
-    echo json_encode([
-        "success" => false, 
-        "error" => "Falha na Conexão SQL: " . $e->getMessage()
-    ]);
+    echo json_encode(["success" => false, "error" => "DB Connection Failed"]);
     exit;
 }
 
-// Leitura do Input JSON
-$input = json_decode(file_get_contents('php://input'), true);
+// Lógica de Tenant ID (Dinâmico via Header ou Query)
+$tenant_id = $_SERVER['HTTP_X_TENANT_ID'] ?? $_GET['tenant_id'] ?? 1;
 $action = $_GET['action'] ?? 'health';
 
-// --- ROTAS PÚBLICAS ---
-
-if ($action === 'login') {
-    $email = filter_var($input['email'], FILTER_SANITIZE_EMAIL);
-    $password = $input['password'];
-
-    $stmt = $pdo->prepare("SELECT id, name, email, password, role, tenant_id FROM users WHERE email = ? LIMIT 1");
-    $stmt->execute([$email]);
-    $user = $stmt->fetch();
-
-    if ($user && password_verify($password, $user['password'])) {
-        $_SESSION['user_id'] = $user['id'];
-        $_SESSION['tenant_id'] = $user['tenant_id'];
-        $_SESSION['role'] = $user['role'];
-        
-        unset($user['password']);
-        
-        echo json_encode(["success" => true, "user" => $user]);
-    } else {
-        http_response_code(401);
-        echo json_encode(["success" => false, "error" => "Credenciais inválidas"]);
-    }
-    exit;
-}
-
-if ($action === 'logout') {
-    session_destroy();
-    echo json_encode(["success" => true]);
-    exit;
-}
-
-if ($action === 'check-auth') {
-    if (isset($_SESSION['user_id'])) {
-        $stmt = $pdo->prepare("SELECT id, name, email, role, tenant_id FROM users WHERE id = ?");
-        $stmt->execute([$_SESSION['user_id']]);
-        $user = $stmt->fetch();
-        
-        if ($user) {
-            echo json_encode(["authenticated" => true, "user" => $user]);
-        } else {
-            session_destroy();
-            echo json_encode(["authenticated" => false]);
-        }
-    } else {
-        echo json_encode(["authenticated" => false]);
-    }
-    exit;
-}
-
-// --- MIDDLEWARE DE SEGURANÇA ---
-if (!isset($_SESSION['user_id'])) {
-    http_response_code(401);
-    echo json_encode(["error" => "Unauthorized access"]);
-    exit;
-}
-
-$tenant_id = $_SESSION['tenant_id'];
-
-// --- ROTAS PROTEGIDAS ---
+// Helper para leitura de JSON
+$input = json_decode(file_get_contents('php://input'), true);
 
 switch ($action) {
+    case 'health':
+        echo json_encode(["status" => "online", "tenant" => $tenant_id]);
+        break;
+
+    // --- BRANDING ---
     case 'get-branding':
         $stmt = $pdo->prepare("SELECT config_json FROM branding WHERE tenant_id = ?");
         $stmt->execute([$tenant_id]);
@@ -122,17 +58,14 @@ switch ($action) {
         break;
 
     case 'save-branding':
-        if ($_SESSION['role'] !== 'SUPER_ADMIN' && $_SESSION['role'] !== 'TENANT_ADMIN') {
-            http_response_code(403);
-            exit(json_encode(["error" => "Forbidden"]));
-        }
         $stmt = $pdo->prepare("INSERT INTO branding (tenant_id, config_json) VALUES (?, ?) ON DUPLICATE KEY UPDATE config_json = VALUES(config_json)");
         $stmt->execute([$tenant_id, json_encode($input)]);
         echo json_encode(["success" => true]);
         break;
 
+    // --- LEADS ---
     case 'get-leads':
-        $stmt = $pdo->prepare("SELECT * FROM leads WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 500");
+        $stmt = $pdo->prepare("SELECT * FROM leads WHERE tenant_id = ? ORDER BY id DESC");
         $stmt->execute([$tenant_id]);
         echo json_encode($stmt->fetchAll());
         break;
@@ -140,42 +73,63 @@ switch ($action) {
     case 'save-lead':
         $stmt = $pdo->prepare("INSERT INTO leads (tenant_id, name, phone, email, status, stage, value, source, last_interaction) VALUES (?,?,?,?,?,?,?,?,?)");
         $stmt->execute([
-            $tenant_id, 
-            $input['name'], 
-            $input['phone'], 
-            $input['email'], 
-            $input['status'] ?? 'COLD', 
-            $input['stage'] ?? 'NEW', 
-            $input['value'] ?? 0, 
-            $input['source'] ?? 'Direct', 
-            $input['lastInteraction'] ?? ''
+            $tenant_id, $input['name'], $input['phone'], $input['email'], 
+            $input['status'] ?? 'COLD', $input['stage'] ?? 'NEW', 
+            $input['value'] ?? 0, $input['source'] ?? 'Direct', $input['lastInteraction'] ?? ''
         ]);
         echo json_encode(["success" => true, "id" => $pdo->lastInsertId()]);
         break;
 
+    case 'delete-lead':
+        $stmt = $pdo->prepare("DELETE FROM leads WHERE id = ? AND tenant_id = ?");
+        $stmt->execute([$_GET['id'], $tenant_id]);
+        echo json_encode(["success" => true]);
+        break;
+
+    // --- AGENDAMENTOS ---
     case 'get-appointments':
         $stmt = $pdo->prepare("SELECT * FROM appointments WHERE tenant_id = ?");
         $stmt->execute([$tenant_id]);
         echo json_encode($stmt->fetchAll());
         break;
-        
+
     case 'save-appointment':
         $stmt = $pdo->prepare("INSERT INTO appointments (tenant_id, lead_name, service_name, scheduled_at, status, is_ia, value) VALUES (?,?,?,?,?,?,?)");
-        // Nota: O frontend envia estrutura diferente, adaptando para o SQL simples:
-        $dateTime = isset($input['year']) 
-            ? "{$input['year']}-" . ($input['month']+1) . "-{$input['date']} {$input['time']}:00" 
-            : date('Y-m-d H:i:s');
-            
         $stmt->execute([
-            $tenant_id,
-            $input['lead'],
-            $input['service'],
-            $dateTime,
-            $input['status'] ?? 'CONFIRMED',
-            $input['ia'] ? 1 : 0,
-            $input['value'] ?? 0
+            $tenant_id, $input['lead'], $input['service'], $input['scheduled_at'],
+            $input['status'] ?? 'CONFIRMED', $input['ia'] ?? false, $input['value'] ?? 0
         ]);
-        echo json_encode(["success" => true, "id" => $pdo->lastInsertId()]);
+        echo json_encode(["success" => true]);
+        break;
+
+    // --- PRODUTOS ---
+    case 'get-products':
+        $stmt = $pdo->prepare("SELECT * FROM products WHERE tenant_id = ?");
+        $stmt->execute([$tenant_id]);
+        echo json_encode($stmt->fetchAll());
+        break;
+
+    case 'save-product':
+        $stmt = $pdo->prepare("INSERT INTO products (tenant_id, name, price, category, description, image) VALUES (?,?,?,?,?,?)");
+        $stmt->execute([
+            $tenant_id, $input['name'], $input['price'], $input['category'], $input['description'], $input['image']
+        ]);
+        echo json_encode(["success" => true]);
+        break;
+
+    // --- N8N WORKFLOWS ---
+    case 'get-workflows':
+        $stmt = $pdo->prepare("SELECT * FROM n8n_workflows WHERE tenant_id = ?");
+        $stmt->execute([$tenant_id]);
+        echo json_encode($stmt->fetchAll());
+        break;
+
+    case 'save-workflow':
+        $stmt = $pdo->prepare("INSERT INTO n8n_workflows (tenant_id, name, webhook_url, event, status) VALUES (?,?,?,?,?)");
+        $stmt->execute([
+            $tenant_id, $input['name'], $input['webhookUrl'], $input['event'], $input['status'] ?? 'ACTIVE'
+        ]);
+        echo json_encode(["success" => true]);
         break;
 
     default:
@@ -183,4 +137,3 @@ switch ($action) {
         echo json_encode(["error" => "Action not found"]);
         break;
 }
-?>
