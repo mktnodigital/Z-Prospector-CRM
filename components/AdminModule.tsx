@@ -9,7 +9,8 @@ import {
   ArrowRight, CheckCircle2, ShoppingCart, CreditCard, Landmark, Globe, Palette, Building2,
   Image as ImageIcon, Type, Layout, Save, X, Ban, Edit3, Smartphone, Globe2,
   Lock, ShieldAlert, Fingerprint, History, Monitor, Shield, UploadCloud, ImagePlus, Workflow,
-  Check, AlertTriangle, Layers, Briefcase, Handshake, Link as LinkIcon, Wifi, Network, UserCog, CloudLightning
+  Check, AlertTriangle, Layers, Briefcase, Handshake, Link as LinkIcon, Wifi, Network, UserCog, CloudLightning,
+  MapPin
 } from 'lucide-react';
 import { BrandingConfig, EvolutionConfig, Tenant, SalesMode } from '../types';
 import { IntegrationSettings } from './IntegrationSettings';
@@ -84,15 +85,24 @@ export const AdminModule: React.FC<AdminModuleProps> = ({
     }, 1000);
   };
 
-  // HANDLER PARA TROCA DE MODO
-  const handleChangeSalesMode = (mode: SalesMode) => {
-    if (tenant && onTenantChange) {
-      onTenantChange({ ...tenant, salesMode: mode });
-      notify(`Modo de Operação alterado para: ${mode === 'DIRECT' ? 'Venda Direta' : 'Venda Assistida'}`);
+  // HANDLER PARA TROCA DE MODO POR TENANT ESPECÍFICO
+  const handleTenantModeChange = (targetTenant: Tenant, mode: SalesMode) => {
+    const updatedTenant = { ...targetTenant, salesMode: mode };
+    
+    // Atualiza na lista global
+    if (onUpdateTenant) {
+      onUpdateTenant(updatedTenant);
     }
+
+    // Se for o tenant que está ativo na sessão, atualiza o contexto atual também
+    if (tenant && tenant.id === targetTenant.id && onTenantChange) {
+      onTenantChange(updatedTenant);
+    }
+
+    notify(`Filial ${targetTenant.name}: Alterado para ${mode === 'DIRECT' ? 'Venda Direta' : 'Venda Consultiva'}`);
   };
 
-  // HANDLER PARA DADOS EMPRESA
+  // HANDLER PARA DADOS EMPRESA (ACTIVE TENANT)
   const handleSaveBusiness = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSyncing(true);
@@ -161,75 +171,121 @@ export const AdminModule: React.FC<AdminModuleProps> = ({
          {activeTab === 'n8n' && <N8nManager notify={notify} />}
 
          {/* ABA 3: DADOS DA EMPRESA E MODO DE OPERAÇÃO */}
-         {activeTab === 'business' && tenant && onTenantChange && (
+         {activeTab === 'business' && allTenants && (
             <div className="space-y-12 animate-in slide-in-from-left-4">
                 
-                {/* SELETOR DE MODO DE VENDA */}
                 <div className="p-8 bg-indigo-50/50 dark:bg-slate-800/50 rounded-[3rem] border border-indigo-100 dark:border-slate-700">
-                   <div className="flex flex-col md:flex-row justify-between items-center gap-8">
+                   <div className="flex flex-col md:flex-row justify-between items-start gap-8 mb-8">
                       <div>
                          <h3 className="text-xl font-black italic uppercase tracking-tight text-slate-800 dark:text-white flex items-center gap-3">
-                            <Zap size={20} className="text-orange-500"/> Modo de Operação
+                            <Zap size={20} className="text-orange-500"/> Modos de Operação por Unidade
                          </h3>
-                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 italic">Como esta unidade vende hoje?</p>
-                      </div>
-                      
-                      <div className="flex bg-white dark:bg-slate-900 p-1.5 rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-sm">
-                         <button 
-                           onClick={() => handleChangeSalesMode('DIRECT')}
-                           className={`px-8 py-4 rounded-[1.6rem] text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-3 ${tenant.salesMode === 'DIRECT' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
-                         >
-                            <ShoppingCart size={16} /> Venda Direta
-                         </button>
-                         <button 
-                           onClick={() => handleChangeSalesMode('ASSISTED')}
-                           className={`px-8 py-4 rounded-[1.6rem] text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-3 ${tenant.salesMode === 'ASSISTED' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
-                         >
-                            <Handshake size={16} /> Venda Consultiva
-                         </button>
+                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 italic">Defina a estratégia de venda para cada filial individualmente.</p>
                       </div>
                    </div>
-                   
-                   <div className="mt-6 pt-6 border-t border-indigo-100 dark:border-slate-700 grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className={`p-6 rounded-3xl border transition-all ${tenant.salesMode === 'DIRECT' ? 'bg-white dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 shadow-md' : 'opacity-50 border-transparent'}`}>
-                         <p className="text-[9px] font-black uppercase text-indigo-600 mb-2">Modo 1: Catálogo Digital</p>
-                         <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">Ideal para delivery, e-commerce e varejo. O cliente escolhe no catálogo e faz checkout (Pix/Cartão). A IA foca em tirar dúvidas sobre produtos.</p>
-                      </div>
-                      <div className={`p-6 rounded-3xl border transition-all ${tenant.salesMode === 'ASSISTED' ? 'bg-white dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 shadow-md' : 'opacity-50 border-transparent'}`}>
-                         <p className="text-[9px] font-black uppercase text-indigo-600 mb-2">Modo 2: Agendamento & Serviço</p>
-                         <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">Ideal para clínicas, barbearias e consultorias. O foco é agendar um horário na agenda. A IA qualifica e busca disponibilidade.</p>
-                      </div>
+
+                   {/* LISTA DE TENANTS PARA SELEÇÃO DE MODO */}
+                   <div className="space-y-6">
+                      {allTenants.map((t) => (
+                        <div key={t.id} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col xl:flex-row items-center justify-between gap-6 transition-all hover:border-indigo-300">
+                           
+                           {/* Info da Empresa */}
+                           <div className="flex items-center gap-6 w-full xl:w-1/3">
+                              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black shadow-inner ${t.id === tenant?.id ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+                                 {t.name.charAt(0)}
+                              </div>
+                              <div>
+                                 <h4 className="font-black text-lg italic uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+                                    {t.name}
+                                    {t.id === tenant?.id && <span className="text-[8px] bg-emerald-500 text-white px-2 py-0.5 rounded-md uppercase tracking-widest">Atual</span>}
+                                 </h4>
+                                 <div className="flex items-center gap-2 mt-1">
+                                    <MapPin size={12} className="text-slate-400"/>
+                                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{t.niche}</p>
+                                 </div>
+                              </div>
+                           </div>
+
+                           {/* Seletor de Modo */}
+                           <div className="flex-1 w-full grid grid-cols-1 md:grid-cols-2 gap-4">
+                              
+                              {/* OPÇÃO 1: VENDA DIRETA */}
+                              <button 
+                                onClick={() => handleTenantModeChange(t, 'DIRECT')}
+                                className={`p-4 rounded-2xl border-2 flex items-center gap-4 transition-all group ${
+                                  t.salesMode === 'DIRECT' 
+                                  ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 shadow-md ring-2 ring-indigo-500/20' 
+                                  : 'border-slate-100 dark:border-slate-800 opacity-60 hover:opacity-100 hover:border-indigo-200'
+                                }`}
+                              >
+                                 <div className={`p-3 rounded-xl ${t.salesMode === 'DIRECT' ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
+                                    <ShoppingCart size={18} />
+                                 </div>
+                                 <div className="text-left">
+                                    <p className={`text-[10px] font-black uppercase tracking-widest ${t.salesMode === 'DIRECT' ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-500'}`}>Modo 1: Venda Direta</p>
+                                    <p className="text-[9px] text-slate-400 font-medium leading-tight mt-0.5">Catálogo, Carrinho e Checkout (Pix/Cartão).</p>
+                                 </div>
+                                 {t.salesMode === 'DIRECT' && <div className="ml-auto w-3 h-3 bg-emerald-500 rounded-full animate-pulse shadow-lg shadow-emerald-500/50"></div>}
+                              </button>
+
+                              {/* OPÇÃO 2: VENDA CONSULTIVA */}
+                              <button 
+                                onClick={() => handleTenantModeChange(t, 'ASSISTED')}
+                                className={`p-4 rounded-2xl border-2 flex items-center gap-4 transition-all group ${
+                                  t.salesMode === 'ASSISTED' 
+                                  ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 shadow-md ring-2 ring-indigo-500/20' 
+                                  : 'border-slate-100 dark:border-slate-800 opacity-60 hover:opacity-100 hover:border-indigo-200'
+                                }`}
+                              >
+                                 <div className={`p-3 rounded-xl ${t.salesMode === 'ASSISTED' ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
+                                    <Handshake size={18} />
+                                 </div>
+                                 <div className="text-left">
+                                    <p className={`text-[10px] font-black uppercase tracking-widest ${t.salesMode === 'ASSISTED' ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-500'}`}>Modo 2: Consultiva</p>
+                                    <p className="text-[9px] text-slate-400 font-medium leading-tight mt-0.5">Agendamento, SDR IA e Qualificação.</p>
+                                 </div>
+                                 {t.salesMode === 'ASSISTED' && <div className="ml-auto w-3 h-3 bg-emerald-500 rounded-full animate-pulse shadow-lg shadow-emerald-500/50"></div>}
+                              </button>
+
+                           </div>
+                        </div>
+                      ))}
                    </div>
                 </div>
 
-                {/* FORMULÁRIO BÁSICO */}
-                <form onSubmit={handleSaveBusiness} className="space-y-8">
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div className="space-y-2">
-                         <label className="text-[10px] font-black uppercase text-slate-400 px-4">Nome da Empresa</label>
-                         <input 
-                           value={tenant.name} 
-                           onChange={e => onTenantChange({...tenant, name: e.target.value})}
-                           className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold border-none outline-none focus:ring-4 ring-indigo-500/10 shadow-inner dark:text-white" 
-                         />
-                      </div>
-                      <div className="space-y-2">
-                         <label className="text-[10px] font-black uppercase text-slate-400 px-4">Segmento / Nicho</label>
-                         <input 
-                           value={tenant.niche} 
-                           onChange={e => onTenantChange({...tenant, niche: e.target.value})}
-                           className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold border-none outline-none focus:ring-4 ring-indigo-500/10 shadow-inner dark:text-white" 
-                         />
-                      </div>
-                   </div>
-                   
-                   <div className="flex justify-end pt-4">
-                      <button type="submit" disabled={isSyncing} className="px-10 py-5 bg-slate-900 dark:bg-indigo-600 text-white font-black rounded-3xl shadow-xl hover:scale-105 transition-transform flex items-center gap-3 uppercase text-[10px] tracking-widest">
-                         {isSyncing ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-                         Salvar Dados
-                      </button>
-                   </div>
-                </form>
+                {/* FORMULÁRIO DE EDIÇÃO RÁPIDA (APENAS PARA O TENANT ATIVO) */}
+                {tenant && (
+                  <div className="pt-8 border-t border-slate-100 dark:border-slate-800">
+                     <h3 className="text-sm font-black uppercase text-slate-400 mb-6 tracking-widest">Editar Detalhes da Unidade Atual ({tenant.name})</h3>
+                     <form onSubmit={handleSaveBusiness} className="space-y-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                           <div className="space-y-2">
+                              <label className="text-[10px] font-black uppercase text-slate-400 px-4">Nome da Empresa</label>
+                              <input 
+                                value={tenant.name} 
+                                onChange={e => onTenantChange && onTenantChange({...tenant, name: e.target.value})}
+                                className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold border-none outline-none focus:ring-4 ring-indigo-500/10 shadow-inner dark:text-white" 
+                              />
+                           </div>
+                           <div className="space-y-2">
+                              <label className="text-[10px] font-black uppercase text-slate-400 px-4">Segmento / Nicho</label>
+                              <input 
+                                value={tenant.niche} 
+                                onChange={e => onTenantChange && onTenantChange({...tenant, niche: e.target.value})}
+                                className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold border-none outline-none focus:ring-4 ring-indigo-500/10 shadow-inner dark:text-white" 
+                              />
+                           </div>
+                        </div>
+                        
+                        <div className="flex justify-end pt-4">
+                           <button type="submit" disabled={isSyncing} className="px-10 py-5 bg-slate-900 dark:bg-indigo-600 text-white font-black rounded-3xl shadow-xl hover:scale-105 transition-transform flex items-center gap-3 uppercase text-[10px] tracking-widest">
+                              {isSyncing ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                              Salvar Dados da Unidade
+                           </button>
+                        </div>
+                     </form>
+                  </div>
+                )}
             </div>
          )}
 
@@ -295,7 +351,7 @@ export const AdminModule: React.FC<AdminModuleProps> = ({
             </div>
          )}
 
-         {/* ABA 5: INTEGRAÇÕES (Evolution API) */}
+         {/* ABA 5: INTEGRAÇÕES (Evolution API & N8n Core) */}
          {activeTab === 'integrations' && (
             <div className="animate-in slide-in-from-right-4 space-y-8">
                <div className="p-8 bg-blue-50 dark:bg-blue-900/10 rounded-[3rem] border border-blue-100 dark:border-blue-800/30">
@@ -331,6 +387,25 @@ export const AdminModule: React.FC<AdminModuleProps> = ({
                            onChange={e => onEvolutionConfigChange({...evolutionConfig, apiKey: e.target.value})}
                            className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold border-none outline-none focus:ring-4 ring-emerald-500/10 shadow-inner" 
                         />
+                     </div>
+                  </div>
+
+                  <div className="space-y-6">
+                     <div className="flex items-center gap-3 mb-2">
+                        <Workflow size={18} className="text-rose-500" />
+                        <h4 className="text-sm font-black uppercase text-slate-700 dark:text-slate-200">N8n Orchestrator</h4>
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-[9px] font-black uppercase text-slate-400 px-4">Base URL / Webhook Principal</label>
+                        <input 
+                           placeholder="https://n8n.clikai.com.br/webhook/..." 
+                           defaultValue="https://n8n.clikai.com.br/"
+                           className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold border-none outline-none focus:ring-4 ring-rose-500/10 shadow-inner" 
+                        />
+                     </div>
+                     <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase text-slate-500">Status Cluster</span>
+                        <span className="px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-full text-[9px] font-black uppercase border border-emerald-500/20">Online</span>
                      </div>
                   </div>
 

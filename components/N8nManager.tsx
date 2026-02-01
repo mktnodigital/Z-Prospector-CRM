@@ -5,7 +5,8 @@ import {
   Download, FileJson, Link2, CheckCircle2, 
   Loader2, Terminal, ShieldCheck, Database, 
   Search, X, Cloud, Power, History, Code2, 
-  Cpu, Activity, RefreshCcw, AlertTriangle, ExternalLink
+  Cpu, Activity, RefreshCcw, AlertTriangle, ExternalLink,
+  MessageCircle, DollarSign, Users
 } from 'lucide-react';
 import { N8nWorkflow } from '../types';
 
@@ -13,18 +14,18 @@ interface N8nManagerProps {
   notify: (msg: string) => void;
 }
 
-// BLUEPRINTS REAIS PARA IMPORTAÇÃO NO N8N
+// BLUEPRINTS REAIS E ROBUSTOS PARA IMPORTAÇÃO NO N8N
 const WORKFLOW_BLUEPRINTS = {
-  wf_1: {
-    "name": "Sync Lead Ads to CRM",
+  wf_capture: {
+    "name": "🔥 1. Omnichannel Capture & Welcome",
     "nodes": [
       {
         "parameters": {
-          "path": "meta-sync-01",
+          "path": "lead-entry-master",
           "responseMode": "lastNode",
           "options": {}
         },
-        "name": "Webhook Inbound",
+        "name": "Webhook (Facebook/Site)",
         "type": "n8n-nodes-base.webhook",
         "typeVersion": 1,
         "position": [100, 300]
@@ -38,22 +39,47 @@ const WORKFLOW_BLUEPRINTS = {
             "parameters": [
               { "name": "name", "value": "={{$json.body.full_name}}" },
               { "name": "phone", "value": "={{$json.body.phone_number}}" },
-              { "name": "source", "value": "Meta Ads" }
+              { "name": "email", "value": "={{$json.body.email}}" },
+              { "name": "source", "value": "Traffic Source: {{$json.body.campaign_name}}" },
+              { "name": "status", "value": "WARM" }
             ]
           }
         },
-        "name": "Save to Z-Prospector",
+        "name": "Save to CRM",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 3,
         "position": [300, 300]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.clikai.com.br/message/sendText/master_instance",
+          "sendBody": true,
+          "headerParameters": {
+            "parameters": [
+              { "name": "apikey", "value": "GLOBAL_API_KEY" }
+            ]
+          },
+          "bodyParameters": {
+            "parameters": [
+              { "name": "number", "value": "={{$json.body.phone_number}}" },
+              { "name": "text", "value": "Olá {{$json.body.full_name}}! Recebemos seu cadastro. Eu sou a IA da Z-Prospector, como posso ajudar a escalar seu negócio hoje?" }
+            ]
+          }
+        },
+        "name": "Send WhatsApp Welcome",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 3,
+        "position": [500, 300]
       }
     ],
     "connections": {
-      "Webhook Inbound": { "main": [[{ "node": "Save to Z-Prospector", "type": "main", "index": 0 }]] }
+      "Webhook (Facebook/Site)": { "main": [[{ "node": "Save to CRM", "type": "main", "index": 0 }]] },
+      "Save to CRM": { "main": [[{ "node": "Send WhatsApp Welcome", "type": "main", "index": 0 }]] }
     }
   },
-  wf_2: {
-    "name": "AI SDR - Qualification",
+  wf_ai_sdr: {
+    "name": "🧠 2. AI SDR Neural (Gemini + Evolution)",
     "nodes": [
       {
         "parameters": { "path": "evolution-inbound", "httpMethod": "POST" },
@@ -63,38 +89,137 @@ const WORKFLOW_BLUEPRINTS = {
       },
       {
         "parameters": {
-          "modelId": "gemini-pro",
-          "prompt": "Analise a intenção do cliente: {{$json.body.data.message.conversation}}"
+          "conditions": {
+            "boolean": [
+              { "value1": "={{$json.body.data.key.fromMe}}", "value2": false }
+            ]
+          }
         },
-        "name": "Google Gemini",
-        "type": "n8n-nodes-base.googleGemini",
+        "name": "Filter Own Messages",
+        "type": "n8n-nodes-base.if",
         "position": [300, 300]
+      },
+      {
+        "parameters": {
+          "modelId": "gemini-pro",
+          "prompt": "Contexto: Você é um vendedor Sênior. Cliente disse: '{{$json.body.data.message.conversation}}'.\nTarefa: 1. Qualifique (0-100). 2. Identifique intenção (Compra/Dúvida). 3. Gere resposta curta.\nRetorne JSON."
+        },
+        "name": "Google Gemini Core",
+        "type": "n8n-nodes-base.googleGemini",
+        "position": [500, 300]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://zprospector.com.br/api/core.php?action=update-lead-status",
+          "bodyParameters": {
+            "parameters": [
+              { "name": "phone", "value": "={{$node['Evolution Webhook'].json.body.data.key.remoteJid}}" },
+              { "name": "ai_score", "value": "={{$json.score}}" }
+            ]
+          }
+        },
+        "name": "Update CRM Status",
+        "type": "n8n-nodes-base.httpRequest",
+        "position": [700, 200]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.clikai.com.br/message/sendText/master_instance",
+          "bodyParameters": {
+            "parameters": [
+              { "name": "number", "value": "={{$node['Evolution Webhook'].json.body.data.key.remoteJid}}" },
+              { "name": "text", "value": "={{$json.reply_suggestion}}" }
+            ]
+          }
+        },
+        "name": "Reply to Client",
+        "type": "n8n-nodes-base.httpRequest",
+        "position": [700, 400]
       }
     ],
     "connections": {
-      "Evolution Webhook": { "main": [[{ "node": "Google Gemini", "type": "main", "index": 0 }]] }
+      "Evolution Webhook": { "main": [[{ "node": "Filter Own Messages", "type": "main", "index": 0 }]] },
+      "Filter Own Messages": { "main": [[{ "node": "Google Gemini Core", "type": "main", "index": 0 }]] },
+      "Google Gemini Core": { "main": [[{ "node": "Update CRM Status", "type": "main", "index": 0 }, { "node": "Reply to Client", "type": "main", "index": 0 }]] }
+    }
+  },
+  wf_sales: {
+    "name": "💰 3. Sales Recovery & Onboarding",
+    "nodes": [
+      {
+        "parameters": { "path": "stripe-payment-success", "httpMethod": "POST" },
+        "name": "Payment Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "position": [100, 300]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://zprospector.com.br/api/core.php?action=save-appointment",
+          "bodyParameters": {
+            "parameters": [
+              { "name": "lead", "value": "={{$json.body.customer_details.name}}" },
+              { "name": "value", "value": "={{$json.body.amount_total / 100}}" },
+              { "name": "status", "value": "CONFIRMED" }
+            ]
+          }
+        },
+        "name": "Create Appointment",
+        "type": "n8n-nodes-base.httpRequest",
+        "position": [300, 300]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.clikai.com.br/message/sendText/master_instance",
+          "bodyParameters": {
+            "parameters": [
+              { "name": "number", "value": "={{$json.body.customer_details.phone}}" },
+              { "name": "text", "value": "Pagamento confirmado! 🚀 Seu agendamento foi realizado automaticamente. Acesse seu painel aqui: https://app.zprospector.com.br" }
+            ]
+          }
+        },
+        "name": "Send Access Key",
+        "type": "n8n-nodes-base.httpRequest",
+        "position": [500, 300]
+      }
+    ],
+    "connections": {
+      "Payment Webhook": { "main": [[{ "node": "Create Appointment", "type": "main", "index": 0 }]] },
+      "Create Appointment": { "main": [[{ "node": "Send Access Key", "type": "main", "index": 0 }]] }
     }
   }
 };
 
 const INITIAL_WORKFLOWS: N8nWorkflow[] = [
   { 
-    id: 'wf_1', 
-    name: 'Sincronização Meta Ads -> CRM', 
-    webhookUrl: 'https://n8n.clikai.com.br/webhook/meta-sync-01', 
+    id: 'wf_capture', 
+    name: '🔥 1. Omnichannel Capture & Welcome', 
+    webhookUrl: 'https://n8n.clikai.com.br/webhook/lead-entry-master', 
     event: 'LEAD_CREATED', 
     status: 'ACTIVE', 
-    lastExecution: 'Há 2 min', 
-    hits: 452 
+    lastExecution: 'Há 1 min', 
+    hits: 894 
   },
   { 
-    id: 'wf_2', 
-    name: 'Follow-up IA Pós-Venda', 
-    webhookUrl: 'https://n8n.clikai.com.br/webhook/followup-ia', 
-    event: 'STAGE_CHANGED', 
-    status: 'PAUSED', 
-    lastExecution: 'Há 1 dia', 
-    hits: 128 
+    id: 'wf_ai_sdr', 
+    name: '🧠 2. AI SDR Neural (Gemini + Evolution)', 
+    webhookUrl: 'https://n8n.clikai.com.br/webhook/evolution-inbound', 
+    event: 'AI_QUALIFIED', 
+    status: 'ACTIVE', 
+    lastExecution: 'Há 12s', 
+    hits: 2431 
+  },
+  { 
+    id: 'wf_sales', 
+    name: '💰 3. Sales Recovery & Onboarding', 
+    webhookUrl: 'https://n8n.clikai.com.br/webhook/stripe-payment-success', 
+    event: 'PAYMENT_RECEIVED', 
+    status: 'ACTIVE', 
+    lastExecution: 'Há 45 min', 
+    hits: 156 
   }
 ];
 
@@ -165,7 +290,7 @@ export const N8nManager: React.FC<N8nManagerProps> = ({ notify }) => {
   };
 
   const handleDownloadJson = (wf: N8nWorkflow) => {
-    // Tenta pegar o blueprint real, se não existir, gera um genérico baseado nos metadados
+    // Tenta pegar o blueprint real, se não existir, gera um genérico
     const blueprint = WORKFLOW_BLUEPRINTS[wf.id as keyof typeof WORKFLOW_BLUEPRINTS] || {
       name: wf.name,
       nodes: [
@@ -195,6 +320,13 @@ export const N8nManager: React.FC<N8nManagerProps> = ({ notify }) => {
       notify('Cluster n8n (clikai.com.br) Respondendo 200 OK');
     }, 1500);
   };
+
+  const getWorkflowIcon = (id: string) => {
+    if (id.includes('capture')) return <Users size={28} />;
+    if (id.includes('ai')) return <Cpu size={28} />;
+    if (id.includes('sales')) return <DollarSign size={28} />;
+    return <Zap size={28} />;
+  }
 
   return (
     <div className="p-10 space-y-10 animate-in fade-in pb-40 relative">
@@ -237,7 +369,7 @@ export const N8nManager: React.FC<N8nManagerProps> = ({ notify }) => {
              
              <div className="flex justify-between items-start mb-8">
                 <div className={`p-4 rounded-2xl ${wf.status === 'ACTIVE' ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-400'} shadow-inner group-hover:rotate-12 transition-transform`}>
-                   <Zap size={28} />
+                   {getWorkflowIcon(wf.id)}
                 </div>
                 <div className="flex items-center gap-2">
                    {wf.status === 'ACTIVE' ? (
@@ -253,7 +385,7 @@ export const N8nManager: React.FC<N8nManagerProps> = ({ notify }) => {
              <div className="flex-1 space-y-4 mb-8">
                 <h3 className="text-xl font-black italic uppercase tracking-tight text-slate-900 dark:text-white leading-tight">{wf.name}</h3>
                 <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center justify-between">
-                   <code className="text-[10px] font-mono text-slate-500 truncate mr-4 italic">...{wf.webhookUrl.slice(-20)}</code>
+                   <code className="text-[10px] font-mono text-slate-500 truncate mr-4 italic">...{wf.webhookUrl.slice(-25)}</code>
                    <button onClick={() => { navigator.clipboard.writeText(wf.webhookUrl); notify('Webhook copiado!'); }} className="p-2 text-slate-400 hover:text-indigo-600"><Link2 size={14}/></button>
                 </div>
                 <div className="flex items-center gap-6">
