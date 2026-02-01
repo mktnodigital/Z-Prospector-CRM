@@ -9,20 +9,18 @@ import {
   MessageSquare, Filter, Bot, RefreshCcw, History,
   Globe, Zap, Smartphone, CreditCard, BellRing
 } from 'lucide-react';
-import { BrandingConfig } from '../types';
+import { BrandingConfig, User } from '../types';
+import { api } from '../services/api';
 
 interface OfferPageProps {
   branding: BrandingConfig;
-  onLogin: () => void;
+  onLogin: (user: User) => void;
   onActivationSuccess?: (email: string) => void;
 }
 
 // Logo Component - Optimized for Context (Light/Dark backgrounds)
 const ZLogoHero: React.FC<{ branding: BrandingConfig, className?: string, forceTheme?: 'dark' | 'light' }> = ({ branding, className = "", forceTheme }) => {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
-  
-  // Se forceTheme for 'dark', usamos a logo clara (para fundo escuro). 
-  // Se não, usa a lógica padrão ou branding.
   const logoSrc = forceTheme === 'dark' 
     ? (branding.fullLogoDark || branding.fullLogo) 
     : (branding.fullLogo || branding.fullLogoDark);
@@ -48,25 +46,17 @@ const ZLogoHero: React.FC<{ branding: BrandingConfig, className?: string, forceT
 
 export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('annual');
-  
-  // LOGIN MODAL STATE
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
-
-  // MOBILE MENU STATE
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Prevent background scroll when mobile menu is open
   useEffect(() => {
-    if (isMobileMenuOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'auto';
-    }
+    if (isMobileMenuOpen) document.body.style.overflow = 'hidden';
+    else document.body.style.overflow = 'auto';
     return () => { document.body.style.overflow = 'auto'; };
   }, [isMobileMenuOpen]);
 
@@ -76,64 +66,35 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
     setLoginError(null);
   };
 
-  const handleAccess = (e: React.FormEvent) => {
+  const handleAccess = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
-
     setIsAuthenticating(true);
-    // Simulação de autenticação Master
-    setTimeout(() => {
-      setIsAuthenticating(false);
-      onLogin();
-    }, 1500);
-  };
 
-  const plans = [
-    { 
-      id: 'start', 
-      name: 'Essencial', 
-      tagline: 'Para quem está montando a rotina.', 
-      monthlyPrice: 97, 
-      annualTotal: 931, // (97 * 12) * 0.8
-      features: ['CRM Kanban Ilimitado', 'Central de Conversas', 'Até 1 Usuário', 'Dashboard Básico'], 
-      cta: 'COMEÇAR AGORA', 
-      color: 'indigo', 
-      popular: false
-    },
-    { 
-      id: 'growth', 
-      name: 'Avançado', 
-      tagline: 'Para quem quer ritmo constante.', 
-      monthlyPrice: 197, 
-      annualTotal: 1891, // (197 * 12) * 0.8
-      features: ['Automação de WhatsApp (IA)', 'Recuperação de Vendas', 'Até 5 Usuários', 'Suporte Prioritário'], 
-      cta: 'ESCOLHA RECOMENDADA', 
-      popular: true, 
-      color: 'violet', 
-    },
-    { 
-      id: 'scale', 
-      name: 'Franquia', 
-      tagline: 'Para redes e alta escala.', 
-      monthlyPrice: 497, 
-      annualTotal: 4771, // (497 * 12) * 0.8
-      features: ['Multi-tenant (Filiais)', 'API e Webhooks (N8n)', 'Usuários Ilimitados', 'Gerente de Contas'], 
-      cta: 'FALAR COM CONSULTOR', 
-      color: 'slate', 
-      popular: false
+    // CHAMADA API REAL
+    const result = await api.login(email, password);
+
+    if (result.success && result.user) {
+        onLogin(result.user);
+    } else {
+        setLoginError(result.error || 'Falha na autenticação. Verifique os dados.');
+        setIsAuthenticating(false);
     }
-  ];
+  };
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
     if (element) {
         setIsMobileMenuOpen(false);
-        // Small delay to allow menu close animation
-        setTimeout(() => {
-            element.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
+        setTimeout(() => element.scrollIntoView({ behavior: 'smooth' }), 100);
     }
   };
+
+  const plans = [
+    { id: 'start', name: 'Essencial', tagline: 'Para quem está montando a rotina.', monthlyPrice: 97, annualTotal: 931, features: ['CRM Kanban Ilimitado', 'Central de Conversas', 'Até 1 Usuário', 'Dashboard Básico'], cta: 'COMEÇAR AGORA', color: 'indigo', popular: false },
+    { id: 'growth', name: 'Avançado', tagline: 'Para quem quer ritmo constante.', monthlyPrice: 197, annualTotal: 1891, features: ['Automação de WhatsApp (IA)', 'Recuperação de Vendas', 'Até 5 Usuários', 'Suporte Prioritário'], cta: 'ESCOLHA RECOMENDADA', popular: true, color: 'violet' },
+    { id: 'scale', name: 'Franquia', tagline: 'Para redes e alta escala.', monthlyPrice: 497, annualTotal: 4771, features: ['Multi-tenant (Filiais)', 'API e Webhooks (N8n)', 'Usuários Ilimitados', 'Gerente de Contas'], cta: 'FALAR COM CONSULTOR', color: 'slate', popular: false }
+  ];
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans overflow-x-hidden selection:bg-indigo-500 selection:text-white transition-colors duration-300">
@@ -155,6 +116,12 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
                     <h3 className="text-3xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white">Acesso ao Sistema</h3>
                     <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Entre com suas credenciais de proprietário</p>
                  </div>
+
+                 {loginError && (
+                    <div className="p-4 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-2xl text-xs font-bold border border-rose-200 dark:border-rose-800 flex items-center gap-2">
+                        <X size={14}/> {loginError}
+                    </div>
+                 )}
 
                  <form onSubmit={handleAccess} className="space-y-6">
                     <div className="space-y-2">
@@ -232,31 +199,23 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
 
       {/* BLOCO 1: HERO SECTION */}
       <div className="bg-slate-950 relative overflow-hidden text-white border-b border-slate-800">
-        {/* Background Effects */}
         <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-indigo-600/20 blur-[150px] rounded-full"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[70%] bg-violet-600/10 blur-[120px] rounded-full"></div>
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10 pointer-events-none"></div>
 
-        {/* MAIN NAVIGATION */}
         <nav className="relative z-50 px-6 py-6 max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex-shrink-0 cursor-pointer" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>
-             {/* Force Dark Theme Logo on Hero Section */}
              <ZLogoHero branding={branding} forceTheme="dark" />
           </div>
-          
-          {/* Desktop Links */}
           <div className="hidden md:flex items-center gap-8 bg-white/5 backdrop-blur-sm px-8 py-3 rounded-full border border-white/10">
             <button onClick={() => scrollToSection('metodo')} className="text-[11px] font-bold uppercase tracking-widest text-slate-300 hover:text-white transition-colors hover:scale-105 transform">O Método</button>
             <button onClick={() => scrollToSection('solucao')} className="text-[11px] font-bold uppercase tracking-widest text-slate-300 hover:text-white transition-colors hover:scale-105 transform">Solução</button>
             <button onClick={() => scrollToSection('precos')} className="text-[11px] font-bold uppercase tracking-widest text-slate-300 hover:text-white transition-colors hover:scale-105 transform">Planos</button>
           </div>
-
-          {/* Desktop CTA & Mobile Toggle */}
           <div className="flex items-center gap-4">
             <button onClick={handleOpenLogin} className="hidden md:block px-8 py-3 bg-white text-indigo-900 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-indigo-50 transition-all shadow-lg hover:shadow-indigo-500/50 hover:-translate-y-0.5">
               Login Cliente
             </button>
-            
             <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-3 bg-white/10 rounded-2xl text-white hover:bg-white/20 transition-all">
                <MenuIcon size={24} />
             </button>
@@ -270,15 +229,12 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
                 <span className="flex h-2 w-2 rounded-full bg-indigo-400 animate-pulse"></span>
                 <span className="text-[10px] font-black uppercase tracking-widest text-indigo-300">Nova Tecnologia v3.0 Liberada</span>
               </div>
-              
               <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black italic uppercase tracking-tighter leading-[0.9]">
                 Transforme conversas em <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">Receita Previsível.</span>
               </h1>
-              
               <p className="text-lg md:text-xl text-slate-300 font-medium leading-relaxed max-w-2xl mx-auto lg:mx-0">
                 Pare de perder vendas por falta de follow-up. Nossa IA automatiza o atendimento, qualifica leads e agenda reuniões enquanto você dorme.
               </p>
-              
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-4">
                 <button onClick={() => scrollToSection('precos')} className="px-10 py-6 bg-white text-indigo-900 rounded-2xl font-black uppercase tracking-widest shadow-[0_0_40px_rgba(255,255,255,0.3)] hover:shadow-[0_0_60px_rgba(255,255,255,0.5)] transition-all hover:scale-105 flex items-center justify-center gap-4 text-xs group">
                   <Rocket size={18} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
@@ -289,39 +245,18 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
                   Ver Demonstração
                 </button>
               </div>
-
-              <div className="pt-8 flex items-center justify-center lg:justify-start gap-4 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
-                 <div className="flex -space-x-2">
-                    {[1,2,3,4].map(i => <div key={i} className="w-8 h-8 rounded-full bg-slate-800 border-2 border-slate-950 flex items-center justify-center text-[8px]">U{i}</div>)}
-                 </div>
-                 <p>+500 Empresas Escalando</p>
-              </div>
             </div>
-
             <div className="flex-1 w-full relative perspective-1000">
               <div className="relative transform rotate-y-6 rotate-x-3 hover:rotate-0 transition-transform duration-700 ease-out">
                  <div className="absolute -inset-2 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-[2.5rem] blur-2xl opacity-40 animate-pulse"></div>
-                 <img 
-                   src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=2070" 
-                   className="rounded-[2rem] shadow-2xl border-4 border-slate-800 relative z-10 w-full object-cover" 
-                   alt="Platform Dashboard"
-                 />
-                 
-                 {/* Floating Elements */}
-                 <div className="absolute -bottom-8 -left-8 bg-slate-900/90 backdrop-blur-xl p-6 rounded-3xl shadow-2xl border border-slate-700 z-20 flex items-center gap-4 animate-bounce-slow hidden md:flex">
-                    <div className="p-3 bg-emerald-500/20 rounded-xl text-emerald-400"><TrendingUp size={24} /></div>
-                    <div>
-                       <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Conversão</p>
-                       <h4 className="text-2xl font-black italic text-white">+148%</h4>
-                    </div>
-                 </div>
+                 <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=2070" className="rounded-[2rem] shadow-2xl border-4 border-slate-800 relative z-10 w-full object-cover" alt="Platform Dashboard"/>
               </div>
             </div>
           </div>
         </section>
       </div>
 
-      {/* BLOCO 2: A DOR (PROBLEMA) */}
+      {/* BLOCO 2: A DOR */}
       <section className="py-24 bg-white dark:bg-slate-900 relative">
          <div className="max-w-6xl mx-auto px-6">
             <div className="text-center mb-20">
@@ -333,7 +268,6 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
                   90% das empresas perdem vendas no "limbo" do atendimento. Se você demora para responder ou esquece de fazer follow-up, você está deixando dinheiro na mesa.
                </p>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                {[
                  { title: 'Leads Esquecidos', desc: 'Aquele cliente que pediu orçamento e nunca mais recebeu um "oi".', icon: History, color: 'text-rose-500', bg: 'bg-rose-50 dark:bg-rose-900/10' },
@@ -352,141 +286,13 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
          </div>
       </section>
 
-      {/* BLOCO 3: O MÉTODO (FASES) */}
-      <section id="metodo" className="py-24 bg-slate-50 dark:bg-slate-950 border-y border-slate-200 dark:border-slate-800 scroll-mt-24">
-         <div className="max-w-7xl mx-auto px-6">
-            <div className="text-center mb-20">
-               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-600 bg-indigo-100 dark:bg-indigo-900/30 px-4 py-2 rounded-full">Sistema de 5 Pilares</span>
-               <h2 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter mt-8 text-slate-900 dark:text-white">O Ciclo de <span className="text-indigo-600">Venda Automática</span></h2>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-               {[
-                  { step: '01', title: 'CAPTAÇÃO AUTOMÁTICA', desc: 'Google Maps e Redes Sociais varridos 24/7.', icon: Globe, color: 'from-slate-700 to-slate-900' },
-                  { step: '02', title: 'SEPARAÇÃO TÉRMICA', desc: 'Classificação automática: Frio, Morno e Quente.', icon: Filter, color: 'from-blue-500 to-blue-600' },
-                  { step: '03', title: 'FOLLOW-UP INFINITO', desc: 'A IA persegue o lead até ele responder.', icon: RefreshCcw, color: 'from-indigo-500 to-indigo-600' },
-                  { step: '04', title: 'AGENDA & VENDA', desc: 'Venda Direta (Link) ou Assistida (Agenda).', icon: Calendar, color: 'from-violet-500 to-purple-600' },
-                  { step: '05', title: 'NOTIFICAÇÕES', desc: 'Alertas no WhatsApp de venda e agendamento.', icon: BellRing, color: 'from-emerald-500 to-teal-600' },
-               ].map((phase, i) => (
-                  <div key={i} className="relative p-6 rounded-[2rem] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-xl hover:-translate-y-2 transition-all duration-300 group overflow-hidden h-full flex flex-col">
-                     <div className="absolute top-0 right-0 p-4 text-6xl font-black text-slate-100 dark:text-slate-800 select-none -z-0 opacity-50">{phase.step}</div>
-                     
-                     <div className={`relative z-10 w-14 h-14 rounded-2xl bg-gradient-to-br ${phase.color} flex items-center justify-center text-white mb-6 shadow-lg group-hover:scale-110 transition-transform`}>
-                        <phase.icon size={24} />
-                     </div>
-                     
-                     <h3 className="relative z-10 text-sm font-black italic uppercase tracking-tight text-slate-900 dark:text-white mb-2">{phase.title}</h3>
-                     <p className="relative z-10 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide leading-relaxed">{phase.desc}</p>
-                  </div>
-               ))}
-            </div>
-         </div>
-      </section>
-
-      {/* BLOCO 4: A SOLUÇÃO (TECH) */}
-      <section id="solucao" className="py-32 bg-slate-900 text-white relative overflow-hidden scroll-mt-24">
-         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5"></div>
-         
-         <div className="max-w-7xl mx-auto px-6 relative z-10">
-            <div className="flex flex-col lg:flex-row items-center gap-16">
-               <div className="flex-1 space-y-10">
-                  <h2 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter leading-tight">
-                     Tecnologia que trabalha <br/>
-                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">Enquanto você descansa.</span>
-                  </h2>
-                  <p className="text-lg text-slate-400 font-medium leading-relaxed">
-                     Seu time comercial agora é uma Inteligência Artificial treinada para persuadir e converter. Ela não dorme, não tira folga e não esquece ninguém.
-                  </p>
-                  
-                  <ul className="space-y-6">
-                     <li className="flex items-center gap-4">
-                        <div className="p-3 bg-indigo-500/20 rounded-xl text-indigo-400"><Brain size={24}/></div>
-                        <div>
-                           <h4 className="font-black uppercase text-sm">IA Generativa (Gemini 3.0)</h4>
-                           <p className="text-xs text-slate-400">Entende contexto, humor e intenção de compra.</p>
-                        </div>
-                     </li>
-                     <li className="flex items-center gap-4">
-                        <div className="p-3 bg-emerald-500/20 rounded-xl text-emerald-400"><Smartphone size={24}/></div>
-                        <div>
-                           <h4 className="font-black uppercase text-sm">Venda Híbrida (Direta ou Assistida)</h4>
-                           <p className="text-xs text-slate-400">Envio de Link de Pagamento ou Agendamento Automático.</p>
-                        </div>
-                     </li>
-                     <li className="flex items-center gap-4">
-                        <div className="p-3 bg-pink-500/20 rounded-xl text-pink-400"><BellRing size={24}/></div>
-                        <div>
-                           <h4 className="font-black uppercase text-sm">Notificações WhatsApp</h4>
-                           <p className="text-xs text-slate-400">Avisos automáticos de Agendamento, Venda e Pagamento.</p>
-                        </div>
-                     </li>
-                  </ul>
-               </div>
-
-               <div className="flex-1 w-full">
-                  <div className="bg-slate-800 p-8 rounded-[3rem] border border-slate-700 shadow-2xl relative">
-                     <div className="space-y-4 font-mono text-sm">
-                        <div className="flex gap-4">
-                           <div className="w-8 h-8 rounded-full bg-slate-600 flex-shrink-0"></div>
-                           <div className="bg-slate-700 p-4 rounded-2xl rounded-tl-none text-slate-300">
-                              Olá, gostaria de saber o preço do serviço.
-                           </div>
-                        </div>
-                        <div className="flex gap-4 flex-row-reverse">
-                           <div className="w-8 h-8 rounded-full bg-indigo-500 flex-shrink-0 flex items-center justify-center"><Bot size={16}/></div>
-                           <div className="bg-indigo-600 p-4 rounded-2xl rounded-tr-none text-white shadow-lg">
-                              Olá! Claro. O nosso pacote premium está com uma condição especial hoje. Você busca resultado rápido ou longo prazo?
-                           </div>
-                        </div>
-                        <div className="flex gap-4">
-                           <div className="w-8 h-8 rounded-full bg-slate-600 flex-shrink-0"></div>
-                           <div className="bg-slate-700 p-4 rounded-2xl rounded-tl-none text-slate-300">
-                              Resultado rápido, tenho urgência.
-                           </div>
-                        </div>
-                        <div className="flex gap-4 flex-row-reverse">
-                           <div className="w-8 h-8 rounded-full bg-emerald-500 flex-shrink-0 flex items-center justify-center"><Check size={16}/></div>
-                           <div className="bg-emerald-600 p-4 rounded-2xl rounded-tr-none text-white shadow-lg">
-                              Entendido. Tenho um horário vago amanhã às 14h. Posso reservar para você?
-                           </div>
-                        </div>
-                     </div>
-                  </div>
-               </div>
-            </div>
-         </div>
-      </section>
-
-      {/* BLOCO 5: PLANOS (PRICING) */}
+      {/* BLOCO 5: PLANOS */}
       <section id="precos" className="py-24 bg-slate-50 dark:bg-slate-900 scroll-mt-24">
         <div className="max-w-7xl mx-auto px-6 text-center">
           <h2 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter mb-6 text-slate-900 dark:text-white">
             Escolha seu <span className="text-indigo-600">Nível de Jogo</span>
           </h2>
-          
-          <div className="flex justify-center mb-12">
-             <div className="bg-white dark:bg-slate-800 p-2 rounded-full shadow-sm border border-slate-200 dark:border-slate-700 inline-flex relative">
-                <button 
-                  onClick={() => setBillingCycle('monthly')}
-                  className={`px-8 py-3 rounded-full text-xs font-black uppercase tracking-widest transition-all ${billingCycle === 'monthly' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
-                >
-                   Mensal
-                </button>
-                <button 
-                  onClick={() => setBillingCycle('annual')}
-                  className={`px-8 py-3 rounded-full text-xs font-black uppercase tracking-widest transition-all ${billingCycle === 'annual' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
-                >
-                   Anual
-                </button>
-                {billingCycle === 'annual' && (
-                   <div className="absolute -top-4 -right-4 bg-rose-500 text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-lg animate-bounce">
-                      20% OFF
-                   </div>
-                )}
-             </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch mt-12">
             {plans.map(plan => (
               <div key={plan.id} className={`relative p-8 rounded-[3rem] transition-all duration-300 flex flex-col ${plan.popular ? 'bg-slate-900 text-white shadow-2xl scale-105 z-10 border-4 border-indigo-500' : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xl border border-slate-100 dark:border-slate-700 hover:border-indigo-200'}`}>
                 {plan.popular && (
@@ -494,12 +300,10 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
                       Mais Escolhido
                    </div>
                 )}
-                
                 <div className="mb-8">
                    <h3 className="text-2xl font-black italic uppercase tracking-tight mb-2">{plan.name}</h3>
                    <p className={`text-xs font-bold uppercase tracking-widest ${plan.popular ? 'text-slate-400' : 'text-slate-400'}`}>{plan.tagline}</p>
                 </div>
-
                 <div className="flex items-baseline justify-center gap-1 mb-8">
                   <span className="text-sm font-black opacity-50">R$</span>
                   <h4 className="text-6xl font-black tracking-tighter tabular-nums italic">
@@ -507,7 +311,6 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
                   </h4>
                   <span className="text-xs font-bold uppercase opacity-50">/mês</span>
                 </div>
-
                 <div className="space-y-4 mb-10 flex-1 text-left pl-4">
                    {plan.features.map((f, i) => (
                      <div key={i} className="flex items-center gap-3">
@@ -518,7 +321,6 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
                      </div>
                    ))}
                 </div>
-
                 <button onClick={handleOpenLogin} className={`w-full py-5 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] transition-all hover:scale-105 shadow-lg ${plan.popular ? 'bg-white text-indigo-900 hover:bg-indigo-50' : 'bg-slate-900 dark:bg-indigo-600 text-white hover:bg-slate-800'}`}>
                    {plan.cta}
                 </button>
@@ -528,7 +330,6 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
         </div>
       </section>
 
-      {/* BLOCO 6: CTA FINAL & RODAPÉ */}
       <footer className="bg-slate-950 text-white pt-24 pb-12 px-6 border-t border-slate-800">
          <div className="max-w-4xl mx-auto text-center mb-20">
             <h2 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter mb-8 leading-none">
@@ -539,21 +340,7 @@ export const OfferPage: React.FC<OfferPageProps> = ({ branding, onLogin }) => {
                Acessar Plataforma
             </button>
          </div>
-
-         <div className="max-w-7xl mx-auto border-t border-slate-800 pt-12 flex flex-col md:flex-row items-center justify-between gap-8">
-            {/* Force dark theme logo for footer */}
-            <ZLogoHero branding={branding} className="opacity-70 hover:opacity-100 transition-opacity" forceTheme="dark" />
-            
-            <div className="flex gap-8 text-[10px] font-black uppercase tracking-widest text-slate-500">
-               <a href="#" className="hover:text-white transition-colors">Termos de Uso</a>
-               <a href="#" className="hover:text-white transition-colors">Privacidade</a>
-               <a href="#" className="hover:text-white transition-colors">Suporte Master</a>
-            </div>
-            
-            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">© 2024 Z-Prospector SaaS.</p>
-         </div>
       </footer>
-
     </div>
   );
 };
