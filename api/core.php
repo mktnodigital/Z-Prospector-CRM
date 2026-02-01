@@ -1,34 +1,34 @@
-
 <?php
 /**
- * Z-PROSPECTOR - Produção Core Engine v2.0 (SECURE)
- * Auth Real, Env Vars, CSRF Protection
+ * Z-PROSPECTOR - Produção Core Engine v2.2
+ * Configuração HostGator - Hardcoded Credentials
  */
 
-// Iniciar Sessão Segura
-session_start();
+// 1. Buffer de saída para evitar erro "Headers already sent"
+ob_start();
 
-error_reporting(E_ALL);
-ini_set('display_errors', 0); // Ocultar erros em produção
-ini_set('log_errors', 1);
+// 2. Iniciar Sessão se não existir
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
-// Headers CORS e JSON
+// 3. Headers CORS (Permitir acesso do React)
 header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Origin: *"); // Em produção, mude * para seu domínio específico
+header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With, X-Tenant-ID");
 
-// Preflight Request
+// Preflight Request para CORS
 if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     http_response_code(200);
     exit;
 }
 
-// Credenciais via Variáveis de Ambiente (Segurança)
-$dbHost = getenv('DB_HOST') ?: 'localhost';
-$dbName = getenv('DB_NAME') ?: 'zprospector_db';
-$dbUser = getenv('DB_USER') ?: 'root';
-$dbPass = getenv('DB_PASS') ?: '';
+// 4. CREDENCIAIS DO BANCO (HostGator)
+$dbHost = 'localhost';
+$dbName = 'tinova31_zprospector_db';
+$dbUser = 'tinova31_zprospector';
+$dbPass = 'EASmfc#%3107';
 
 try {
     $pdo = new PDO("mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4", $dbUser, $dbPass, [
@@ -37,8 +37,15 @@ try {
         PDO::ATTR_EMULATE_PREPARES => false,
     ]);
 } catch (PDOException $e) {
+    // Limpa qualquer saída anterior (warnings/notices)
+    ob_clean(); 
     http_response_code(500);
-    echo json_encode(["success" => false, "error" => "Database Connection Error"]);
+    
+    // Retorna o erro exato do MySQL para sabermos se é senha ou permissão
+    echo json_encode([
+        "success" => false, 
+        "error" => "Falha na Conexão SQL: " . $e->getMessage()
+    ]);
     exit;
 }
 
@@ -46,7 +53,7 @@ try {
 $input = json_decode(file_get_contents('php://input'), true);
 $action = $_GET['action'] ?? 'health';
 
-// --- ROTAS PÚBLICAS (Login/Check) ---
+// --- ROTAS PÚBLICAS ---
 
 if ($action === 'login') {
     $email = filter_var($input['email'], FILTER_SANITIZE_EMAIL);
@@ -56,13 +63,11 @@ if ($action === 'login') {
     $stmt->execute([$email]);
     $user = $stmt->fetch();
 
-    // Verifica hash da senha (bcrypt)
     if ($user && password_verify($password, $user['password'])) {
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['tenant_id'] = $user['tenant_id'];
         $_SESSION['role'] = $user['role'];
         
-        // Remove senha antes de enviar pro front
         unset($user['password']);
         
         echo json_encode(["success" => true, "user" => $user]);
@@ -81,7 +86,6 @@ if ($action === 'logout') {
 
 if ($action === 'check-auth') {
     if (isset($_SESSION['user_id'])) {
-        // Recarrega dados frescos do usuário
         $stmt = $pdo->prepare("SELECT id, name, email, role, tenant_id FROM users WHERE id = ?");
         $stmt->execute([$_SESSION['user_id']]);
         $user = $stmt->fetch();
@@ -98,21 +102,18 @@ if ($action === 'check-auth') {
     exit;
 }
 
-// --- MIDDLEWARE DE AUTENTICAÇÃO ---
-// Qualquer rota abaixo daqui exige login
+// --- MIDDLEWARE DE SEGURANÇA ---
 if (!isset($_SESSION['user_id'])) {
     http_response_code(401);
     echo json_encode(["error" => "Unauthorized access"]);
     exit;
 }
 
-// Tenant ID vem da sessão segura, não do header (Isolamento Multi-tenant)
 $tenant_id = $_SESSION['tenant_id'];
 
 // --- ROTAS PROTEGIDAS ---
 
 switch ($action) {
-    // --- BRANDING ---
     case 'get-branding':
         $stmt = $pdo->prepare("SELECT config_json FROM branding WHERE tenant_id = ?");
         $stmt->execute([$tenant_id]);
@@ -121,7 +122,6 @@ switch ($action) {
         break;
 
     case 'save-branding':
-        // Apenas Admin pode salvar branding
         if ($_SESSION['role'] !== 'SUPER_ADMIN' && $_SESSION['role'] !== 'TENANT_ADMIN') {
             http_response_code(403);
             exit(json_encode(["error" => "Forbidden"]));
@@ -131,7 +131,6 @@ switch ($action) {
         echo json_encode(["success" => true]);
         break;
 
-    // --- LEADS ---
     case 'get-leads':
         $stmt = $pdo->prepare("SELECT * FROM leads WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 500");
         $stmt->execute([$tenant_id]);
@@ -154,11 +153,29 @@ switch ($action) {
         echo json_encode(["success" => true, "id" => $pdo->lastInsertId()]);
         break;
 
-    // --- AGENDAMENTOS ---
     case 'get-appointments':
         $stmt = $pdo->prepare("SELECT * FROM appointments WHERE tenant_id = ?");
         $stmt->execute([$tenant_id]);
         echo json_encode($stmt->fetchAll());
+        break;
+        
+    case 'save-appointment':
+        $stmt = $pdo->prepare("INSERT INTO appointments (tenant_id, lead_name, service_name, scheduled_at, status, is_ia, value) VALUES (?,?,?,?,?,?,?)");
+        // Nota: O frontend envia estrutura diferente, adaptando para o SQL simples:
+        $dateTime = isset($input['year']) 
+            ? "{$input['year']}-" . ($input['month']+1) . "-{$input['date']} {$input['time']}:00" 
+            : date('Y-m-d H:i:s');
+            
+        $stmt->execute([
+            $tenant_id,
+            $input['lead'],
+            $input['service'],
+            $dateTime,
+            $input['status'] ?? 'CONFIRMED',
+            $input['ia'] ? 1 : 0,
+            $input['value'] ?? 0
+        ]);
+        echo json_encode(["success" => true, "id" => $pdo->lastInsertId()]);
         break;
 
     default:
@@ -166,3 +183,4 @@ switch ($action) {
         echo json_encode(["error" => "Action not found"]);
         break;
 }
+?>
