@@ -5,7 +5,8 @@ import {
   ChevronRight, CheckCircle2, Sparkles, Brain, Bot, 
   CalendarCheck, AlertCircle, Plus, X, User, Edit3, Trash2,
   Info, List, LayoutGrid, Zap, ArrowRight, History, 
-  MessageSquare, Loader2, ShoppingCart, DollarSign
+  MessageSquare, Loader2, ShoppingCart, DollarSign,
+  Palmtree, Flag, Coffee
 } from 'lucide-react';
 import { Appointment } from '../types';
 
@@ -24,6 +25,25 @@ const SERVICE_CATALOG = [
   { id: 'srv_3', name: 'Combo Premium', price: 130.00 },
   { id: 'srv_4', name: 'Mentoria Express', price: 250.00 },
 ];
+
+// DATA DE FERIADOS BRASILEIROS (Fixos e Exemplo de Móveis para 2024/2025)
+const HOLIDAYS: Record<string, { name: string, type: 'NACIONAL' | 'FACULTATIVO' | 'REGIONAL' }> = {
+  '01/01': { name: 'Confraternização Universal', type: 'NACIONAL' },
+  '12/02': { name: 'Carnaval', type: 'FACULTATIVO' },
+  '13/02': { name: 'Carnaval', type: 'FACULTATIVO' },
+  '29/03': { name: 'Paixão de Cristo', type: 'NACIONAL' },
+  '21/04': { name: 'Tiradentes', type: 'NACIONAL' },
+  '01/05': { name: 'Dia do Trabalho', type: 'NACIONAL' },
+  '30/05': { name: 'Corpus Christi', type: 'FACULTATIVO' },
+  '09/07': { name: 'Revolução Constitucionalista', type: 'REGIONAL' }, // Exemplo SP
+  '07/09': { name: 'Independência do Brasil', type: 'NACIONAL' },
+  '12/10': { name: 'N. Sra. Aparecida', type: 'NACIONAL' },
+  '28/10': { name: 'Dia do Servidor Público', type: 'FACULTATIVO' },
+  '02/11': { name: 'Finados', type: 'NACIONAL' },
+  '15/11': { name: 'Proclamação da República', type: 'NACIONAL' },
+  '20/11': { name: 'Dia da Consciência Negra', type: 'NACIONAL' },
+  '25/12': { name: 'Natal', type: 'NACIONAL' },
+};
 
 export const ScheduleManager: React.FC<Props> = ({ appointments, onAddAppointment, onUpdateAppointment, onDeleteAppointment }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('month');
@@ -52,7 +72,12 @@ export const ScheduleManager: React.FC<Props> = ({ appointments, onAddAppointmen
   const handlePrevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
   const handleNextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
 
-  // Função centralizada para abrir o modal de adição
+  // Função para checar feriado
+  const getHolidayInfo = (day: number) => {
+    const key = `${day.toString().padStart(2, '0')}/${(currentDate.getMonth() + 1).toString().padStart(2, '0')}`;
+    return HOLIDAYS[key];
+  };
+
   const handleOpenAddModal = (day?: number) => {
     if (day !== undefined) setSelectedDay(day);
     setEditingAppointment(null);
@@ -231,18 +256,37 @@ export const ScheduleManager: React.FC<Props> = ({ appointments, onAddAppointmen
         {/* CALENDÁRIO OU LISTA */}
         <div className="lg:col-span-3">
            {viewMode === 'month' ? (
-             <div className="bg-white dark:bg-slate-900 p-12 rounded-[4.5rem] border-2 border-slate-50 dark:border-slate-800 shadow-sm relative animate-in zoom-in-95">
-                <div className="grid grid-cols-7 gap-4">
-                  {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(d => (
-                    <div key={d} className="text-center text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] py-6">{d}</div>
+             <div className="bg-white dark:bg-slate-900 p-8 rounded-[4.5rem] border-2 border-slate-50 dark:border-slate-800 shadow-sm relative animate-in zoom-in-95">
+                
+                {/* Legenda de Feriados */}
+                <div className="absolute top-10 left-10 flex gap-4 opacity-70 hidden md:flex">
+                   <div className="flex items-center gap-2 text-[8px] font-black uppercase text-slate-400">
+                      <div className="w-2 h-2 rounded-full bg-rose-500"></div> Feriado Nacional
+                   </div>
+                   <div className="flex items-center gap-2 text-[8px] font-black uppercase text-slate-400">
+                      <div className="w-2 h-2 rounded-full bg-amber-500"></div> Ponto Facultativo
+                   </div>
+                </div>
+
+                <div className="grid grid-cols-7 gap-2 md:gap-4 mt-8">
+                  {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((d, i) => (
+                    <div key={d} className={`text-center text-[10px] font-black uppercase tracking-[0.2em] py-6 ${i === 0 || i === 6 ? 'text-rose-400 dark:text-rose-500' : 'text-slate-400'}`}>{d}</div>
                   ))}
+                  
                   {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`empty-${i}`} className="aspect-square opacity-0"></div>)}
+                  
                   {Array.from({ length: daysInMonth }).map((_, i) => {
                     const day = i + 1;
+                    const dateObj = new Date(year, currentDate.getMonth(), day);
+                    const dayOfWeek = dateObj.getDay();
+                    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
                     const isSelected = selectedDay === day;
+                    const isToday = new Date().getDate() === day && new Date().getMonth() === currentDate.getMonth() && new Date().getFullYear() === year;
+                    
                     const dayAppts = appointments.filter(ap => ap.date === day && ap.month === currentDate.getMonth() && ap.year === currentDate.getFullYear());
                     const hasEvents = dayAppts.length > 0;
-                    const isToday = new Date().getDate() === day && new Date().getMonth() === currentDate.getMonth();
+                    
+                    const holiday = getHolidayInfo(day);
 
                     return (
                       <div 
@@ -250,52 +294,77 @@ export const ScheduleManager: React.FC<Props> = ({ appointments, onAddAppointmen
                         onClick={() => handleOpenAddModal(day)}
                         onMouseEnter={() => hasEvents && setHoveredDay(day)}
                         onMouseLeave={() => setHoveredDay(null)}
-                        className={`aspect-square flex flex-col items-center justify-center rounded-[2.2rem] border-2 transition-all cursor-pointer relative group/cell ${
-                          isSelected ? 'bg-indigo-600 border-indigo-600 text-white shadow-2xl scale-110 z-20' : 
-                          hasEvents ? 'bg-pink-50 dark:bg-pink-900/10 border-pink-100 dark:border-pink-800/40 hover:border-pink-400' : 
-                          'bg-white dark:bg-slate-900 border-slate-50 dark:border-slate-800 hover:border-indigo-200'
+                        className={`aspect-square flex flex-col items-center justify-between p-2 md:p-3 rounded-[1.8rem] transition-all cursor-pointer relative group/cell border-2 ${
+                          isSelected 
+                            ? 'bg-indigo-600 border-indigo-600 text-white shadow-2xl scale-105 z-20' 
+                            : isWeekend
+                              ? 'bg-slate-50/80 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:border-indigo-200 dark:hover:border-indigo-900'
+                              : 'bg-white dark:bg-slate-900 border-transparent hover:border-indigo-200 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300'
                         }`}
                       >
-                         <span className={`text-xl font-black italic tracking-tighter ${isToday && !isSelected ? 'text-indigo-600' : ''}`}>{day}</span>
-                         
-                         {hasEvents && !isSelected && (
-                           <div className="absolute top-4 right-4 flex gap-1">
-                              <div className="w-2.5 h-2.5 rounded-full bg-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.6)] animate-pulse"></div>
-                           </div>
+                         {/* Header do Dia (Número e Ícone de Feriado) */}
+                         <div className="w-full flex justify-between items-start">
+                            <span className={`text-lg md:text-xl font-black italic tracking-tighter ${
+                                isSelected ? 'text-white' : 
+                                holiday ? 'text-rose-500' : 
+                                isToday ? 'text-indigo-600' : ''
+                            }`}>
+                                {day}
+                            </span>
+                            {holiday && (
+                               <div className="tooltip-container group/tooltip relative">
+                                  {holiday.type === 'FACULTATIVO' ? <Coffee size={12} className="text-amber-500" /> : <Flag size={12} className="text-rose-500" />}
+                                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-slate-900 text-white text-[8px] font-black uppercase px-2 py-1 rounded-lg opacity-0 group-hover/tooltip:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none shadow-lg">
+                                     {holiday.name}
+                                  </div>
+                               </div>
+                            )}
+                         </div>
+
+                         {/* Indicador Hoje */}
+                         {isToday && !isSelected && (
+                            <div className="text-[8px] font-black uppercase tracking-widest text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded-full mb-1">
+                               Hoje
+                            </div>
                          )}
 
-                         {/* Botão de adição visual rápido no hover */}
-                         <div className="absolute top-2 left-2 opacity-0 group-hover/cell:opacity-100 transition-opacity">
-                            <Plus size={14} className={isSelected ? "text-white" : "text-indigo-500"} />
+                         {/* Footer do Dia (Indicadores de Eventos) */}
+                         <div className="w-full flex items-end justify-end gap-1">
+                            {hasEvents && !isSelected && (
+                               <div className={`px-2 py-1 rounded-full flex items-center justify-center text-[9px] font-black shadow-sm ${
+                                  isWeekend ? 'bg-white text-indigo-600 dark:bg-slate-700 dark:text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                               }`}>
+                                  {dayAppts.length}
+                               </div>
+                            )}
+                            {/* Botão Add Hover */}
+                            <div className={`p-1.5 rounded-full bg-indigo-50 dark:bg-slate-800 text-indigo-600 opacity-0 group-hover/cell:opacity-100 transition-all ${isSelected ? 'hidden' : ''}`}>
+                               <Plus size={10} />
+                            </div>
                          </div>
 
                          {hoveredDay === day && !isSelected && (
-                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-6 w-72 bg-slate-950/95 backdrop-blur-2xl p-8 rounded-[3rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.6)] z-[100] border border-white/10 animate-in slide-in-from-bottom-2 duration-300">
-                              <div className="flex items-center gap-3 pb-4 border-b border-white/10 mb-5">
-                                 <Zap size={16} className="text-yellow-400" />
-                                 <p className="text-[10px] font-black uppercase text-white tracking-[0.2em]">Agenda p/ Dia {day}</p>
+                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 w-64 bg-slate-950/95 backdrop-blur-2xl p-6 rounded-[2rem] shadow-[0_20px_60px_-10px_rgba(0,0,0,0.5)] z-[100] border border-white/10 animate-in slide-in-from-bottom-2 duration-200 pointer-events-none">
+                              <div className="flex items-center gap-3 pb-3 border-b border-white/10 mb-3">
+                                 <Zap size={14} className="text-yellow-400" />
+                                 <p className="text-[9px] font-black uppercase text-white tracking-[0.2em]">Agenda Dia {day}</p>
                               </div>
-                              <div className="space-y-4 max-h-[250px] overflow-y-auto no-scrollbar">
-                                 {dayAppts.map(ap => (
-                                   <div key={ap.id} className="flex flex-col gap-1 group/tip">
-                                      <div className="flex justify-between items-center">
-                                         <span className="text-[10px] font-black text-pink-400 tabular-nums">{ap.time}</span>
-                                         {ap.ia && <Brain size={12} className="text-indigo-400" />}
+                              {dayAppts.length > 0 ? (
+                                 <div className="space-y-3">
+                                    {dayAppts.slice(0, 3).map(ap => (
+                                      <div key={ap.id} className="flex flex-col gap-0.5">
+                                         <div className="flex justify-between items-center">
+                                            <span className="text-[9px] font-black text-pink-400 tabular-nums">{ap.time}</span>
+                                            {ap.ia && <Brain size={10} className="text-indigo-400" />}
+                                         </div>
+                                         <p className="text-[10px] font-bold text-white truncate">{ap.lead}</p>
                                       </div>
-                                      <p className="text-xs font-black text-white italic uppercase truncate tracking-tight">{ap.lead}</p>
-                                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">{ap.service}</p>
-                                   </div>
-                                 ))}
-                              </div>
-                              <div className="mt-5 pt-4 border-t border-white/10 flex justify-center">
-                                 <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{dayAppts.length} horários ocupados</span>
-                              </div>
-                           </div>
-                         )}
-
-                         {hasEvents && !isSelected && (
-                           <div className="absolute bottom-4 text-[8px] font-black uppercase text-pink-500 tracking-widest opacity-60 group-hover/cell:opacity-100 transition-opacity">
-                             {dayAppts.length} Slots
+                                    ))}
+                                    {dayAppts.length > 3 && <p className="text-[8px] text-slate-500 italic text-center">+ {dayAppts.length - 3} outros</p>}
+                                 </div>
+                              ) : (
+                                 <p className="text-[9px] text-slate-500 italic text-center py-2">Nenhum agendamento.</p>
+                              )}
                            </div>
                          )}
                       </div>

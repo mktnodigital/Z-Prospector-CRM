@@ -85,13 +85,23 @@ export interface EvolutionConfig {
 }
 
 export interface BrandingConfig {
+  // Logos
   fullLogo: string;
   fullLogoDark: string;
   iconLogo: string;
   iconLogoDark: string;
+  // Browser/App Assets
   favicon: string;
-  salesPageLogo: string;
+  mobileIcon: string; // Webclip / PWA Icon
+  loginBackground: string;
+  // Textos
   appName: string;
+  // UI Theme
+  primaryColor: string;
+  secondaryColor: string;
+  fontFamily: 'Inter' | 'Roboto' | 'Poppins' | 'Lato';
+  borderRadius: 'small' | 'medium' | 'large' | 'full';
+  themeMode: 'light' | 'dark' | 'system';
 }
 
 export interface Integration {

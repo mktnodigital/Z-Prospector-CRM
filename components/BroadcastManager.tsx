@@ -6,7 +6,7 @@ import {
   Target, MessageSquare, Package, Zap, X, Share2, 
   ArrowRight, Users, Clock, Flame, Info, Search,
   Calendar, Check, AlertCircle, Bot, ShieldAlert,
-  Link2
+  Link2, FileText
 } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { Lead, LeadStatus, Campaign, AppModule } from '../types';
@@ -194,10 +194,38 @@ export const BroadcastManager: React.FC<BroadcastManagerProps> = ({ leads, isWha
     }
   };
 
-  const shareCampaignReport = (c: Campaign) => {
-    const report = `Relatório Campanha: ${c.name}\nAlcance: ${c.sentLeads}/${c.totalLeads}\nConversões: ${c.conversions}\nStatus: ${c.status}`;
-    navigator.clipboard.writeText(report);
-    notify('Relatório copiado para o clipboard!');
+  const shareCampaignReport = async (c: Campaign) => {
+    const conversionRate = c.sentLeads > 0 ? Math.round((c.conversions / c.sentLeads) * 100) : 0;
+    
+    const reportText = `
+📊 *Relatório de Disparo: ${c.name}*
+📦 Oferta: ${c.productName}
+🎯 Público: ${c.targetStatus === 'HOT' ? 'Quente 🔥' : c.targetStatus === 'WARM' ? 'Morno ☀️' : c.targetStatus === 'COLD' ? 'Frio ❄️' : 'Geral 📢'}
+
+📈 *Métricas Finais:*
+• Base Total: ${c.totalLeads} leads
+• Enviados: ${c.sentLeads} ✅
+• Vendas/ROI: ${c.conversions} 💰 (${conversionRate}%)
+
+🚀 _Gerado via Z-Prospector Master_
+    `.trim();
+
+    const shareData = {
+        title: `Relatório: ${c.name}`,
+        text: reportText,
+    };
+
+    if (navigator.share) {
+        try {
+            await navigator.share(shareData);
+            notify('Relatório compartilhado com sucesso!');
+        } catch (err) {
+            console.log('Compartilhamento cancelado pelo usuário');
+        }
+    } else {
+        navigator.clipboard.writeText(reportText);
+        notify('Relatório copiado para a área de transferência (Web Share não suportado).');
+    }
   };
 
   return (
@@ -394,7 +422,13 @@ export const BroadcastManager: React.FC<BroadcastManagerProps> = ({ leads, isWha
              <div className="flex items-center justify-between pt-8 border-t border-slate-50 dark:border-slate-800">
                 <div className="flex gap-2">
                    <button onClick={() => handleOpenEdit(c)} className="p-4 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-rose-600 rounded-2xl transition-all shadow-sm"><Edit3 size={18}/></button>
-                   <button onClick={() => shareCampaignReport(c)} className="p-4 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-indigo-600 rounded-2xl transition-all shadow-sm"><Share2 size={18}/></button>
+                   <button 
+                     onClick={() => shareCampaignReport(c)} 
+                     className="p-4 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-indigo-600 rounded-2xl transition-all shadow-sm hover:scale-110 active:scale-95"
+                     title="Compartilhar Relatório"
+                   >
+                     <Share2 size={18}/>
+                   </button>
                    <button onClick={() => handleDelete(c.id)} className="p-4 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-rose-500 rounded-2xl transition-all shadow-sm"><Trash2 size={18}/></button>
                 </div>
                 {c.status !== 'COMPLETED' && (

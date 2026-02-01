@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import { 
   Sparkles, CheckCircle2, Clock, MessageSquare, 
   ArrowRight, Zap, PenTool, GitBranch, Bot, 
-  Send, Loader2, PlayCircle, Settings, Crown, Phone
+  Send, Loader2, PlayCircle, Settings, Crown, Phone,
+  Edit3, Link as LinkIcon, ExternalLink, Calendar as CalendarIcon, X, Save
 } from 'lucide-react';
 
 interface ConciergeServiceProps {
@@ -17,6 +18,11 @@ interface ServiceRequest {
   status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
   date: string;
   description: string;
+}
+
+interface ManagerConfig {
+  whatsapp: string;
+  calendarUrl: string;
 }
 
 const INITIAL_REQUESTS: ServiceRequest[] = [
@@ -56,6 +62,14 @@ export const ConciergeService: React.FC<ConciergeServiceProps> = ({ notify }) =>
   const [requestText, setRequestText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Configuração do Gerente de Contas
+  const [isEditManagerOpen, setIsEditManagerOpen] = useState(false);
+  const [managerConfig, setManagerConfig] = useState<ManagerConfig>({
+    whatsapp: '5511999999999',
+    calendarUrl: 'https://calendly.com/'
+  });
+  const [tempManagerConfig, setTempManagerConfig] = useState<ManagerConfig>(managerConfig);
+
   const handleSubmitRequest = (e: React.FormEvent) => {
     e.preventDefault();
     if (!requestText.trim()) return;
@@ -81,6 +95,32 @@ export const ConciergeService: React.FC<ConciergeServiceProps> = ({ notify }) =>
     }, 1500);
   };
 
+  const handleSaveManagerConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    setManagerConfig(tempManagerConfig);
+    setIsEditManagerOpen(false);
+    notify('Canais de contato do Gerente atualizados!');
+  };
+
+  const openWhatsApp = () => {
+    const number = managerConfig.whatsapp.replace(/\D/g, '');
+    if (number) {
+        window.open(`https://wa.me/${number}`, '_blank');
+        notify('Abrindo WhatsApp do Gerente...');
+    } else {
+        notify('Configure o número do WhatsApp primeiro.');
+    }
+  };
+
+  const openCalendar = () => {
+    if (managerConfig.calendarUrl && managerConfig.calendarUrl.startsWith('http')) {
+        window.open(managerConfig.calendarUrl, '_blank');
+        notify('Abrindo agenda do Gerente...');
+    } else {
+        notify('Configure um link válido para a agenda.');
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch(status) {
       case 'COMPLETED': return <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-full text-[9px] font-black uppercase tracking-widest"><CheckCircle2 size={12}/> Concluído</span>;
@@ -90,8 +130,59 @@ export const ConciergeService: React.FC<ConciergeServiceProps> = ({ notify }) =>
   };
 
   return (
-    <div className="p-8 space-y-10 animate-in fade-in pb-40">
+    <div className="p-8 space-y-10 animate-in fade-in pb-40 relative">
       
+      {/* MODAL EDITAR GERENTE */}
+      {isEditManagerOpen && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-6 bg-slate-955/80 backdrop-blur-md animate-in fade-in">
+           <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[2.5rem] shadow-2xl p-10 border border-white/10 relative">
+              <button onClick={() => setIsEditManagerOpen(false)} className="absolute top-8 right-8 p-2 bg-slate-50 dark:bg-slate-800 rounded-xl text-slate-400 hover:text-rose-500 transition-all"><X size={20}/></button>
+              
+              <div className="flex items-center gap-4 mb-8">
+                 <div className="p-4 bg-emerald-600 text-white rounded-2xl shadow-lg"><Crown size={24}/></div>
+                 <div>
+                    <h3 className="text-2xl font-black italic uppercase tracking-tight text-slate-800 dark:text-slate-100">Configurar Gerente</h3>
+                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Defina os canais de atendimento VIP</p>
+                 </div>
+              </div>
+
+              <form onSubmit={handleSaveManagerConfig} className="space-y-6">
+                 <div className="space-y-2">
+                    <label className="text-[9px] font-black uppercase text-slate-400 px-4">WhatsApp Direct (Número com DDI)</label>
+                    <div className="relative">
+                       <input 
+                         required 
+                         value={tempManagerConfig.whatsapp} 
+                         onChange={e => setTempManagerConfig({...tempManagerConfig, whatsapp: e.target.value})} 
+                         placeholder="5511999999999" 
+                         className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold border-none outline-none focus:ring-4 ring-emerald-500/10 dark:text-white" 
+                       />
+                       <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" />
+                    </div>
+                 </div>
+
+                 <div className="space-y-2">
+                    <label className="text-[9px] font-black uppercase text-slate-400 px-4">Link da Agenda (Calendly/Meet)</label>
+                    <div className="relative">
+                       <input 
+                         required 
+                         value={tempManagerConfig.calendarUrl} 
+                         onChange={e => setTempManagerConfig({...tempManagerConfig, calendarUrl: e.target.value})} 
+                         placeholder="https://calendly.com/..." 
+                         className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold border-none outline-none focus:ring-4 ring-emerald-500/10 dark:text-white" 
+                       />
+                       <CalendarIcon size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" />
+                    </div>
+                 </div>
+
+                 <button type="submit" className="w-full py-5 bg-emerald-600 text-white font-black rounded-2xl shadow-xl hover:bg-emerald-700 transition-all uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-2">
+                    <Save size={16} /> Salvar Canais
+                 </button>
+              </form>
+           </div>
+        </div>
+      )}
+
       {/* HEADER CONCIERGE */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
@@ -121,7 +212,10 @@ export const ConciergeService: React.FC<ConciergeServiceProps> = ({ notify }) =>
                   {SERVICE_CATALOG.map(srv => (
                     <button 
                       key={srv.id}
-                      onClick={() => setActiveRequestType(srv.id)}
+                      onClick={() => {
+                          setActiveRequestType(srv.id);
+                          setRequestText(`Gostaria de solicitar o serviço: ${srv.title}. \n\nDetalhes:\n`);
+                      }}
                       className={`p-4 rounded-[2rem] border-2 transition-all flex flex-col items-center text-center gap-3 group ${
                         activeRequestType === srv.id 
                         ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20 shadow-lg scale-105' 
@@ -143,7 +237,7 @@ export const ConciergeService: React.FC<ConciergeServiceProps> = ({ notify }) =>
                      <textarea 
                        value={requestText}
                        onChange={e => setRequestText(e.target.value)}
-                       placeholder={activeRequestType ? `Descreva detalhes para: ${SERVICE_CATALOG.find(s => s.id === activeRequestType)?.title}...` : "Descreva qualquer automação ou ajuste que você precisa..."}
+                       placeholder={activeRequestType ? `Descreva detalhes para a equipe...` : "Descreva qualquer automação ou ajuste que você precisa..."}
                        className="w-full bg-transparent border-none outline-none p-6 text-sm font-bold text-slate-600 dark:text-slate-300 resize-none h-32 placeholder:text-slate-400 placeholder:italic placeholder:font-normal"
                      />
                      <button 
@@ -160,10 +254,21 @@ export const ConciergeService: React.FC<ConciergeServiceProps> = ({ notify }) =>
                </form>
             </div>
 
-            {/* GERENTE DE CONTA DEDICADO (NOVO) */}
-            <div className="p-8 bg-gradient-to-br from-slate-900 to-indigo-900 rounded-[3rem] shadow-2xl relative overflow-hidden text-white group cursor-pointer hover:shadow-indigo-500/20 transition-all">
+            {/* GERENTE DE CONTA DEDICADO (ATIVO) */}
+            <div className="p-8 bg-gradient-to-br from-slate-900 to-indigo-900 rounded-[3rem] shadow-2xl relative overflow-hidden text-white group hover:shadow-indigo-500/20 transition-all">
                <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full blur-3xl translate-x-10 -translate-y-10 group-hover:bg-white/10 transition-colors"></div>
                
+               <button 
+                 onClick={() => { 
+                    setTempManagerConfig(managerConfig);
+                    setIsEditManagerOpen(true); 
+                 }}
+                 className="absolute top-8 right-8 p-2.5 bg-white/10 hover:bg-white/20 rounded-xl text-white transition-all backdrop-blur-sm z-20"
+                 title="Editar Contato do Gerente"
+               >
+                  <Edit3 size={16} />
+               </button>
+
                <div className="flex flex-col md:flex-row items-center gap-8 relative z-10">
                   <div className="relative">
                      <div className="w-24 h-24 rounded-[2rem] bg-white p-1 shadow-lg">
@@ -185,11 +290,11 @@ export const ConciergeService: React.FC<ConciergeServiceProps> = ({ notify }) =>
                      </p>
                      
                      <div className="flex gap-3 justify-center md:justify-start">
-                        <button onClick={() => notify("Chamando Gerente no WhatsApp VIP...")} className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-lg hover:scale-105">
-                           Chamar no WhatsApp
+                        <button onClick={openWhatsApp} className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-lg hover:scale-105 flex items-center gap-2">
+                           <MessageSquare size={14} /> Chamar no WhatsApp
                         </button>
-                        <button onClick={() => notify("Agendamento prioritário solicitado.")} className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all">
-                           Agendar Call
+                        <button onClick={openCalendar} className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2">
+                           <CalendarIcon size={14} /> Agendar Call
                         </button>
                      </div>
                   </div>
@@ -215,7 +320,7 @@ export const ConciergeService: React.FC<ConciergeServiceProps> = ({ notify }) =>
                     <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed bg-slate-50 dark:bg-slate-800 p-3 rounded-xl italic">"{req.description}"</p>
                     
                     {req.status === 'COMPLETED' && (
-                       <button className="w-full mt-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-2">
+                       <button onClick={() => notify('Abrindo detalhes técnicos da implementação...')} className="w-full mt-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-2">
                           Ver Implementação <ArrowRight size={12}/>
                        </button>
                     )}

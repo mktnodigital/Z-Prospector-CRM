@@ -6,7 +6,7 @@ import {
   Smartphone, QrCode, AlertCircle, ShieldCheck, RefreshCcw,
   Terminal, CheckCircle2, Wifi, Zap, X, Copy, Cpu, SmartphoneIcon,
   CreditCard, Landmark, Building2, ChevronRight, Activity, Database,
-  MoreVertical, User, Calendar, Brain, Flame, ShoppingCart
+  MoreVertical, User, Calendar, Brain, Flame, ShoppingCart, Power
 } from 'lucide-react';
 import { Lead, Appointment, Tenant, EvolutionConfig } from '../types';
 
@@ -218,6 +218,32 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
     }
   };
 
+  const handleDisconnect = async () => {
+    if (!confirm('ATENÇÃO: Desconectar o WhatsApp irá pausar toda a automação de IA e disparos. Continuar?')) return;
+    
+    const baseUrl = evolutionConfig.baseUrl.replace(/\/$/, '');
+    const apiKey = evolutionConfig.apiKey;
+
+    try {
+        // Tenta logout na API
+        await fetch(`${baseUrl}/instance/logout/${instanceName}`, {
+            method: 'DELETE',
+            headers: { 
+                'apikey': apiKey,
+                'Content-Type': 'application/json'
+            }
+        });
+    } catch (e) { 
+        console.error("Erro ao desconectar API:", e); 
+    }
+
+    setConnStatus('DISCONNECTED');
+    setQrCode(null);
+    setIsInstanceCreated(false);
+    if (onConnectionChange) onConnectionChange(false);
+    notify('Sessão encerrada. Automação pausada.');
+  };
+
   const handleSendMessage = () => {
     if (!activeChat || !messageInput.trim()) return;
 
@@ -369,9 +395,31 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({ niche, activeLeads
         {/* LISTA DE CONVERSAS */}
         <div className="w-96 flex flex-col border-r border-slate-800 bg-slate-900/50">
           <div className="p-8 pb-4">
-            <h2 className="text-2xl font-black tracking-tight italic uppercase mb-8 flex items-center gap-4 text-white">
-               <MessageSquare className="text-indigo-500" /> Conversas
-            </h2>
+            {/* HEADER COM STATUS DA CONEXÃO */}
+            <div className="flex justify-between items-center mb-8">
+                <h2 className="text-2xl font-black tracking-tight italic uppercase flex items-center gap-4 text-white">
+                   <MessageSquare className="text-indigo-500" /> Conversas
+                </h2>
+                
+                <div className="flex items-center gap-3 bg-slate-800/80 p-2.5 rounded-2xl border border-slate-700/50 backdrop-blur-sm">
+                    <div className="flex items-center gap-2 pl-1">
+                        <div className="relative">
+                            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981] animate-pulse"></div>
+                            <div className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-emerald-500 opacity-50 animate-ping"></div>
+                        </div>
+                        <span className="text-[9px] font-black uppercase text-emerald-500 tracking-widest">API ON</span>
+                    </div>
+                    <div className="w-px h-4 bg-slate-700"></div>
+                    <button 
+                        onClick={handleDisconnect}
+                        className="text-slate-400 hover:text-rose-500 transition-all hover:scale-110 active:scale-95"
+                        title="Desconectar Instância (Shutdown)"
+                    >
+                        <Power size={16} />
+                    </button>
+                </div>
+            </div>
+
             <div className="relative mb-6">
               <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
               <input type="text" placeholder="Filtrar oportunidades..." className="w-full pl-12 pr-6 py-4 bg-slate-800 border-none rounded-2xl text-xs font-black uppercase tracking-widest outline-none shadow-sm focus:ring-2 ring-indigo-500/50 transition-all text-white placeholder-slate-600" />

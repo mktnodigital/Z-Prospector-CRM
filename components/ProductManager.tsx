@@ -203,6 +203,27 @@ export const ProductManager: React.FC<{ notify: (msg: string) => void }> = ({ no
     notify(`Smart Link Copiado: ${p.name}`);
   };
 
+  const shareProduct = async (p: Product) => {
+    const link = `https://zprospector.com.br/pay/${p.id}?ref=master_ia`;
+    const shareData = {
+        title: p.name,
+        text: `Confira esta oferta especial: ${p.name}\n${p.description}`,
+        url: link
+    };
+
+    if (navigator.share) {
+        try {
+            await navigator.share(shareData);
+            notify('Oferta compartilhada com sucesso!');
+        } catch (err) {
+            console.log('Compartilhamento cancelado ou falhou');
+        }
+    } else {
+        copySmartLink(p);
+        notify('Link copiado (Navegador não suporta Web Share)');
+    }
+  };
+
   return (
     <div className="p-8 space-y-10 animate-in fade-in pb-40">
       
@@ -409,7 +430,7 @@ export const ProductManager: React.FC<{ notify: (msg: string) => void }> = ({ no
                 <button onClick={() => copySmartLink(p)} className="flex items-center justify-center gap-3 py-4 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-2xl font-black text-[9px] uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all shadow-sm">
                    <LinkIcon size={14} /> Link IA
                 </button>
-                <button className="flex items-center justify-center gap-3 py-4 bg-slate-50 dark:bg-slate-800 text-slate-400 rounded-2xl font-black text-[9px] uppercase tracking-widest hover:bg-white dark:hover:bg-slate-700 border border-transparent hover:border-slate-100 transition-all shadow-sm">
+                <button onClick={() => shareProduct(p)} className="flex items-center justify-center gap-3 py-4 bg-slate-50 dark:bg-slate-800 text-slate-400 rounded-2xl font-black text-[9px] uppercase tracking-widest hover:bg-indigo-600 hover:text-white border border-transparent hover:border-slate-100 transition-all shadow-sm">
                    <Share2 size={14} /> Compartilhar
                 </button>
              </div>

@@ -30,7 +30,7 @@ import {
   EvolutionConfig, AppNotification, AppModule, LeadStatus, PipelineStage 
 } from './types';
 
-// --- DATA MOCKING: LEADS ---
+// --- DATA MOCKING: LEADS (PRODUÇÃO TESTE) ---
 const INITIAL_LEADS: Lead[] = [
   { id: 'l1', name: 'Roberto Silva', phone: '5511999998888', email: 'roberto@gmail.com', status: LeadStatus.HOT, stage: PipelineStage.NEGOTIATION, lastInteraction: 'Interessado no plano anual, pediu desconto à vista.', value: 1500, source: 'Instagram' },
   { id: 'l2', name: 'Julia Martins', phone: '5511988887777', email: 'julia.m@outlook.com', status: LeadStatus.WARM, stage: PipelineStage.QUALIFIED, lastInteraction: 'Pediu apresentação em PDF.', value: 800, source: 'Google Ads' },
@@ -44,9 +44,12 @@ const INITIAL_LEADS: Lead[] = [
   { id: 'l10', name: 'Lucas Gamer', phone: '5511922110099', email: 'lucas@game.com', status: LeadStatus.COLD, stage: PipelineStage.CONTACTED, lastInteraction: 'Respondeu "não tenho interesse agora".', value: 0, source: 'TikTok' },
   { id: 'l11', name: 'Salão Beleza Pura', phone: '5511911009988', email: 'contato@belezapura.com', status: LeadStatus.HOT, stage: PipelineStage.PROPOSAL, lastInteraction: 'Quer fechar pacote para 5 funcionários.', value: 3000, source: 'WhatsApp' },
   { id: 'l12', name: 'Rafaela Fitness', phone: '5521999887711', email: 'rafa@fit.com', status: LeadStatus.WARM, stage: PipelineStage.QUALIFIED, lastInteraction: 'Perguntou sobre fidelidade.', value: 150, source: 'Instagram' },
+  { id: 'l13', name: 'Advocacia Mendes', phone: '5511988112233', email: 'contato@mendes.adv.br', status: LeadStatus.HOT, stage: PipelineStage.NEGOTIATION, lastInteraction: 'Reunião agendada para assinatura.', value: 8500, source: 'Google Search' },
+  { id: 'l14', name: 'Barber Shop King', phone: '5511977665544', email: 'king@barber.com', status: LeadStatus.COLD, stage: PipelineStage.NEW, lastInteraction: 'Capturado via Scraper Maps.', value: 0, source: 'Scraper Maps' },
+  { id: 'l15', name: 'Studio Pilates Zen', phone: '5541999887700', email: 'zen@pilates.com', status: LeadStatus.WARM, stage: PipelineStage.QUALIFIED, lastInteraction: 'Pediu orçamento para 3 planos.', value: 1200, source: 'Instagram' },
 ];
 
-// --- DATA MOCKING: TENANTS ---
+// --- DATA MOCKING: TENANTS (MULTI-EMPRESA) ---
 const INITIAL_TENANT_LIST: Tenant[] = [
   {
     id: 'master_01',
@@ -57,7 +60,7 @@ const INITIAL_TENANT_LIST: Tenant[] = [
     activeLeads: 1240,
     status: 'ONLINE',
     instanceStatus: 'CONNECTED',
-    salesMode: 'DIRECT'
+    salesMode: 'DIRECT' // Modo Venda Direta
   },
   {
     id: 'unit_02',
@@ -68,7 +71,7 @@ const INITIAL_TENANT_LIST: Tenant[] = [
     activeLeads: 320,
     status: 'ONLINE',
     instanceStatus: 'CONNECTED',
-    salesMode: 'ASSISTED'
+    salesMode: 'ASSISTED' // Modo Venda Consultiva
   },
   {
     id: 'unit_03',
@@ -94,7 +97,7 @@ const INITIAL_TENANT_LIST: Tenant[] = [
   }
 ];
 
-// --- DATA MOCKING: APPOINTMENTS ---
+// --- DATA MOCKING: APPOINTMENTS (AGENDAMENTOS) ---
 const generateAppointments = () => {
   const today = new Date();
   const year = today.getFullYear();
@@ -108,6 +111,8 @@ const generateAppointments = () => {
     { id: 'apt_4', lead: 'Construtora Alpha', time: '10:00', date: day + 1, month, year, service: 'Visita Técnica', status: 'CONFIRMED', ia: false, value: 0 } as Appointment,
     { id: 'apt_5', lead: 'Mariana Luz', time: '11:00', date: day + 1, month, year, service: 'Suporte Técnico', status: 'CONFIRMED', ia: true, value: 0 } as Appointment,
     { id: 'apt_6', lead: 'Dr. Fernando', time: '15:00', date: day + 2, month, year, service: 'Consultoria Premium', status: 'PENDING', ia: false, value: 500 } as Appointment,
+    { id: 'apt_7', lead: 'Advocacia Mendes', time: '10:00', date: day - 1, month, year, service: 'Alinhamento Contratual', status: 'CONFIRMED', ia: false, value: 0 } as Appointment, // Passado
+    { id: 'apt_8', lead: 'Studio Pilates Zen', time: '16:00', date: day + 3, month, year, service: 'Demonstração', status: 'CONFIRMED', ia: true, value: 0 } as Appointment,
   ];
 };
 
@@ -117,8 +122,14 @@ const INITIAL_BRANDING: BrandingConfig = {
   iconLogo: 'https://via.placeholder.com/40?text=Z',
   iconLogoDark: 'https://via.placeholder.com/40?text=Z&bg=000&textColor=fff',
   favicon: '',
-  salesPageLogo: '',
-  appName: 'Z-Prospector'
+  mobileIcon: '',
+  loginBackground: '',
+  appName: 'Z-Prospector',
+  primaryColor: '#4f46e5', // Indigo-600
+  secondaryColor: '#ec4899', // Pink-500
+  fontFamily: 'Inter',
+  borderRadius: 'large', // Rounded 3xl
+  themeMode: 'light'
 };
 
 // --- CONFIGURAÇÃO DE CORES POR FASE (MÓDULO) - VIBRANTE ---
@@ -145,6 +156,7 @@ export default function App() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   
+  // INICIALIZAÇÃO DE ESTADO ROBUSTA PARA TESTES
   const [leads, setLeads] = useState<Lead[]>(INITIAL_LEADS);
   const [allTenants, setAllTenants] = useState<Tenant[]>(INITIAL_TENANT_LIST);
   const [tenant, setTenant] = useState<Tenant>(INITIAL_TENANT_LIST[0]); // Active Tenant
@@ -165,18 +177,22 @@ export default function App() {
   const unreadCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications]);
   const currentTheme = MODULE_THEME[activeModule] || MODULE_THEME.results;
 
-  // Carregar dados reais da API ao iniciar
+  // Carregar dados reais da API ao iniciar (Fallback para dados mock se falhar)
   useEffect(() => {
     if (isAuthenticated) {
       const loadData = async () => {
-        const loadedLeads = await api.getLeads();
-        if (loadedLeads.length > 0) setLeads(loadedLeads);
-        
-        const loadedBranding = await api.getBranding();
-        if (loadedBranding) setBranding(loadedBranding);
+        try {
+          const loadedLeads = await api.getLeads();
+          if (loadedLeads && loadedLeads.length > 0) setLeads(loadedLeads);
+          
+          const loadedBranding = await api.getBranding();
+          if (loadedBranding) setBranding(loadedBranding);
 
-        const loadedAppts = await api.getAppointments();
-        if (loadedAppts.length > 0) setAppointments(loadedAppts);
+          const loadedAppts = await api.getAppointments();
+          if (loadedAppts && loadedAppts.length > 0) setAppointments(loadedAppts);
+        } catch (error) {
+          console.log("Modo Offline/Teste: Usando dados mockados.");
+        }
       };
       loadData();
     }
@@ -190,6 +206,25 @@ export default function App() {
       document.documentElement.classList.remove('dark');
     }
   }, [performanceMode]);
+
+  // Injetar estilos customizados baseados no Branding (Simulação de CSS Variables)
+  useEffect(() => {
+    const root = document.documentElement;
+    if (branding.primaryColor) root.style.setProperty('--color-primary', branding.primaryColor);
+    if (branding.secondaryColor) root.style.setProperty('--color-secondary', branding.secondaryColor);
+    if (branding.fontFamily) root.style.fontFamily = branding.fontFamily + ', sans-serif';
+    
+    // Atualizar Favicon dinamicamente
+    if (branding.favicon) {
+      let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.getElementsByTagName('head')[0].appendChild(link);
+      }
+      link.href = branding.favicon;
+    }
+  }, [branding]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -220,7 +255,7 @@ export default function App() {
 
   const handleUpdateTenant = (updatedTenant: Tenant) => {
     setAllTenants(prev => prev.map(t => t.id === updatedTenant.id ? updatedTenant : t));
-    // If updating the currently active tenant, update it immediately
+    // If updating the currently active tenant, update it immediately to reflect Sales Mode changes
     if (tenant.id === updatedTenant.id) {
       setTenant(updatedTenant);
     }
@@ -262,8 +297,8 @@ export default function App() {
     };
     setAppointments(prev => [...prev, newAppt]);
     
-    // Persistir via API
-    api.saveAppointment(newAppt);
+    // Persistir via API (Fire & Forget)
+    api.saveAppointment(newAppt).catch(console.error);
 
     // 3. Notificar Sistema e "Enviar WhatsApp"
     const notifTitle = tenant.salesMode === 'ASSISTED' ? 'Agenda Bloqueada (Pago)' : 'Venda Realizada';
@@ -318,7 +353,7 @@ export default function App() {
   }
 
   return (
-    <div className={`flex h-screen overflow-hidden transition-all duration-500 ${performanceMode ? 'bg-slate-950 text-slate-100' : 'bg-gradient-to-br from-indigo-50/40 via-white to-cyan-50/40 text-slate-900'}`}>
+    <div className={`flex h-screen overflow-hidden transition-all duration-500 ${performanceMode ? 'bg-slate-950 text-slate-100' : 'bg-gradient-to-br from-indigo-50/40 via-white to-cyan-50/40 text-slate-900'}`} style={{ fontFamily: branding.fontFamily }}>
       
       {/* AISearch Modal */}
       <AISearchModal 
@@ -494,6 +529,7 @@ export default function App() {
                totalVolume={tenant.revenue} 
                pipelineVolume={leads.reduce((acc, l) => acc + (l.value || 0), 0)}
                onSimulateIncomingTransaction={handleAutomatedSale}
+               notify={notify}
              />
            )}
            {activeModule === 'admin' && (
@@ -520,7 +556,8 @@ export default function App() {
                 user={{ 
                   name: 'Moisés Costa', 
                   email: 'moisescosta.mkt@gmail.com', 
-                  role: 'CEO & Founder (Global Admin)' 
+                  role: 'SUPER_ADMIN',
+                  avatar: null 
                 }} 
                 onUpdate={() => notify('Perfil atualizado')} 
                 onLogout={() => setIsAuthenticated(false)} 

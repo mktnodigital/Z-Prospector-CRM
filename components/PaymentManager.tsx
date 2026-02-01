@@ -4,13 +4,14 @@ import {
   CreditCard, Wallet, Landmark, QrCode, ArrowUpRight, CheckCircle2, 
   RefreshCcw, DollarSign, Download, Send, X, AlertCircle, History,
   TrendingUp, Search, ShieldCheck, Banknote, ArrowDownCircle, Check,
-  Zap
+  Zap, ShoppingCart, Globe, Flame, Infinity, Fingerprint
 } from 'lucide-react';
 
 interface Props {
   totalVolume: number;
   pipelineVolume: number;
   onSimulateIncomingTransaction?: (amount: number, method: 'PIX' | 'CREDIT_CARD') => void;
+  notify?: (msg: string) => void;
 }
 
 type PaymentFilter = 'ALL' | 'PIX' | 'CREDIT_CARD';
@@ -25,9 +26,10 @@ interface Transaction {
   status: TransactionStatus;
   date: string;
   isWithdraw?: boolean;
+  platformIcon?: any;
 }
 
-export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume, onSimulateIncomingTransaction }) => {
+export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume, onSimulateIncomingTransaction, notify }) => {
   const [filter, setFilter] = useState<PaymentFilter>('ALL');
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -36,17 +38,18 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume, o
   const [showSuccess, setShowSuccess] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isSimulatingSale, setIsSimulatingSale] = useState(false);
+  const [currentProtocol, setCurrentProtocol] = useState('');
 
   const initialTransactions: Transaction[] = [
-    { id: 'TX-101', client: 'Unidade Matriz - Barbearia', type: 'Cartão de Crédito', typeId: 'CREDIT_CARD', value: 180.00, status: 'PAID', date: 'Hoje, 10:00' },
-    { id: 'TX-102', client: 'Unidade 02 - Estética', type: 'Pix Automático', typeId: 'PIX', value: 350.00, status: 'PAID', date: 'Ontem, 15:45' },
-    { id: 'TX-103', client: 'Franquia Sul', type: 'Boleto Bancário', typeId: 'CREDIT_CARD', value: 1200.00, status: 'PENDING', date: 'Hoje, 09:30' },
-    { id: 'TX-104', client: 'Unidade Curitiba', type: 'Pix Automático', typeId: 'PIX', value: 450.00, status: 'PAID', date: 'Hoje, 11:20' },
-    { id: 'TX-105', client: 'Unidade Matriz - Barbearia', type: 'Cartão de Crédito', typeId: 'CREDIT_CARD', value: 890.00, status: 'FAILED', date: 'Hoje, 08:15' },
-    { id: 'TX-106', client: 'Solicitação de Saque', type: 'Transferência PIX', typeId: 'PIX', value: 5000.00, status: 'PAID', date: 'Há 2 dias', isWithdraw: true },
-    { id: 'TX-107', client: 'Dr. Fernando', type: 'Pix Automático', typeId: 'PIX', value: 2500.00, status: 'PAID', date: 'Há 3 dias' },
-    { id: 'TX-108', client: 'Construtora Alpha', type: 'Cartão de Crédito', typeId: 'CREDIT_CARD', value: 15000.00, status: 'PAID', date: 'Há 4 dias' },
-    { id: 'TX-109', client: 'Venda de Balcão', type: 'Pix Automático', typeId: 'PIX', value: 80.00, status: 'PAID', date: 'Há 5 dias' },
+    { id: 'TX-101', client: 'Roberto Silva (Checkout Kiwify)', type: 'Kiwify - PIX', typeId: 'PIX', value: 180.00, status: 'PAID', date: 'Hoje, 10:00', platformIcon: ShoppingCart },
+    { id: 'TX-102', client: 'Julia Martins (Eduzz)', type: 'Eduzz - Cartão', typeId: 'CREDIT_CARD', value: 350.00, status: 'PAID', date: 'Ontem, 15:45', platformIcon: Zap },
+    { id: 'TX-103', client: 'Tech Solutions (Stripe)', type: 'Stripe - Assinatura', typeId: 'CREDIT_CARD', value: 1200.00, status: 'PENDING', date: 'Hoje, 09:30', platformIcon: CreditCard },
+    { id: 'TX-104', client: 'Lançamento Meteórico (Hotmart)', type: 'Hotmart - PIX', typeId: 'PIX', value: 450.00, status: 'PAID', date: 'Hoje, 11:20', platformIcon: Flame },
+    { id: 'TX-105', client: 'Unidade Matriz (Pagar.me)', type: 'Pagar.me - Recorrência', typeId: 'CREDIT_CARD', value: 890.00, status: 'FAILED', date: 'Hoje, 08:15', platformIcon: Fingerprint },
+    { id: 'TX-106', client: 'Solicitação de Saque', type: 'Transferência PIX', typeId: 'PIX', value: 5000.00, status: 'PAID', date: 'Há 2 dias', isWithdraw: true, platformIcon: ArrowDownCircle },
+    { id: 'TX-107', client: 'Dr. Fernando (InfinitePay)', type: 'InfinitePay - Link', typeId: 'PIX', value: 2500.00, status: 'PAID', date: 'Há 3 dias', platformIcon: Infinity },
+    { id: 'TX-108', client: 'Construtora Alpha (Stripe)', type: 'Stripe - Boleto', typeId: 'CREDIT_CARD', value: 15000.00, status: 'PAID', date: 'Há 4 dias', platformIcon: Globe },
+    { id: 'TX-109', client: 'Venda Balcão (Pagar.me)', type: 'Pagar.me - Débito', typeId: 'PIX', value: 80.00, status: 'PAID', date: 'Há 5 dias', platformIcon: Fingerprint },
   ];
 
   const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
@@ -61,14 +64,23 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume, o
     setIsSimulatingSale(true);
     setTimeout(() => {
       const amount = Math.floor(Math.random() * 500) + 50;
+      const providers = [
+          { name: 'Kiwify', icon: ShoppingCart },
+          { name: 'Eduzz', icon: Zap },
+          { name: 'Hotmart', icon: Flame },
+          { name: 'InfinitePay', icon: Infinity }
+      ];
+      const randomProvider = providers[Math.floor(Math.random() * providers.length)];
+
       const newTx: Transaction = {
         id: `TX-AUTO-${Date.now().toString().substr(-4)}`,
         client: 'Cliente Webhook (Auto)',
-        type: 'Pix Automático',
+        type: `${randomProvider.name} - Automático`,
         typeId: 'PIX',
         value: amount,
         status: 'PAID',
         date: 'Agora (Ao Vivo)',
+        platformIcon: randomProvider.icon
       };
       setTransactions([newTx, ...transactions]);
       
@@ -76,6 +88,7 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume, o
       if (onSimulateIncomingTransaction) {
         onSimulateIncomingTransaction(amount, 'PIX');
       }
+      if (notify) notify(`Venda simulada recebida via ${randomProvider.name}!`);
       
       setIsSimulatingSale(false);
     }, 1200);
@@ -84,15 +97,35 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume, o
   const handleExport = () => {
     setIsExporting(true);
     setTimeout(() => {
-      alert("Relatório CSV gerado e enviado ao email master.");
+      // Geração real do CSV
+      const headers = "ID;Cliente;Tipo;Valor;Status;Data\n";
+      const rows = transactions.map(t => 
+        `${t.id};${t.client};${t.type};${t.value.toFixed(2)};${t.status};${t.date}`
+      ).join("\n");
+
+      const blob = new Blob(["\uFEFF" + headers + rows], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `relatorio_financeiro_${Date.now()}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
       setIsExporting(false);
+      if (notify) notify('Relatório CSV exportado com sucesso.');
     }, 1500);
   };
 
   const handleWithdrawSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!withdrawAmount || !pixKey) return;
+
     setIsProcessing(true);
     setTimeout(() => {
+      const generatedProtocol = Math.random().toString(36).substr(2, 9).toUpperCase();
+      setCurrentProtocol(generatedProtocol);
+      
       const newWithdrawal: Transaction = {
         id: `WD-${Math.floor(Math.random() * 9000) + 1000}`,
         client: 'Solicitação de Saque',
@@ -101,12 +134,14 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume, o
         value: parseFloat(withdrawAmount),
         status: 'PENDING',
         date: 'Agora',
-        isWithdraw: true
+        isWithdraw: true,
+        platformIcon: ArrowDownCircle
       };
       
       setTransactions(prev => [newWithdrawal, ...prev]);
       setIsProcessing(false);
       setShowSuccess(true);
+      if (notify) notify('Solicitação enviada para o administrador master.');
       
       setTimeout(() => {
         setIsWithdrawModalOpen(false);
@@ -123,15 +158,16 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume, o
     setTransactions(prev => prev.map(t => 
       t.id === id ? { ...t, status: 'PAID', date: 'Liberado Agora' } : t
     ));
-    alert('Pagamento liberado com sucesso no cluster financeiro!');
+    if (notify) notify('Pagamento liberado e conciliado no sistema!');
   };
 
   const loadMoreHistory = () => {
     const more: Transaction[] = [
-      { id: `TX-${Math.floor(Math.random() * 1000)}`, client: 'Novo Histórico Lead', type: 'Pix Automático', typeId: 'PIX', value: 250, status: 'PAID', date: 'Há 3 dias' },
-      { id: `TX-${Math.floor(Math.random() * 1000)}`, client: 'Assinatura Recorrente', type: 'Cartão de Crédito', typeId: 'CREDIT_CARD', value: 147, status: 'PAID', date: 'Há 5 dias' },
+      { id: `TX-${Math.floor(Math.random() * 1000)}`, client: 'Lead Antigo (Eduzz)', type: 'Eduzz - PIX', typeId: 'PIX', value: 250, status: 'PAID', date: 'Há 3 dias', platformIcon: Zap },
+      { id: `TX-${Math.floor(Math.random() * 1000)}`, client: 'Assinatura Recorrente (Stripe)', type: 'Stripe - CC', typeId: 'CREDIT_CARD', value: 147, status: 'PAID', date: 'Há 5 dias', platformIcon: CreditCard },
     ];
     setTransactions(prev => [...prev, ...more]);
+    if (notify) notify('Histórico antigo carregado.');
   };
 
   const stats = [
@@ -145,7 +181,7 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume, o
       
       {/* Modal de Saque */}
       {isWithdrawModalOpen && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-md animate-in fade-in">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-slate-955/90 backdrop-blur-md animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[3.5rem] shadow-2xl border border-slate-200 dark:border-slate-800 p-12 relative">
             <button onClick={() => setIsWithdrawModalOpen(false)} className="absolute top-10 right-10 p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl text-slate-400 hover:text-rose-500 transition-all">
               <X size={24} />
@@ -159,7 +195,7 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume, o
                 <h3 className="text-3xl font-black italic tracking-tight uppercase">Saque Pendente!</h3>
                 <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] leading-relaxed">Sua solicitação foi enviada para a fila de <br/> <span className="text-indigo-600 font-black">Auditoria do Administrador Master</span>.</p>
                 <div className="pt-4">
-                   <span className="text-[9px] font-black uppercase text-slate-300 bg-slate-100 dark:bg-slate-800 px-6 py-2 rounded-full">Protocolo: {Math.random().toString(36).substr(2, 9).toUpperCase()}</span>
+                   <span className="text-[9px] font-black uppercase text-slate-300 bg-slate-100 dark:bg-slate-800 px-6 py-2 rounded-full">Protocolo: {currentProtocol}</span>
                 </div>
               </div>
             ) : (
@@ -242,7 +278,7 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume, o
             className="flex items-center gap-3 px-8 py-4 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-3xl font-black text-xs uppercase tracking-widest hover:border-indigo-600 transition-all shadow-sm disabled:opacity-60"
           >
             {isExporting ? <RefreshCcw size={16} className="animate-spin text-indigo-600" /> : <Download size={16} className="text-indigo-600" />}
-            {isExporting ? 'Relatório...' : 'Exportar CSV'}
+            {isExporting ? 'Gerando CSV...' : 'Exportar CSV'}
           </button>
           <button 
             onClick={() => setIsWithdrawModalOpen(true)}
@@ -314,7 +350,7 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume, o
                   <td className="px-12 py-10">
                     <div className="flex items-center gap-4">
                       <div className={`p-3 rounded-xl ${t.isWithdraw ? 'bg-rose-50 text-rose-600' : t.typeId === 'PIX' ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'} shadow-sm`}>
-                        {t.isWithdraw ? <ArrowDownCircle size={18}/> : t.typeId === 'PIX' ? <QrCode size={18}/> : <CreditCard size={18}/>}
+                        {t.isWithdraw ? <ArrowDownCircle size={18}/> : t.platformIcon ? React.createElement(t.platformIcon, { size: 18 }) : t.typeId === 'PIX' ? <QrCode size={18}/> : <CreditCard size={18}/>}
                       </div>
                       <div>
                         <p className="font-black text-slate-900 dark:text-white tracking-tight uppercase italic">{t.client}</p>

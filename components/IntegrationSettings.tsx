@@ -2,25 +2,18 @@
 import React, { useState } from 'react';
 import { 
   Zap, Key, Webhook, Smartphone, CreditCard, CheckCircle2, AlertCircle, ExternalLink, ShieldCheck, Power, Trash2, Edit3, Plus, Loader2, Download, X, QrCode, Globe,
-  Shield, Landmark, Wallet, Layers, Cpu, Code2, Bitcoin, Lock, ShoppingCart, DollarSign, RefreshCcw
+  Shield, Landmark, Wallet, Layers, Cpu, Code2, Bitcoin, Lock, ShoppingCart, DollarSign, RefreshCcw, Flame, Infinity, Fingerprint
 } from 'lucide-react';
 import { Integration } from '../types';
 
 interface GatewayConfig {
   id: string;
-  provider: 'mercadopago' | 'stripe' | 'pix' | 'kiwify' | 'eduzz' | 'hotmart';
+  provider: 'mercadopago' | 'stripe' | 'pix' | 'kiwify' | 'eduzz' | 'hotmart' | 'pagarme' | 'infinitepay';
   name: string;
   status: 'CONNECTED' | 'DISCONNECTED';
   keys: Record<string, string>;
   lastSync?: string;
 }
-
-// Fix: Moved Flame component definition before PROVIDER_METADATA to fix "used before declaration" error.
-const Flame = ({ size, className }: { size: number, className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
-  </svg>
-);
 
 const PROVIDER_METADATA = {
   mercadopago: { label: 'Mercado Pago', icon: Globe, color: 'blue', keys: ['Public Key', 'Access Token'] },
@@ -29,31 +22,65 @@ const PROVIDER_METADATA = {
   kiwify: { label: 'Kiwify', icon: ShoppingCart, color: 'emerald', keys: ['API Key', 'Webhook Secret'] },
   eduzz: { label: 'Eduzz', icon: Zap, color: 'orange', keys: ['API Key', 'Public Key'] },
   hotmart: { label: 'Hotmart', icon: Flame, color: 'rose', keys: ['Client ID', 'Client Secret', 'Basic Token'] },
+  pagarme: { label: 'Pagar.me', icon: Fingerprint, color: 'stone', keys: ['API Key', 'Encryption Key'] },
+  infinitepay: { label: 'InfinitePay', icon: Infinity, color: 'cyan', keys: ['Client ID', 'Client Secret', 'Wallet ID'] },
 };
 
 export const IntegrationSettings: React.FC = () => {
   const [gateways, setGateways] = useState<GatewayConfig[]>([
     { 
       id: 'gw_1', 
-      provider: 'mercadopago', 
-      name: 'Mercado Pago Principal', 
+      provider: 'stripe', 
+      name: 'Stripe Global', 
       status: 'CONNECTED', 
-      keys: { 'Public Key': 'APP_USR-XXX', 'Access Token': 'APP_USR-YYY' },
-      lastSync: 'Há 5 min'
+      keys: { 'Publishable Key': 'pk_live_...', 'Secret Key': 'sk_live_...' },
+      lastSync: 'Há 2 min'
     },
     { 
       id: 'gw_2', 
-      provider: 'pix', 
-      name: 'Pix CNPJ Unidade', 
+      provider: 'kiwify', 
+      name: 'Kiwify Lançamentos', 
       status: 'CONNECTED', 
-      keys: { 'Chave Pix': '00.000.000/0001-00', 'Beneficiário': 'Empresa SaaS LTDA' },
-      lastSync: 'Há 12 min'
+      keys: { 'API Key': '****************', 'Webhook Secret': 'whsec_...' },
+      lastSync: 'Há 30 seg'
+    },
+    { 
+      id: 'gw_3', 
+      provider: 'eduzz', 
+      name: 'Eduzz Nutror', 
+      status: 'CONNECTED', 
+      keys: { 'API Key': '****************', 'Public Key': 'PUB-...' },
+      lastSync: 'Há 15 min'
+    },
+    { 
+      id: 'gw_4', 
+      provider: 'hotmart', 
+      name: 'Hotmart Fire', 
+      status: 'CONNECTED', 
+      keys: { 'Client ID': '********', 'Client Secret': '********', 'Basic Token': '******' },
+      lastSync: 'Há 1 hora'
+    },
+    { 
+      id: 'gw_5', 
+      provider: 'pagarme', 
+      name: 'Pagar.me Gateway', 
+      status: 'CONNECTED', 
+      keys: { 'API Key': 'ak_live_...', 'Encryption Key': 'ek_live_...' },
+      lastSync: 'Há 45 min'
+    },
+    { 
+      id: 'gw_6', 
+      provider: 'infinitepay', 
+      name: 'InfinitePay Maquininha', 
+      status: 'CONNECTED', 
+      keys: { 'Client ID': 'client_...', 'Client Secret': 'secret_...', 'Wallet ID': 'wid_...' },
+      lastSync: 'Agora'
     }
   ]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingGateway, setEditingGateway] = useState<GatewayConfig | null>(null);
-  const [selectedProvider, setSelectedProvider] = useState<GatewayConfig['provider']>('mercadopago');
+  const [selectedProvider, setSelectedProvider] = useState<GatewayConfig['provider']>('stripe');
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Form states
@@ -62,7 +89,7 @@ export const IntegrationSettings: React.FC = () => {
 
   const handleOpenAdd = () => {
     setEditingGateway(null);
-    setSelectedProvider('mercadopago');
+    setSelectedProvider('stripe');
     setFormName('');
     setFormKeys({});
     setIsModalOpen(true);
@@ -116,6 +143,8 @@ export const IntegrationSettings: React.FC = () => {
       case 'emerald': return 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 border-emerald-100 dark:border-emerald-800';
       case 'orange': return 'bg-orange-50 dark:bg-orange-900/30 text-orange-600 border-orange-100 dark:border-orange-800';
       case 'rose': return 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 border-rose-100 dark:border-rose-800';
+      case 'stone': return 'bg-stone-50 dark:bg-stone-900/30 text-stone-600 border-stone-100 dark:border-stone-800';
+      case 'cyan': return 'bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 border-cyan-100 dark:border-cyan-800';
       default: return 'bg-slate-50 dark:bg-slate-800 text-slate-600 border-slate-100 dark:border-slate-700';
     }
   };
@@ -226,16 +255,16 @@ export const IntegrationSettings: React.FC = () => {
              <form onSubmit={handleSave} className="space-y-8">
                 <div className="space-y-2">
                    <label className="text-[9px] font-black uppercase text-slate-400 px-4 tracking-widest">Plataforma / Provedor</label>
-                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       {(Object.keys(PROVIDER_METADATA) as Array<keyof typeof PROVIDER_METADATA>).map(key => (
                         <button 
                           key={key} 
                           type="button" 
                           onClick={() => { setSelectedProvider(key); setFormKeys({}); }}
-                          className={`p-4 rounded-2xl border-2 transition-all flex items-center gap-3 ${selectedProvider === key ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 shadow-sm' : 'border-slate-100 dark:border-slate-800 text-slate-400'}`}
+                          className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${selectedProvider === key ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 shadow-sm' : 'border-slate-100 dark:border-slate-800 text-slate-400'}`}
                         >
-                           {React.createElement(PROVIDER_METADATA[key].icon, { size: 16 })}
-                           <span className="text-[9px] font-black uppercase tracking-tight">{PROVIDER_METADATA[key].label}</span>
+                           {React.createElement(PROVIDER_METADATA[key].icon, { size: 20 })}
+                           <span className="text-[8px] font-black uppercase tracking-tight truncate w-full text-center">{PROVIDER_METADATA[key].label}</span>
                         </button>
                       ))}
                    </div>
@@ -247,7 +276,7 @@ export const IntegrationSettings: React.FC = () => {
                      required
                      value={formName} 
                      onChange={e => setFormName(e.target.value)} 
-                     placeholder="Ex: Minha Conta Kiwify"
+                     placeholder={`Ex: Minha Conta ${PROVIDER_METADATA[selectedProvider].label}`}
                      className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none outline-none font-bold text-xs shadow-inner italic uppercase" 
                    />
                 </div>
