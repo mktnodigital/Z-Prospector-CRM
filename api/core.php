@@ -1,7 +1,7 @@
 <?php
 /**
- * Z-PROSPECTOR - Produção Core Engine v2.2
- * Configuração HostGator - Hardcoded Credentials
+ * Z-PROSPECTOR - Produção Core Engine v2.3
+ * Credentials Hardcoded - HostGator Fix
  */
 
 // 1. Buffer de saída para evitar erro "Headers already sent"
@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     exit;
 }
 
-// 4. CREDENCIAIS DO BANCO (HostGator)
+// 4. CREDENCIAIS DO BANCO (HostGator - Dados Reais)
 $dbHost = 'localhost';
 $dbName = 'tinova31_zprospector_db';
 $dbUser = 'tinova31_zprospector';
@@ -41,7 +41,7 @@ try {
     ob_clean(); 
     http_response_code(500);
     
-    // Retorna o erro exato do MySQL para sabermos se é senha ou permissão
+    // Retorna o erro exato do MySQL
     echo json_encode([
         "success" => false, 
         "error" => "Falha na Conexão SQL: " . $e->getMessage()
