@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { 
   User, Mail, Lock, ShieldCheck, Trash2, Camera, Bell, 
@@ -184,7 +185,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onLogo
            <div className="space-y-1">
               <div className="flex items-center gap-3">
                 <h1 className="text-3xl md:text-4xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white">{user.name}</h1>
-                <CheckCircle2 size={20} fill="currentColor" className="text-white bg-blue-500 rounded-full" />
+                <div className="bg-blue-500 text-white rounded-full p-0.5"><CheckCircle2 size={16} fill="currentColor" className="text-white" /></div>
               </div>
               <div className="flex items-center gap-3">
                  <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[9px] font-black uppercase rounded-lg border border-indigo-100 dark:border-indigo-800 tracking-wider">

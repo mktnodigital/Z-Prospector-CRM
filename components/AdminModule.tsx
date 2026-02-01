@@ -10,7 +10,7 @@ import {
   Image as ImageIcon, Type, Layout, Save, X, Ban, Edit3, Smartphone, Globe2,
   Lock, ShieldAlert, Fingerprint, History, Monitor, Shield, UploadCloud, ImagePlus, Workflow,
   Check, AlertTriangle, Layers, Briefcase, Handshake, Link as LinkIcon, Wifi, Network, UserCog, CloudLightning,
-  MapPin, Eye, Paintbrush, BoxSelect, Square, Circle
+  MapPin, Eye, Paintbrush, BoxSelect, Square, Circle, ToggleLeft, ToggleRight, Radio, Power
 } from 'lucide-react';
 import { BrandingConfig, EvolutionConfig, Tenant, SalesMode } from '../types';
 import { IntegrationSettings } from './IntegrationSettings';
@@ -45,6 +45,11 @@ export const AdminModule: React.FC<AdminModuleProps> = ({
   const [activeTab, setActiveTab] = useState<AdminSubTab>('tenants');
   const [brandingSection, setBrandingSection] = useState<BrandingSection>('identity');
   const [isSyncing, setIsSyncing] = useState(false);
+  
+  // System Controls State
+  const [n8nApiKey, setN8nApiKey] = useState('n8n_live_sk_8821939210');
+  const [apiEnabled, setApiEnabled] = useState(true);
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
   
   // Refs para Inputs de Arquivo
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -477,6 +482,36 @@ export const AdminModule: React.FC<AdminModuleProps> = ({
 
          {activeTab === 'integrations' && (
             <div className="animate-in slide-in-from-right-4 space-y-8">
+               
+               {/* SYSTEM CONTROLS HEADER */}
+               <div className="p-8 bg-slate-50 dark:bg-slate-800/50 rounded-[3rem] border border-slate-200 dark:border-slate-700 flex flex-col md:flex-row justify-between items-center gap-6">
+                  <div className="flex items-center gap-4">
+                     <div className="p-3 bg-white dark:bg-slate-700 rounded-2xl shadow-sm"><Power size={24} className="text-indigo-600"/></div>
+                     <div>
+                        <h4 className="text-lg font-black italic uppercase tracking-tight">Controle do Sistema</h4>
+                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Master Switches</p>
+                     </div>
+                  </div>
+                  
+                  <div className="flex gap-4">
+                     <button 
+                       onClick={() => { setApiEnabled(!apiEnabled); notify(apiEnabled ? 'API Gateway Pausado!' : 'API Gateway Operacional'); }}
+                       className={`flex items-center gap-3 px-6 py-3 rounded-2xl transition-all border-2 ${apiEnabled ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'bg-slate-100 border-slate-200 text-slate-400'}`}
+                     >
+                        {apiEnabled ? <ToggleRight size={24} /> : <ToggleLeft size={24} />}
+                        <span className="text-[9px] font-black uppercase tracking-widest">API Gateway</span>
+                     </button>
+                     
+                     <button 
+                       onClick={() => { setMaintenanceMode(!maintenanceMode); notify(maintenanceMode ? 'Sistema Online para Todos' : 'Modo Manutenção Ativado'); }}
+                       className={`flex items-center gap-3 px-6 py-3 rounded-2xl transition-all border-2 ${maintenanceMode ? 'bg-rose-50 border-rose-200 text-rose-600' : 'bg-slate-100 border-slate-200 text-slate-400'}`}
+                     >
+                        {maintenanceMode ? <ToggleRight size={24} /> : <ToggleLeft size={24} />}
+                        <span className="text-[9px] font-black uppercase tracking-widest">Manutenção</span>
+                     </button>
+                  </div>
+               </div>
+
                <div className="p-8 bg-blue-50 dark:bg-blue-900/10 rounded-[3rem] border border-blue-100 dark:border-blue-800/30">
                   <div className="flex items-center gap-4 mb-4 text-blue-600 dark:text-blue-400">
                      <Wifi size={24} />
@@ -526,9 +561,14 @@ export const AdminModule: React.FC<AdminModuleProps> = ({
                            className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold border-none outline-none focus:ring-4 ring-rose-500/10 shadow-inner" 
                         />
                      </div>
-                     <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase text-slate-500">Status Cluster</span>
-                        <span className="px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-full text-[9px] font-black uppercase border border-emerald-500/20">Online</span>
+                     <div className="space-y-2">
+                        <label className="text-[9px] font-black uppercase text-slate-400 px-4">N8n Global API Key (Secure)</label>
+                        <input 
+                           type="password"
+                           value={n8nApiKey}
+                           onChange={e => setN8nApiKey(e.target.value)}
+                           className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-bold border-none outline-none focus:ring-4 ring-rose-500/10 shadow-inner" 
+                        />
                      </div>
                   </div>
 
