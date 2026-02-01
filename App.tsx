@@ -30,13 +30,23 @@ import {
   EvolutionConfig, AppNotification, AppModule, LeadStatus, PipelineStage 
 } from './types';
 
-// INITIAL DATA (Fallback se API falhar)
+// --- DATA MOCKING: LEADS ---
 const INITIAL_LEADS: Lead[] = [
-  { id: 'l1', name: 'Roberto Silva', phone: '5511999998888', email: 'roberto@email.com', status: LeadStatus.HOT, stage: PipelineStage.NEGOTIATION, lastInteraction: 'Interessado no plano anual', value: 1500, source: 'Instagram' },
-  { id: 'l2', name: 'Julia Martins', phone: '5511988887777', email: 'julia@email.com', status: LeadStatus.WARM, stage: PipelineStage.QUALIFIED, lastInteraction: 'Pediu apresentação', value: 800, source: 'Google Ads' },
-  { id: 'l3', name: 'Empresa Tech', phone: '5511977776666', email: 'contato@tech.com', status: LeadStatus.COLD, stage: PipelineStage.CONTACTED, lastInteraction: 'Sem resposta há 2 dias', value: 5000, source: 'Linkedin' },
+  { id: 'l1', name: 'Roberto Silva', phone: '5511999998888', email: 'roberto@gmail.com', status: LeadStatus.HOT, stage: PipelineStage.NEGOTIATION, lastInteraction: 'Interessado no plano anual, pediu desconto à vista.', value: 1500, source: 'Instagram' },
+  { id: 'l2', name: 'Julia Martins', phone: '5511988887777', email: 'julia.m@outlook.com', status: LeadStatus.WARM, stage: PipelineStage.QUALIFIED, lastInteraction: 'Pediu apresentação em PDF.', value: 800, source: 'Google Ads' },
+  { id: 'l3', name: 'Tech Solutions Ltda', phone: '5511977776666', email: 'contato@techsol.com', status: LeadStatus.COLD, stage: PipelineStage.CONTACTED, lastInteraction: 'Visualizou a proposta, sem resposta há 2 dias.', value: 5000, source: 'Linkedin' },
+  { id: 'l4', name: 'Amanda Costa', phone: '5541999887766', email: 'amanda.c@yahoo.com', status: LeadStatus.HOT, stage: PipelineStage.NEW, lastInteraction: 'Entrou via formulário do site agora.', value: 0, source: 'Site Institucional' },
+  { id: 'l5', name: 'Dr. Fernando M.', phone: '5521988776655', email: 'fernando@medico.com', status: LeadStatus.WARM, stage: PipelineStage.PROPOSAL, lastInteraction: 'Agendou reunião para discutir escopo.', value: 12000, source: 'Indicação' },
+  { id: 'l6', name: 'Cafeteria Central', phone: '5511966554433', email: 'cafe@central.com', status: LeadStatus.COLD, stage: PipelineStage.NEW, lastInteraction: 'Lead frio importado de lista.', value: 0, source: 'Outbound' },
+  { id: 'l7', name: 'Pedro Henrique', phone: '5531955443322', email: 'pedro.h@uol.com.br', status: LeadStatus.HOT, stage: PipelineStage.CLOSED, lastInteraction: 'Pagamento confirmado. Onboarding iniciado.', value: 2500, source: 'Facebook Ads' },
+  { id: 'l8', name: 'Mariana Luz', phone: '5548944332211', email: 'mari.luz@design.com', status: LeadStatus.WARM, stage: PipelineStage.QUALIFIED, lastInteraction: 'Dúvida sobre integração com N8n.', value: 450, source: 'Instagram' },
+  { id: 'l9', name: 'Construtora Alpha', phone: '5511933221100', email: 'comercial@alpha.com', status: LeadStatus.WARM, stage: PipelineStage.NEGOTIATION, lastInteraction: 'Aguardando aprovação da diretoria.', value: 25000, source: 'Google Maps' },
+  { id: 'l10', name: 'Lucas Gamer', phone: '5511922110099', email: 'lucas@game.com', status: LeadStatus.COLD, stage: PipelineStage.CONTACTED, lastInteraction: 'Respondeu "não tenho interesse agora".', value: 0, source: 'TikTok' },
+  { id: 'l11', name: 'Salão Beleza Pura', phone: '5511911009988', email: 'contato@belezapura.com', status: LeadStatus.HOT, stage: PipelineStage.PROPOSAL, lastInteraction: 'Quer fechar pacote para 5 funcionários.', value: 3000, source: 'WhatsApp' },
+  { id: 'l12', name: 'Rafaela Fitness', phone: '5521999887711', email: 'rafa@fit.com', status: LeadStatus.WARM, stage: PipelineStage.QUALIFIED, lastInteraction: 'Perguntou sobre fidelidade.', value: 150, source: 'Instagram' },
 ];
 
+// --- DATA MOCKING: TENANTS ---
 const INITIAL_TENANT_LIST: Tenant[] = [
   {
     id: 'master_01',
@@ -59,8 +69,47 @@ const INITIAL_TENANT_LIST: Tenant[] = [
     status: 'ONLINE',
     instanceStatus: 'CONNECTED',
     salesMode: 'ASSISTED'
+  },
+  {
+    id: 'unit_03',
+    name: 'Solar Energy SP',
+    niche: 'Energia Solar',
+    healthScore: 85,
+    revenue: 320000,
+    activeLeads: 58,
+    status: 'WARNING',
+    instanceStatus: 'DISCONNECTED',
+    salesMode: 'ASSISTED'
+  },
+  {
+    id: 'unit_04',
+    name: 'Dr. Saúde Clínica',
+    niche: 'Saúde & Clínicas',
+    healthScore: 98,
+    revenue: 89000,
+    activeLeads: 450,
+    status: 'ONLINE',
+    instanceStatus: 'CONNECTED',
+    salesMode: 'ASSISTED'
   }
 ];
+
+// --- DATA MOCKING: APPOINTMENTS ---
+const generateAppointments = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const day = today.getDate();
+
+  return [
+    { id: 'apt_1', lead: 'Roberto Silva', time: '09:00', date: day, month, year, service: 'Reunião de Fechamento', status: 'CONFIRMED', ia: true, value: 0 } as Appointment,
+    { id: 'apt_2', lead: 'Julia Martins', time: '14:30', date: day, month, year, service: 'Apresentação Produto', status: 'CONFIRMED', ia: false, value: 0 } as Appointment,
+    { id: 'apt_3', lead: 'Amanda Costa', time: '16:00', date: day, month, year, service: 'Onboarding', status: 'PENDING', ia: true, value: 0 } as Appointment,
+    { id: 'apt_4', lead: 'Construtora Alpha', time: '10:00', date: day + 1, month, year, service: 'Visita Técnica', status: 'CONFIRMED', ia: false, value: 0 } as Appointment,
+    { id: 'apt_5', lead: 'Mariana Luz', time: '11:00', date: day + 1, month, year, service: 'Suporte Técnico', status: 'CONFIRMED', ia: true, value: 0 } as Appointment,
+    { id: 'apt_6', lead: 'Dr. Fernando', time: '15:00', date: day + 2, month, year, service: 'Consultoria Premium', status: 'PENDING', ia: false, value: 500 } as Appointment,
+  ];
+};
 
 const INITIAL_BRANDING: BrandingConfig = {
   fullLogo: 'https://via.placeholder.com/150x40?text=Z-Prospector+Master',
@@ -104,9 +153,12 @@ export default function App() {
   const [evolutionConfig, setEvolutionConfig] = useState<EvolutionConfig>({ baseUrl: 'https://api.clikai.com.br/', apiKey: '', enabled: false });
   const [notifications, setNotifications] = useState<AppNotification[]>([
      { id: 'n1', type: 'SYSTEM', title: 'Acesso Owner Liberado', description: 'Todos os módulos ativados para moisescosta.mkt@gmail.com', time: 'Agora', read: false },
-     { id: 'n2', type: 'SALE', title: 'Venda Aprovada', description: 'Lead Roberto pagou R$ 1.500,00', time: 'Há 5 min', read: false }
+     { id: 'n2', type: 'SALE', title: 'Venda Aprovada', description: 'Lead Roberto pagou R$ 1.500,00', time: 'Há 5 min', read: false },
+     { id: 'n3', type: 'APPOINTMENT', title: 'Novo Agendamento', description: 'Julia Martins confirmou para amanhã.', time: 'Há 30 min', read: false }
   ]);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  
+  // Inicializa com dados gerados dinamicamente para o mês atual
+  const [appointments, setAppointments] = useState<Appointment[]>(generateAppointments());
 
   const notificationRef = useRef<HTMLDivElement>(null);
 

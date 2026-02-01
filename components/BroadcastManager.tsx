@@ -44,6 +44,32 @@ const MOCK_CAMPAIGNS: Campaign[] = [
     totalLeads: 120,
     sentLeads: 0,
     conversions: 0
+  },
+  {
+    id: 'camp_3',
+    name: 'Oferta Relâmpago Energia',
+    targetStatus: LeadStatus.WARM,
+    productId: 'prod_4',
+    productName: 'Kit Energia 500kW',
+    template: '{nome}, última chance de garantir o preço antigo das placas solares. Podemos conversar?',
+    scheduledAt: 'Ontem, 18:00',
+    status: 'COMPLETED',
+    totalLeads: 80,
+    sentLeads: 80,
+    conversions: 5
+  },
+  {
+    id: 'camp_4',
+    name: 'Aviso de Manutenção',
+    targetStatus: 'ALL',
+    productId: '',
+    productName: 'Aviso Geral',
+    template: 'Prezados clientes, estaremos em manutenção no sábado. Agendamentos antecipados ganham 10% OFF.',
+    scheduledAt: 'Sexta, 10:00',
+    status: 'SENDING',
+    totalLeads: 350,
+    sentLeads: 145,
+    conversions: 0
   }
 ];
 

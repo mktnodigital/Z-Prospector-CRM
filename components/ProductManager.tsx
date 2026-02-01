@@ -66,6 +66,58 @@ const INITIAL_PRODUCTS: Product[] = [
     icon: Zap, 
     color: 'text-orange-500',
     image: "https://images.unsplash.com/photo-1675557009875-436f595b1897?auto=format&fit=crop&q=80&w=800"
+  },
+  { 
+    id: 'prod_3', 
+    name: 'Bot Atendimento 24h', 
+    price: 497.00, 
+    category: 'SaaS', 
+    description: 'Licença mensal do bot de atendimento automático para WhatsApp.',
+    conversion: '15%', 
+    views: 2100,
+    sales: 150,
+    icon: Package, 
+    color: 'text-purple-500',
+    image: "https://images.unsplash.com/photo-1531746790731-6c087fecd65a?auto=format&fit=crop&q=80&w=800"
+  },
+  { 
+    id: 'prod_4', 
+    name: 'Kit Energia 500kW', 
+    price: 15000.00, 
+    category: 'Produto', 
+    description: 'Sistema completo de energia solar residencial com instalação.',
+    conversion: '2%', 
+    views: 500,
+    sales: 10,
+    icon: Zap, 
+    color: 'text-yellow-500',
+    image: "https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&q=80&w=800"
+  },
+  { 
+    id: 'prod_5', 
+    name: 'Harmonização Facial', 
+    price: 3500.00, 
+    category: 'Serviço', 
+    description: 'Procedimento estético completo com preenchimento e botox.',
+    conversion: '12%', 
+    views: 800,
+    sales: 45,
+    icon: Star, 
+    color: 'text-pink-500',
+    image: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&q=80&w=800"
+  },
+  { 
+    id: 'prod_6', 
+    name: 'Divórcio Consensual', 
+    price: 2000.00, 
+    category: 'Serviço', 
+    description: 'Assessoria jurídica para divórcio amigável em cartório.',
+    conversion: '5%', 
+    views: 300,
+    sales: 15,
+    icon: Star, 
+    color: 'text-slate-500',
+    image: "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&q=80&w=800"
   }
 ];
 

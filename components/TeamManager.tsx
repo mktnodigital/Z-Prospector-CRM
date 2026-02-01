@@ -13,8 +13,10 @@ interface TeamManagerProps {
 
 const INITIAL_USERS: User[] = [
   { id: 'u1', name: 'Moisés Costa', email: 'moisescosta.mkt@gmail.com', role: 'SUPER_ADMIN', status: 'ACTIVE', lastLogin: 'Agora' },
-  { id: 'u2', name: 'Gerente Comercial', email: 'gerente@zprospector.com', role: 'MANAGER', status: 'ACTIVE', lastLogin: 'Há 2h' },
-  { id: 'u3', name: 'Atendente 01', email: 'atendimento@zprospector.com', role: 'AGENT', status: 'ACTIVE', lastLogin: 'Há 5min' },
+  { id: 'u2', name: 'Roberto Almeida', email: 'gerente.roberto@zprospector.com', role: 'MANAGER', status: 'ACTIVE', lastLogin: 'Há 2h' },
+  { id: 'u3', name: 'Ana Souza', email: 'atendimento.ana@zprospector.com', role: 'AGENT', status: 'ACTIVE', lastLogin: 'Há 5min' },
+  { id: 'u4', name: 'Carlos Tech', email: 'dev@zprospector.com', role: 'TENANT_ADMIN', status: 'ACTIVE', lastLogin: 'Ontem' },
+  { id: 'u5', name: 'Fernanda Vendas', email: 'fernanda@zprospector.com', role: 'AGENT', status: 'INACTIVE', lastLogin: 'Há 3 dias' },
 ];
 
 export const TeamManager: React.FC<TeamManagerProps> = ({ notify }) => {

@@ -38,11 +38,15 @@ export const PaymentManager: React.FC<Props> = ({ totalVolume, pipelineVolume, o
   const [isSimulatingSale, setIsSimulatingSale] = useState(false);
 
   const initialTransactions: Transaction[] = [
-    { id: 'TX-101', client: 'Unidade Matriz - Barbearia', type: 'Cartão de Crédito', typeId: 'CREDIT_CARD', value: totalVolume * 0.45, status: 'PAID', date: 'Hoje, 10:00' },
-    { id: 'TX-102', client: 'Unidade 02 - Estética', type: 'Pix Automático', typeId: 'PIX', value: totalVolume * 0.20, status: 'PAID', date: 'Ontem, 15:45' },
-    { id: 'TX-103', client: 'Franquia Sul', type: 'Boleto Bancário', typeId: 'CREDIT_CARD', value: pipelineVolume * 0.15, status: 'PENDING', date: 'Hoje, 09:30' },
+    { id: 'TX-101', client: 'Unidade Matriz - Barbearia', type: 'Cartão de Crédito', typeId: 'CREDIT_CARD', value: 180.00, status: 'PAID', date: 'Hoje, 10:00' },
+    { id: 'TX-102', client: 'Unidade 02 - Estética', type: 'Pix Automático', typeId: 'PIX', value: 350.00, status: 'PAID', date: 'Ontem, 15:45' },
+    { id: 'TX-103', client: 'Franquia Sul', type: 'Boleto Bancário', typeId: 'CREDIT_CARD', value: 1200.00, status: 'PENDING', date: 'Hoje, 09:30' },
     { id: 'TX-104', client: 'Unidade Curitiba', type: 'Pix Automático', typeId: 'PIX', value: 450.00, status: 'PAID', date: 'Hoje, 11:20' },
     { id: 'TX-105', client: 'Unidade Matriz - Barbearia', type: 'Cartão de Crédito', typeId: 'CREDIT_CARD', value: 890.00, status: 'FAILED', date: 'Hoje, 08:15' },
+    { id: 'TX-106', client: 'Solicitação de Saque', type: 'Transferência PIX', typeId: 'PIX', value: 5000.00, status: 'PAID', date: 'Há 2 dias', isWithdraw: true },
+    { id: 'TX-107', client: 'Dr. Fernando', type: 'Pix Automático', typeId: 'PIX', value: 2500.00, status: 'PAID', date: 'Há 3 dias' },
+    { id: 'TX-108', client: 'Construtora Alpha', type: 'Cartão de Crédito', typeId: 'CREDIT_CARD', value: 15000.00, status: 'PAID', date: 'Há 4 dias' },
+    { id: 'TX-109', client: 'Venda de Balcão', type: 'Pix Automático', typeId: 'PIX', value: 80.00, status: 'PAID', date: 'Há 5 dias' },
   ];
 
   const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
