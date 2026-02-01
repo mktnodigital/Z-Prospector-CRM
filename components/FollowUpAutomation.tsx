@@ -1,14 +1,14 @@
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { 
   Zap, MessageSquare, Play, Plus, Split, Bot, 
   X, Trash2, Loader2, Sparkles, Brain, Layers, 
-  Send, Code, Rocket, CheckCircle2, History,
-  ArrowRight, MousePointer2, Settings, Monitor,
-  Smartphone, Database, Globe, Filter, AlertCircle,
-  CloudLightning, RefreshCcw, Save, ZoomIn, ZoomOut, Maximize, Move,
-  ChevronRight, Box, Type, Grid
+  Rocket, CheckCircle2, Settings, ZoomIn, ZoomOut, Maximize,
+  CloudLightning, MousePointer2, Link2
 } from 'lucide-react';
+
+// --- TYPES ---
+type HandleType = 'top' | 'right' | 'bottom' | 'left';
 
 interface FlowNode {
   id: string;
@@ -21,12 +21,21 @@ interface FlowNode {
   y: number;
 }
 
+interface FlowEdge {
+  id: string;
+  source: string;
+  target: string;
+  sourceHandle: HandleType;
+  targetHandle: HandleType;
+}
+
 interface FlowBlueprint {
   id: string;
   name: string;
   tagline: string;
   category: 'Vendas' | 'Atendimento' | 'Engenharia';
-  nodes: Omit<FlowNode, 'x' | 'y'>[]; // Blueprints don't store positions initially
+  nodes: Omit<FlowNode, 'x' | 'y'>[];
+  edges?: Omit<FlowEdge, 'id'>[]; // Optional predefined edges
 }
 
 const NODE_TYPES = [
@@ -35,6 +44,9 @@ const NODE_TYPES = [
   { type: 'condition' as const, label: 'Filtro Condicional', desc: 'Lógica IF/ELSE', icon: Split },
   { type: 'n8n' as const, label: 'Integração n8n', desc: 'Webhook Externo', icon: Code },
 ];
+
+// Helper icon for Node Types definition above
+function Code(props: any) { return <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>; }
 
 const MASTER_BLUEPRINTS: FlowBlueprint[] = [
   {
@@ -47,6 +59,11 @@ const MASTER_BLUEPRINTS: FlowBlueprint[] = [
       { id: '2', type: 'ai', label: 'Análise de Sentimento Gemini', description: 'Identifica urgência e perfil', icon: Brain },
       { id: '3', type: 'condition', label: 'Score > 80?', description: 'Filtro de leads quentes', icon: Split },
       { id: '4', type: 'action', label: 'Notificar Unidade', description: 'Alerta push para o vendedor', icon: Smartphone }
+    ],
+    edges: [
+      { source: '1', target: '2', sourceHandle: 'bottom', targetHandle: 'top' },
+      { source: '2', target: '3', sourceHandle: 'bottom', targetHandle: 'top' },
+      { source: '3', target: '4', sourceHandle: 'right', targetHandle: 'left' }
     ]
   },
   {
@@ -58,9 +75,16 @@ const MASTER_BLUEPRINTS: FlowBlueprint[] = [
       { id: '1', type: 'trigger', label: 'Carrinho Abandonado', description: 'Webhook do Checkout Master', icon: CloudLightning },
       { id: '2', type: 'ai', label: 'Persuasão Neural', description: 'Gera oferta personalizada', icon: Sparkles },
       { id: '3', type: 'action', label: 'Enviar WhatsApp Oficial', description: 'Template de alta conversão', icon: MessageSquare }
+    ],
+    edges: [
+      { source: '1', target: '2', sourceHandle: 'right', targetHandle: 'left' },
+      { source: '2', target: '3', sourceHandle: 'right', targetHandle: 'left' }
     ]
   }
 ];
+
+// Helper icon needed inside component
+function Smartphone(props: any) { return <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>; }
 
 const NODE_STYLE_MAP = {
   trigger: { bg: 'bg-indigo-50 dark:bg-indigo-900/40', text: 'text-indigo-600', border: 'border-indigo-200 dark:border-indigo-800' },
@@ -71,19 +95,26 @@ const NODE_STYLE_MAP = {
 };
 
 export const FollowUpAutomation: React.FC<{ niche?: string }> = ({ niche = 'Geral' }) => {
-  // Inicializa o fluxo com posições
-  const [activeFlow, setActiveFlow] = useState<FlowNode[]>(() => {
-    return MASTER_BLUEPRINTS[0].nodes.map((n, i) => ({
+  // Nodes State
+  const [nodes, setNodes] = useState<FlowNode[]>(() => {
+    // Initial Blueprint Load logic
+    const bp = MASTER_BLUEPRINTS[0];
+    return bp.nodes.map((n, i) => ({
       ...n,
-      x: 100 + (i * 350),
-      y: 300
+      x: 100 + (i % 2 === 0 ? 0 : 350), // Zig-zag positions for demo
+      y: 100 + (Math.floor(i / 2) * 200)
     }));
+  });
+
+  // Edges State
+  const [edges, setEdges] = useState<FlowEdge[]>(() => {
+    const bp = MASTER_BLUEPRINTS[0];
+    return (bp.edges || []).map((e, i) => ({ ...e, id: `edge_${i}` }));
   });
 
   const [activeBlueprintId, setActiveBlueprintId] = useState(MASTER_BLUEPRINTS[0].id);
   const [isTesting, setIsTesting] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
-  const [testNodeId, setTestNodeId] = useState<string | null>(null);
   
   const [editingNode, setEditingNode] = useState<FlowNode | null>(null);
   const [showInjectMenu, setShowInjectMenu] = useState(false);
@@ -92,65 +123,116 @@ export const FollowUpAutomation: React.FC<{ niche?: string }> = ({ niche = 'Gera
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
-  const [isDraggingNode, setIsDraggingNode] = useState<string | null>(null);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 }); // Mouse start position
-  const [initialElementPos, setInitialElementPos] = useState({ x: 0, y: 0 }); // Element start position
   
+  // Dragging Nodes
+  const [isDraggingNode, setIsDraggingNode] = useState<string | null>(null);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [initialElementPos, setInitialElementPos] = useState({ x: 0, y: 0 });
+  
+  // Connecting Nodes
+  const [connectingSource, setConnectingSource] = useState<{ nodeId: string, handle: HandleType } | null>(null);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 }); // Mouse pos in canvas coords
+
   const canvasRef = useRef<HTMLDivElement>(null);
 
   // --- HANDLERS ---
 
   const handleLoadTemplate = (bp: FlowBlueprint) => {
-    setTestNodeId(null);
     setActiveBlueprintId(bp.id);
-    // Auto-layout horizontal na carga
-    setActiveFlow(bp.nodes.map((n, i) => ({ 
+    setNodes(bp.nodes.map((n, i) => ({ 
       ...n, 
       status: 'idle',
-      x: 100 + (i * 350), 
-      y: 300 
+      x: 150 + (i % 2 === 0 ? 0 : 400), 
+      y: 150 + (Math.floor(i / 2) * 200)
     })));
+    setEdges((bp.edges || []).map((e, i) => ({ ...e, id: `edge_${Date.now()}_${i}` })));
     setPan({ x: 0, y: 0 });
     setZoom(1);
   };
 
   const handleNewFlow = () => {
     if (confirm('Deseja limpar o canvas para criar um novo fluxo master?')) {
-      setActiveFlow([{ 
+      setNodes([{ 
         id: `node_${Date.now()}`, 
         type: 'trigger', 
-        label: 'Nova Conversa', 
-        description: 'Gatilho de entrada', 
+        label: 'Gatilho Inicial', 
+        description: 'Ponto de entrada', 
         icon: Zap,
         x: 100,
-        y: 300
+        y: 200
       }]);
+      setEdges([]);
       setActiveBlueprintId('custom');
       setPan({ x: 0, y: 0 });
     }
   };
 
-  // ZOOM
+  // ZOOM & PAN
   const handleZoom = (delta: number) => setZoom(prev => Math.min(Math.max(prev + delta, 0.4), 2));
   const resetViewport = () => { setZoom(1); setPan({ x: 0, y: 0 }); };
 
+  const getCanvasCoordinates = (clientX: number, clientY: number) => {
+    if (!canvasRef.current) return { x: 0, y: 0 };
+    const rect = canvasRef.current.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left - pan.x) / zoom,
+      y: (clientY - rect.top - pan.y) / zoom
+    };
+  };
+
   // MOUSE EVENTS
   const handleMouseDown = (e: React.MouseEvent) => {
-    // Check if clicking on a node or the canvas
-    const nodeElement = (e.target as HTMLElement).closest('.node-element');
-    
-    if (nodeElement) {
-      const nodeId = nodeElement.getAttribute('data-node-id');
-      if (nodeId) {
-        setIsDraggingNode(nodeId);
-        setDragStart({ x: e.clientX, y: e.clientY });
-        const node = activeFlow.find(n => n.id === nodeId);
-        if (node) setInitialElementPos({ x: node.x, y: node.y });
+    // Only pan if clicking strictly on background (not node, not handle)
+    const target = e.target as HTMLElement;
+    if (target.closest('.node-element') || target.closest('.node-handle')) return;
+
+    setIsPanning(true);
+    setDragStart({ x: e.clientX, y: e.clientY });
+    setInitialElementPos({ x: pan.x, y: pan.y });
+  };
+
+  const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
+    e.stopPropagation();
+    setIsDraggingNode(nodeId);
+    setDragStart({ x: e.clientX, y: e.clientY });
+    const node = nodes.find(n => n.id === nodeId);
+    if (node) setInitialElementPos({ x: node.x, y: node.y });
+  };
+
+  const handleHandleMouseDown = (e: React.MouseEvent, nodeId: string, handle: HandleType) => {
+    e.stopPropagation();
+    setConnectingSource({ nodeId, handle });
+    const coords = getCanvasCoordinates(e.clientX, e.clientY);
+    setMousePos(coords);
+  };
+
+  const handleHandleMouseUp = (e: React.MouseEvent, targetNodeId: string, targetHandle: HandleType) => {
+    e.stopPropagation();
+    if (connectingSource) {
+      if (connectingSource.nodeId === targetNodeId) {
+        setConnectingSource(null);
+        return;
       }
-    } else {
-      setIsPanning(true);
-      setDragStart({ x: e.clientX, y: e.clientY });
-      setInitialElementPos({ x: pan.x, y: pan.y });
+      
+      const newEdge: FlowEdge = {
+        id: `edge_${Date.now()}`,
+        source: connectingSource.nodeId,
+        target: targetNodeId,
+        sourceHandle: connectingSource.handle,
+        targetHandle: targetHandle
+      };
+      
+      // Avoid duplicate edges
+      const exists = edges.find(ed => 
+        ed.source === newEdge.source && ed.target === newEdge.target && 
+        ed.sourceHandle === newEdge.sourceHandle && ed.targetHandle === newEdge.targetHandle
+      );
+
+      if (!exists) {
+        setEdges(prev => [...prev, newEdge]);
+      }
+      
+      setConnectingSource(null);
     }
   };
 
@@ -159,7 +241,7 @@ export const FollowUpAutomation: React.FC<{ niche?: string }> = ({ niche = 'Gera
       const dx = (e.clientX - dragStart.x) / zoom;
       const dy = (e.clientY - dragStart.y) / zoom;
       
-      setActiveFlow(prev => prev.map(n => 
+      setNodes(prev => prev.map(n => 
         n.id === isDraggingNode 
           ? { ...n, x: initialElementPos.x + dx, y: initialElementPos.y + dy } 
           : n
@@ -168,21 +250,24 @@ export const FollowUpAutomation: React.FC<{ niche?: string }> = ({ niche = 'Gera
       const dx = e.clientX - dragStart.x;
       const dy = e.clientY - dragStart.y;
       setPan({ x: initialElementPos.x + dx, y: initialElementPos.y + dy });
+    } else if (connectingSource) {
+      const coords = getCanvasCoordinates(e.clientX, e.clientY);
+      setMousePos(coords);
     }
   };
 
   const handleMouseUp = () => {
     setIsDraggingNode(null);
     setIsPanning(false);
+    setConnectingSource(null); // Cancel connection if dropped on canvas
   };
 
   const handleDeleteNode = (id: string) => {
-    if (activeFlow.length <= 1) return;
-    setActiveFlow(prev => prev.filter(n => n.id !== id));
+    setNodes(prev => prev.filter(n => n.id !== id));
+    setEdges(prev => prev.filter(e => e.source !== id && e.target !== id));
   };
 
   const handleInjectStep = (typeInfo: typeof NODE_TYPES[0]) => {
-    // Injeta no meio da tela (baseado no pan)
     const centerX = (-pan.x + (canvasRef.current?.clientWidth || 800) / 2) / zoom;
     const centerY = (-pan.y + (canvasRef.current?.clientHeight || 600) / 2) / zoom;
 
@@ -196,81 +281,64 @@ export const FollowUpAutomation: React.FC<{ niche?: string }> = ({ niche = 'Gera
       x: centerX,
       y: centerY
     };
-    setActiveFlow(prev => [...prev, newNode]);
+    setNodes(prev => [...prev, newNode]);
     setShowInjectMenu(false);
   };
 
   const handleSaveNodeConfig = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingNode) return;
-    setActiveFlow(prev => prev.map(n => n.id === editingNode.id ? { ...n, ...editingNode } : n));
+    setNodes(prev => prev.map(n => n.id === editingNode.id ? { ...n, ...editingNode } : n));
     setEditingNode(null);
   };
 
   const runFlowTest = async () => {
     setIsTesting(true);
-    setActiveFlow(prev => prev.map(n => ({ ...n, status: 'idle' })));
-    for (const node of activeFlow) {
-      setTestNodeId(node.id);
-      setActiveFlow(prev => prev.map(n => n.id === node.id ? { ...n, status: 'processing' } : n));
-      await new Promise(r => setTimeout(r, 800));
-      setActiveFlow(prev => prev.map(n => n.id === node.id ? { ...n, status: 'success' } : n));
+    setNodes(prev => prev.map(n => ({ ...n, status: 'idle' })));
+    
+    // Simulate flow traversal (simplificado para demo visual)
+    for (const node of nodes) {
+      setNodes(prev => prev.map(n => n.id === node.id ? { ...n, status: 'processing' } : n));
+      await new Promise(r => setTimeout(r, 600));
+      setNodes(prev => prev.map(n => n.id === node.id ? { ...n, status: 'success' } : n));
     }
-    setTestNodeId(null);
     setIsTesting(false);
   };
 
-  // Renderiza as linhas de conexão (Bézier Curves)
-  const renderConnections = useMemo(() => {
-    return (
-      <svg className="absolute inset-0 w-full h-full overflow-visible pointer-events-none z-0">
-        <defs>
-          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-            <polygon points="0 0, 10 3.5, 0 7" fill="#6366f1" />
-          </marker>
-        </defs>
-        {activeFlow.map((node, i) => {
-          if (i === activeFlow.length - 1) return null;
-          const nextNode = activeFlow[i+1];
-          
-          // Pontos de ancoragem (Centro)
-          const startX = node.x + 300; // Largura do nó é aprox 300
-          const startY = node.y + 50;  // Altura aprox 100 / 2
-          const endX = nextNode.x;
-          const endY = nextNode.y + 50;
+  // --- RENDERING HELPERS ---
 
-          // Curva Bézier
-          const cp1x = startX + (endX - startX) / 2;
-          const cp1y = startY;
-          const cp2x = startX + (endX - startX) / 2;
-          const cp2y = endY;
+  const getNodeDimensions = () => ({ width: 280, height: 140 });
 
-          const path = `M ${startX} ${startY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${endX} ${endY}`;
+  const getHandlePosition = (nodeX: number, nodeY: number, handle: HandleType) => {
+    const { width, height } = getNodeDimensions();
+    switch (handle) {
+      case 'top': return { x: nodeX + width / 2, y: nodeY };
+      case 'right': return { x: nodeX + width, y: nodeY + height / 2 };
+      case 'bottom': return { x: nodeX + width / 2, y: nodeY + height };
+      case 'left': return { x: nodeX, y: nodeY + height / 2 };
+    }
+  };
 
-          return (
-            <g key={`conn-${node.id}-${nextNode.id}`}>
-              <path 
-                d={path} 
-                fill="none" 
-                stroke={node.status === 'success' ? '#10b981' : '#cbd5e1'} 
-                strokeWidth="3" 
-                className="transition-colors duration-500"
-              />
-              <path 
-                d={path} 
-                fill="none" 
-                stroke={node.status === 'success' || node.status === 'processing' ? '#6366f1' : 'transparent'} 
-                strokeWidth="3"
-                markerEnd="url(#arrowhead)"
-                strokeDasharray="10,10"
-                className="animate-flow-dash"
-              />
-            </g>
-          );
-        })}
-      </svg>
-    );
-  }, [activeFlow]);
+  const calculatePath = (x1: number, y1: number, x2: number, y2: number, h1: HandleType, h2: HandleType) => {
+    // Control point offset
+    const dist = Math.abs(x1 - x2) + Math.abs(y1 - y2);
+    const offset = Math.min(dist * 0.5, 100);
+
+    let cp1 = { x: x1, y: y1 };
+    let cp2 = { x: x2, y: y2 };
+
+    if (h1 === 'right') cp1.x += offset;
+    else if (h1 === 'left') cp1.x -= offset;
+    else if (h1 === 'top') cp1.y -= offset;
+    else if (h1 === 'bottom') cp1.y += offset;
+
+    if (h2 === 'right') cp2.x += offset;
+    else if (h2 === 'left') cp2.x -= offset;
+    else if (h2 === 'top') cp2.y -= offset;
+    else if (h2 === 'bottom') cp2.y += offset;
+
+    return `M ${x1} ${y1} C ${cp1.x} ${cp1.y}, ${cp2.x} ${cp2.y}, ${x2} ${y2}`;
+  };
 
   return (
     <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-955 overflow-hidden select-none">
@@ -444,22 +512,95 @@ export const FollowUpAutomation: React.FC<{ niche?: string }> = ({ niche = 'Gera
              }}
            >
               {/* SVG CONNECTIONS (LAYER 0) */}
-              {renderConnections}
+              <svg className="absolute inset-0 w-full h-full overflow-visible pointer-events-none z-0">
+                <defs>
+                  <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#6366f1" />
+                  </marker>
+                </defs>
+                {edges.map((edge) => {
+                  const sourceNode = nodes.find(n => n.id === edge.source);
+                  const targetNode = nodes.find(n => n.id === edge.target);
+                  
+                  if (!sourceNode || !targetNode) return null;
+
+                  const start = getHandlePosition(sourceNode.x, sourceNode.y, edge.sourceHandle);
+                  const end = getHandlePosition(targetNode.x, targetNode.y, edge.targetHandle);
+                  
+                  const path = calculatePath(start.x, start.y, end.x, end.y, edge.sourceHandle, edge.targetHandle);
+
+                  return (
+                    <path 
+                      key={edge.id}
+                      d={path} 
+                      fill="none" 
+                      stroke="#6366f1" 
+                      strokeWidth="3"
+                      markerEnd="url(#arrowhead)"
+                      className="transition-colors duration-500"
+                    />
+                  );
+                })}
+                {/* Temporary Connection Line */}
+                {connectingSource && (
+                  <path 
+                    d={`M ${getHandlePosition(
+                      nodes.find(n => n.id === connectingSource.nodeId)!.x, 
+                      nodes.find(n => n.id === connectingSource.nodeId)!.y, 
+                      connectingSource.handle
+                    ).x} ${getHandlePosition(
+                      nodes.find(n => n.id === connectingSource.nodeId)!.x, 
+                      nodes.find(n => n.id === connectingSource.nodeId)!.y, 
+                      connectingSource.handle
+                    ).y} L ${mousePos.x} ${mousePos.y}`} 
+                    fill="none" 
+                    stroke="#cbd5e1" 
+                    strokeWidth="3" 
+                    strokeDasharray="5,5"
+                  />
+                )}
+              </svg>
 
               {/* NODES (LAYER 1) */}
-              {activeFlow.map((node) => {
+              {nodes.map((node) => {
                 const styles = NODE_STYLE_MAP[node.type as keyof typeof NODE_STYLE_MAP] || NODE_STYLE_MAP.trigger;
                 return (
                   <div
                     key={node.id}
-                    data-node-id={node.id}
-                    className={`node-element absolute w-[300px] bg-white dark:bg-slate-900 border-2 rounded-xl p-0 shadow-lg cursor-grab active:cursor-grabbing group/node transition-shadow ${testNodeId === node.id ? 'ring-4 ring-indigo-500/30 border-indigo-600 z-30' : 'border-slate-200 dark:border-slate-700 hover:border-indigo-400 z-10'}`}
+                    onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
+                    className={`node-element absolute w-[280px] bg-white dark:bg-slate-900 border-2 rounded-md p-0 shadow-lg cursor-grab active:cursor-grabbing group/node transition-shadow select-none ${node.status === 'processing' ? 'ring-4 ring-indigo-500/30 border-indigo-600 z-30' : 'border-slate-200 dark:border-slate-700 hover:border-indigo-400 z-10'}`}
                     style={{
                       transform: `translate(${node.x}px, ${node.y}px)`,
                     }}
                   >
+                     {/* HANDLES (4 SIDES) */}
+                     {/* TOP */}
+                     <div 
+                       onMouseDown={(e) => handleHandleMouseDown(e, node.id, 'top')} 
+                       onMouseUp={(e) => handleHandleMouseUp(e, node.id, 'top')}
+                       className="node-handle absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-2 border-indigo-500 rounded-full hover:bg-indigo-500 hover:scale-125 transition-all cursor-crosshair z-50"
+                     ></div>
+                     {/* RIGHT */}
+                     <div 
+                       onMouseDown={(e) => handleHandleMouseDown(e, node.id, 'right')} 
+                       onMouseUp={(e) => handleHandleMouseUp(e, node.id, 'right')}
+                       className="node-handle absolute top-1/2 -translate-y-1/2 -right-1.5 w-3 h-3 bg-white border-2 border-indigo-500 rounded-full hover:bg-indigo-500 hover:scale-125 transition-all cursor-crosshair z-50"
+                     ></div>
+                     {/* BOTTOM */}
+                     <div 
+                       onMouseDown={(e) => handleHandleMouseDown(e, node.id, 'bottom')} 
+                       onMouseUp={(e) => handleHandleMouseUp(e, node.id, 'bottom')}
+                       className="node-handle absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-2 border-indigo-500 rounded-full hover:bg-indigo-500 hover:scale-125 transition-all cursor-crosshair z-50"
+                     ></div>
+                     {/* LEFT */}
+                     <div 
+                       onMouseDown={(e) => handleHandleMouseDown(e, node.id, 'left')} 
+                       onMouseUp={(e) => handleHandleMouseUp(e, node.id, 'left')}
+                       className="node-handle absolute top-1/2 -translate-y-1/2 -left-1.5 w-3 h-3 bg-white border-2 border-indigo-500 rounded-full hover:bg-indigo-500 hover:scale-125 transition-all cursor-crosshair z-50"
+                     ></div>
+
                      {/* Node Header */}
-                     <div className={`h-1.5 w-full rounded-t-lg ${styles.bg.split(' ')[0].replace('/40', '')} bg-opacity-100`}></div>
+                     <div className={`h-1.5 w-full rounded-t-sm ${styles.bg.split(' ')[0].replace('/40', '')} bg-opacity-100`}></div>
                      
                      <div className="p-5">
                         <div className="flex items-start justify-between gap-4">
@@ -469,12 +610,13 @@ export const FollowUpAutomation: React.FC<{ niche?: string }> = ({ niche = 'Gera
                               </div>
                               <div>
                                  <div className="flex items-center gap-2 mb-1">
-                                    <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded border ${styles.bg} ${styles.text} ${styles.border}`}>{node.type}</span>
+                                    <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded-sm border ${styles.bg} ${styles.text} ${styles.border}`}>{node.type}</span>
                                  </div>
                                  <h4 className="text-sm font-black italic uppercase tracking-tight text-slate-800 dark:text-slate-100">{node.label}</h4>
                               </div>
                            </div>
                            <button 
+                              onMouseDown={(e) => e.stopPropagation()}
                               onClick={() => setEditingNode(node)}
                               className="text-slate-300 hover:text-indigo-600 transition-colors"
                            >
@@ -491,20 +633,21 @@ export const FollowUpAutomation: React.FC<{ niche?: string }> = ({ niche = 'Gera
 
                      {/* Delete Handle */}
                      <button 
-                        onClick={(e) => { e.stopPropagation(); handleDeleteNode(node.id); }}
-                        className="absolute -top-2 -right-2 p-1.5 bg-white dark:bg-slate-800 text-slate-300 hover:text-rose-500 rounded-full shadow-md border border-slate-100 dark:border-slate-700 opacity-0 group-hover/node:opacity-100 transition-all scale-75 hover:scale-100"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={() => handleDeleteNode(node.id)}
+                        className="absolute -top-2 -right-2 p-1.5 bg-white dark:bg-slate-800 text-slate-300 hover:text-rose-500 rounded-full shadow-md border border-slate-100 dark:border-slate-700 opacity-0 group-hover/node:opacity-100 transition-all scale-75 hover:scale-100 z-40"
                      >
                         <Trash2 size={14}/>
                      </button>
 
                      {/* Status Indicators */}
                      {node.status === 'processing' && (
-                        <div className="absolute inset-0 bg-white/50 dark:bg-black/50 rounded-xl flex items-center justify-center backdrop-blur-[1px]">
+                        <div className="absolute inset-0 bg-white/50 dark:bg-black/50 rounded-md flex items-center justify-center backdrop-blur-[1px]">
                            <Loader2 className="animate-spin text-indigo-600" size={32} />
                         </div>
                      )}
                      {node.status === 'success' && (
-                        <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-1 rounded-full shadow-lg border-2 border-white dark:border-slate-900 animate-in zoom-in">
+                        <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-1 rounded-full shadow-lg border-2 border-white dark:border-slate-900 animate-in zoom-in z-40">
                            <CheckCircle2 size={16} />
                         </div>
                      )}

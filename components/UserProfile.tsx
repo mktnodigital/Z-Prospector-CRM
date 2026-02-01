@@ -6,7 +6,8 @@ import {
   CheckCircle2, Loader2, X, CreditCard, Sparkles,
   Zap, Calendar, Crown, Plus, CheckCircle, Wallet,
   Fingerprint, Rocket, ShieldAlert, History, CreditCard as CardIcon,
-  FileText, Download, QrCode, Copy, RefreshCw, ChevronRight
+  FileText, Download, QrCode, Copy, RefreshCw, ChevronRight, Power,
+  Landmark, ArrowRight
 } from 'lucide-react';
 
 interface UserProfileProps {
@@ -16,12 +17,29 @@ interface UserProfileProps {
   notify: (msg: string) => void;
 }
 
-// Mock Data
+// Mock Data - Updated with Pending Invoice
 const MOCK_INVOICES = [
+  { id: 'inv_004', date: '01/11/2024', amount: 'R$ 397,00', status: 'PENDING', url: '#' },
   { id: 'inv_001', date: '01/10/2024', amount: 'R$ 397,00', status: 'PAID', url: '#' },
   { id: 'inv_002', date: '01/09/2024', amount: 'R$ 397,00', status: 'PAID', url: '#' },
-  { id: 'inv_003', date: '01/08/2024', amount: 'R$ 397,00', status: 'PAID', url: '#' },
 ];
+
+const AVAILABLE_PLANS = [
+  { id: 'starter', name: 'Starter', price: '97', features: ['1 Usuário', 'Kanban Básico'] },
+  { id: 'pro', name: 'Professional', price: '197', features: ['5 Usuários', 'Automação IA', 'Disparos'] },
+  { id: 'master', name: 'Master (Franquia)', price: '397', features: ['Multi-tenant', 'API Aberta', 'Gerente de Contas'] }
+];
+
+interface PaymentMethod {
+  id: string;
+  type: 'CARD' | 'PIX';
+  brand?: string; // mastercard, visa
+  last4?: string;
+  exp?: string;
+  holder?: string;
+  pixKey?: string; // For PIX type
+  isDefault: boolean;
+}
 
 export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onLogout, notify }) => {
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'subscription' | 'billing' | 'danger'>('profile');
@@ -33,11 +51,21 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onLogo
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
   const [isMfaModalOpen, setIsMfaModalOpen] = useState(false);
   
-  // Billing State
-  const [cards, setCards] = useState([
-    { id: '1', brand: 'mastercard', last4: '8812', exp: '08/29', holder: user.name.toUpperCase(), isDefault: true },
-    { id: '2', brand: 'visa', last4: '4242', exp: '12/26', holder: user.name.toUpperCase(), isDefault: false }
+  // Subscription State
+  const [planStatus, setPlanStatus] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
+  const [currentPlan, setCurrentPlan] = useState(AVAILABLE_PLANS[2]); // Default Master
+  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+
+  // Billing & Wallet State
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
+    { id: '1', type: 'CARD', brand: 'mastercard', last4: '8812', exp: '08/29', holder: user.name.toUpperCase(), isDefault: true },
+    { id: '2', type: 'CARD', brand: 'visa', last4: '4242', exp: '12/26', holder: user.name.toUpperCase(), isDefault: false }
   ]);
+  const [isAddMethodModalOpen, setIsAddMethodModalOpen] = useState(false);
+  const [newMethodType, setNewMethodType] = useState<'CARD' | 'PIX'>('CARD');
+  // New Method Form State
+  const [cardForm, setCardForm] = useState({ number: '', holder: '', exp: '', cvv: '' });
+  const [pixForm, setPixForm] = useState({ key: '' });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState(user.name);
@@ -99,31 +127,87 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onLogo
     notify('MFA Ativado! Sua conta agora está blindada.');
   };
 
-  const handleUpgrade = () => {
+  const handlePlanChange = (plan: typeof AVAILABLE_PLANS[0]) => {
     setIsLoading(true);
     setTimeout(() => {
-      setIsLoading(false);
-      notify('Solicitação enviada ao Gerente de Contas (Simulação).');
-    }, 1000);
+        setCurrentPlan(plan);
+        setPlanStatus('ACTIVE'); // Reactiva se mudar de plano
+        setIsLoading(false);
+        setIsPlanModalOpen(false);
+        notify(`Plano alterado para ${plan.name} com sucesso!`);
+    }, 1200);
+  };
+
+  const handleToggleStatus = () => {
+    const newStatus = planStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    setPlanStatus(newStatus);
+    notify(newStatus === 'ACTIVE' ? 'Assinatura Reativada!' : 'Assinatura Pausada/Inativa.');
   };
 
   const handleDownloadFile = (fileName: string) => {
-    notify(`Iniciando download de ${fileName}...`);
+    notify(`Gerando PDF do documento...`);
+    setTimeout(() => {
+        const content = "RECIBO DE PAGAMENTO\n\nEste documento comprova o pagamento do plano " + currentPlan.name + ".\n\nData: " + new Date().toLocaleDateString();
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', fileName);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        notify('Download concluído.');
+    }, 1500);
   };
 
-  const handleRemoveCard = (id: string) => {
-    if (cards.length === 1) {
-        notify('Erro: Você precisa ter pelo menos um cartão ativo.');
+  const handleRemoveMethod = (id: string) => {
+    if (paymentMethods.length === 1) {
+        notify('Erro: Você precisa ter pelo menos um método de pagamento ativo.');
         return;
     }
-    if (confirm('Remover este cartão?')) {
-        setCards(prev => prev.filter(c => c.id !== id));
+    if (confirm('Remover este método de pagamento?')) {
+        setPaymentMethods(prev => prev.filter(c => c.id !== id));
         notify('Método de pagamento removido.');
     }
   };
 
-  const handleAddCard = () => {
-    notify('Abrindo gateway seguro para adição de cartão...');
+  const handlePayInvoice = (invId: string) => {
+    notify('Processando pagamento...');
+    setTimeout(() => {
+        notify(`Fatura ${invId} paga com sucesso!`);
+        // In a real app, update state here.
+    }, 1500);
+  };
+
+  const handleSavePaymentMethod = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    
+    setTimeout(() => {
+      const newMethod: PaymentMethod = newMethodType === 'CARD' 
+        ? {
+            id: `card_${Date.now()}`,
+            type: 'CARD',
+            brand: 'visa', // Mock detection
+            last4: cardForm.number.slice(-4),
+            exp: cardForm.exp,
+            holder: cardForm.holder.toUpperCase(),
+            isDefault: false
+          }
+        : {
+            id: `pix_${Date.now()}`,
+            type: 'PIX',
+            pixKey: pixForm.key,
+            isDefault: false
+          };
+
+      setPaymentMethods([...paymentMethods, newMethod]);
+      setIsLoading(false);
+      setIsAddMethodModalOpen(false);
+      setCardForm({ number: '', holder: '', exp: '', cvv: '' });
+      setPixForm({ key: '' });
+      notify(newMethodType === 'CARD' ? 'Cartão adicionado à carteira!' : 'Chave Pix vinculada com sucesso!');
+    }, 1500);
   };
 
   const handleDeleteAccount = () => {
@@ -165,6 +249,126 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onLogo
         </div>
       )}
 
+      {/* PLAN SELECTION MODAL */}
+      {isPlanModalOpen && (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-xl animate-in fade-in">
+           <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-[3rem] p-10 border border-white/10 shadow-2xl relative overflow-hidden">
+              <button onClick={() => setIsPlanModalOpen(false)} className="absolute top-8 right-8 p-3 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-400 hover:text-rose-500 transition-all z-20"><X size={20}/></button>
+              
+              <div className="text-center mb-10 relative z-10">
+                 <h2 className="text-3xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white">Escolha sua Evolução</h2>
+                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-2">Alterar plano ou ciclo de faturamento</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
+                 {AVAILABLE_PLANS.map(plan => (
+                   <div key={plan.id} className={`p-6 rounded-[2.5rem] border-2 transition-all cursor-pointer flex flex-col relative overflow-hidden group ${currentPlan.id === plan.id ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/20' : 'border-slate-100 dark:border-slate-800 hover:border-indigo-300 bg-white dark:bg-slate-800'}`}>
+                      {currentPlan.id === plan.id && (
+                        <div className="absolute top-0 right-0 bg-indigo-500 text-white text-[8px] font-black uppercase px-3 py-1 rounded-bl-xl tracking-widest">Atual</div>
+                      )}
+                      <h3 className="text-xl font-black italic uppercase text-slate-800 dark:text-white mb-2">{plan.name}</h3>
+                      <div className="flex items-baseline gap-1 mb-6">
+                         <span className="text-sm font-bold text-slate-400">R$</span>
+                         <span className="text-4xl font-black text-indigo-600 dark:text-indigo-400 tracking-tighter">{plan.price}</span>
+                         <span className="text-[10px] font-bold text-slate-400">/mês</span>
+                      </div>
+                      <div className="space-y-3 mb-8 flex-1">
+                         {plan.features.map((feat, i) => (
+                           <div key={i} className="flex items-center gap-2 text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wide">
+                              <CheckCircle2 size={12} className="text-emerald-500" /> {feat}
+                           </div>
+                         ))}
+                      </div>
+                      <button 
+                        onClick={() => handlePlanChange(plan)}
+                        disabled={currentPlan.id === plan.id}
+                        className={`w-full py-4 rounded-xl font-black uppercase text-[9px] tracking-widest transition-all ${
+                          currentPlan.id === plan.id 
+                          ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 cursor-default' 
+                          : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg hover:shadow-indigo-500/30'
+                        }`}
+                      >
+                         {currentPlan.id === plan.id ? 'Plano Atual' : 'Selecionar'}
+                      </button>
+                   </div>
+                 ))}
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* ADD PAYMENT METHOD MODAL */}
+      {isAddMethodModalOpen && (
+        <div className="fixed inset-0 z-[260] flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-xl animate-in fade-in">
+           <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[2.5rem] p-10 border border-slate-200 dark:border-slate-800 shadow-2xl relative">
+              <button onClick={() => setIsAddMethodModalOpen(false)} className="absolute top-8 right-8 p-2 text-slate-400 hover:text-rose-500 transition-all"><X size={20}/></button>
+              
+              <div className="mb-8">
+                 <h3 className="text-2xl font-black italic uppercase tracking-tight text-slate-900 dark:text-white">Adicionar Método</h3>
+                 <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Escolha como prefere pagar sua assinatura</p>
+              </div>
+
+              {/* TABS SELECTION */}
+              <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl mb-8">
+                 <button 
+                   onClick={() => setNewMethodType('CARD')}
+                   className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${newMethodType === 'CARD' ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+                 >
+                    <CreditCard size={14} /> Cartão de Crédito
+                 </button>
+                 <button 
+                   onClick={() => setNewMethodType('PIX')}
+                   className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${newMethodType === 'PIX' ? 'bg-white dark:bg-slate-700 text-emerald-600 shadow-sm' : 'text-slate-400'}`}
+                 >
+                    <Zap size={14} /> Pix Recorrente
+                 </button>
+              </div>
+
+              <form onSubmit={handleSavePaymentMethod} className="space-y-6">
+                 {newMethodType === 'CARD' ? (
+                    <>
+                       <div className="space-y-2">
+                          <label className="text-[9px] font-black uppercase text-slate-400 px-3">Número do Cartão</label>
+                          <input required value={cardForm.number} onChange={e => setCardForm({...cardForm, number: e.target.value})} placeholder="0000 0000 0000 0000" className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold outline-none focus:ring-4 ring-indigo-500/10 dark:text-white" />
+                       </div>
+                       <div className="space-y-2">
+                          <label className="text-[9px] font-black uppercase text-slate-400 px-3">Nome no Cartão</label>
+                          <input required value={cardForm.holder} onChange={e => setCardForm({...cardForm, holder: e.target.value})} placeholder="COMO NO CARTÃO" className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold outline-none focus:ring-4 ring-indigo-500/10 dark:text-white uppercase" />
+                       </div>
+                       <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                             <label className="text-[9px] font-black uppercase text-slate-400 px-3">Validade</label>
+                             <input required value={cardForm.exp} onChange={e => setCardForm({...cardForm, exp: e.target.value})} placeholder="MM/AA" className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold outline-none focus:ring-4 ring-indigo-500/10 dark:text-white" />
+                          </div>
+                          <div className="space-y-2">
+                             <label className="text-[9px] font-black uppercase text-slate-400 px-3">CVV</label>
+                             <input required value={cardForm.cvv} onChange={e => setCardForm({...cardForm, cvv: e.target.value})} placeholder="123" className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold outline-none focus:ring-4 ring-indigo-500/10 dark:text-white" />
+                          </div>
+                       </div>
+                    </>
+                 ) : (
+                    <div className="space-y-6">
+                       <div className="p-6 bg-emerald-50 dark:bg-emerald-900/20 rounded-3xl border border-emerald-100 dark:border-emerald-800/50 text-center">
+                          <QrCode size={48} className="text-emerald-600 mx-auto mb-4" />
+                          <p className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wide leading-relaxed">
+                             Cadastre sua chave Pix para débito automático ou gere um QR Code mensalmente.
+                          </p>
+                       </div>
+                       <div className="space-y-2">
+                          <label className="text-[9px] font-black uppercase text-slate-400 px-3">Chave Pix (CPF/CNPJ/Email)</label>
+                          <input required value={pixForm.key} onChange={e => setPixForm({...pixForm, key: e.target.value})} placeholder="Sua chave aqui..." className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold outline-none focus:ring-4 ring-emerald-500/10 dark:text-white" />
+                       </div>
+                    </div>
+                 )}
+
+                 <button type="submit" disabled={isLoading} className={`w-full py-5 text-white font-black rounded-2xl uppercase text-[10px] tracking-widest shadow-lg transition-all ${newMethodType === 'CARD' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
+                    {isLoading ? 'Processando...' : (newMethodType === 'CARD' ? 'Salvar Cartão Seguro' : 'Vincular Pix')}
+                 </button>
+              </form>
+           </div>
+        </div>
+      )}
+
       {/* HEADER PERFIL */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 bg-white dark:bg-slate-900 p-8 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
@@ -185,7 +389,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onLogo
            <div className="space-y-1">
               <div className="flex items-center gap-3">
                 <h1 className="text-3xl md:text-4xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white">{user.name}</h1>
-                <div className="bg-blue-500 text-white rounded-full p-0.5"><CheckCircle2 size={16} fill="currentColor" className="text-white" /></div>
+                <CheckCircle2 size={20} fill="currentColor" className="text-white bg-blue-500 rounded-full" />
               </div>
               <div className="flex items-center gap-3">
                  <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[9px] font-black uppercase rounded-lg border border-indigo-100 dark:border-indigo-800 tracking-wider">
@@ -332,13 +536,23 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onLogo
                       <div>
                          <div className="flex items-center gap-3 mb-3">
                            <Crown className="text-yellow-400 drop-shadow-md" size={32} fill="currentColor" />
-                           <h4 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter">Plano Master</h4>
+                           <h4 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter">Plano {currentPlan.name}</h4>
+                           
+                           {/* STATUS BADGE & TOGGLE */}
+                           <div className="flex items-center gap-2">
+                              <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg ${planStatus === 'ACTIVE' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'}`}>
+                                 {planStatus === 'ACTIVE' ? 'Assinatura Ativa' : 'Inativo'}
+                              </span>
+                              <button onClick={handleToggleStatus} className="p-1.5 bg-white/10 rounded-full hover:bg-white/20 transition-all text-slate-300" title="Alternar Status (Simulação)">
+                                 <Power size={12} />
+                              </button>
+                           </div>
                          </div>
                          <p className="text-indigo-200 text-[11px] font-black uppercase tracking-[0.4em] bg-white/10 px-4 py-2 rounded-full inline-block backdrop-blur-md">Node de Operação Ilimitada</p>
                       </div>
                       
                       <div className="flex items-baseline gap-2">
-                         <span className="text-6xl font-black italic tracking-tighter tabular-nums">R$ 397</span>
+                         <span className="text-6xl font-black italic tracking-tighter tabular-nums">R$ {currentPlan.price}</span>
                          <span className="text-sm font-bold uppercase opacity-60">/ mês</span>
                       </div>
 
@@ -349,10 +563,13 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onLogo
                    </div>
 
                    <div className="flex flex-col gap-4 w-full md:w-auto min-w-[250px]">
-                      <button onClick={handleUpgrade} className="px-10 py-5 bg-white text-slate-900 font-black rounded-3xl text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-indigo-50 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3">
+                      <button onClick={() => setIsPlanModalOpen(true)} className="px-10 py-5 bg-white text-slate-900 font-black rounded-3xl text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-indigo-50 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3">
                          <Sparkles size={16} className="text-indigo-600" /> Fazer Upgrade
                       </button>
-                      <button onClick={() => handleDownloadFile('Contrato_SaaS_2024.pdf')} className="px-10 py-5 bg-white/5 text-white font-black rounded-3xl text-[10px] uppercase tracking-[0.2em] backdrop-blur-md border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center gap-3">
+                      <button onClick={() => setIsPlanModalOpen(true)} className="px-10 py-5 bg-white/10 text-white font-black rounded-3xl text-[10px] uppercase tracking-[0.2em] backdrop-blur-md border border-white/10 hover:bg-white/20 transition-all flex items-center justify-center gap-3">
+                         <RefreshCw size={16} /> Alterar Plano
+                      </button>
+                      <button onClick={() => handleDownloadFile('Contrato_SaaS_2024.pdf')} className="px-10 py-5 bg-white/5 text-white font-black rounded-3xl text-[10px] uppercase tracking-[0.2em] backdrop-blur-md border border-white/5 hover:bg-white/10 transition-all flex items-center justify-center gap-3">
                          <Download size={16} /> Contrato PDF
                       </button>
                    </div>
@@ -383,32 +600,38 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onLogo
           <div className="p-8 md:p-12 space-y-12 animate-in slide-in-from-bottom-4">
              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                 
-                {/* Meus Cartões */}
+                {/* Meus Métodos de Pagamento */}
                 <div className="space-y-6">
                    <div className="flex justify-between items-center">
                       <h4 className="text-xl font-black italic uppercase tracking-tight text-slate-800 dark:text-slate-100 flex items-center gap-3">
                          <Wallet size={20} className="text-emerald-600" /> Carteira
                       </h4>
-                      <button onClick={handleAddCard} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-emerald-500 hover:text-white transition-all text-slate-400">
+                      <button 
+                        onClick={() => setIsAddMethodModalOpen(true)} 
+                        className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-emerald-500 hover:text-white transition-all text-slate-400 shadow-sm"
+                        title="Adicionar Cartão ou Pix"
+                      >
                          <Plus size={18} />
                       </button>
                    </div>
 
                    <div className="space-y-4">
-                      {cards.map(card => (
-                        <div key={card.id} className="relative group overflow-hidden p-6 rounded-[2rem] bg-gradient-to-br from-slate-800 to-slate-950 text-white shadow-lg border border-slate-700">
+                      {paymentMethods.map(method => (
+                        <div key={method.id} className={`relative group overflow-hidden p-6 rounded-[2rem] text-white shadow-lg border border-transparent transition-all ${method.type === 'PIX' ? 'bg-gradient-to-br from-emerald-600 to-teal-800' : 'bg-gradient-to-br from-slate-800 to-slate-950 border-slate-700'}`}>
                            <div className="absolute top-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button onClick={() => handleRemoveCard(card.id)} className="p-2 bg-white/10 rounded-full hover:bg-rose-500/80 transition-colors"><Trash2 size={14}/></button>
+                              <button onClick={() => handleRemoveMethod(method.id)} className="p-2 bg-white/10 rounded-full hover:bg-rose-500/80 transition-colors"><Trash2 size={14}/></button>
                            </div>
                            <div className="flex justify-between items-start mb-8">
-                              <CardIcon size={32} className="text-slate-400" />
-                              {card.isDefault && <span className="bg-emerald-500/20 text-emerald-400 text-[8px] font-black uppercase px-3 py-1 rounded-full border border-emerald-500/30">Principal</span>}
+                              {method.type === 'PIX' ? <Zap size={32} className="text-emerald-200" /> : <CardIcon size={32} className="text-slate-400" />}
+                              {method.isDefault && <span className="bg-white/20 text-white text-[8px] font-black uppercase px-3 py-1 rounded-full backdrop-blur-sm">Principal</span>}
                            </div>
                            <div className="space-y-4">
-                              <p className="font-mono text-xl tracking-widest">•••• •••• •••• {card.last4}</p>
+                              <p className="font-mono text-xl tracking-widest">
+                                 {method.type === 'PIX' ? (method.pixKey || 'Chave Aleatória') : `•••• •••• •••• ${method.last4}`}
+                              </p>
                               <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                                 <span>{card.holder}</span>
-                                 <span>{card.exp}</span>
+                                 <span>{method.type === 'PIX' ? 'PIX AUTOMÁTICO' : method.holder}</span>
+                                 {method.type === 'CARD' && <span>{method.exp}</span>}
                               </div>
                            </div>
                         </div>
@@ -429,7 +652,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onLogo
                                   <th className="px-8 py-4">Data</th>
                                   <th className="px-8 py-4">Valor</th>
                                   <th className="px-8 py-4">Status</th>
-                                  <th className="px-8 py-4 text-right">PDF</th>
+                                  <th className="px-8 py-4 text-right">Ação</th>
                                </tr>
                             </thead>
                             <tbody className="text-xs font-bold text-slate-600 dark:text-slate-300">
@@ -438,10 +661,23 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onLogo
                                      <td className="px-8 py-5">{inv.date}</td>
                                      <td className="px-8 py-5">{inv.amount}</td>
                                      <td className="px-8 py-5">
-                                        <span className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 text-[8px] font-black px-2 py-1 rounded-md uppercase tracking-wide">Pago</span>
+                                        <span className={`text-[8px] font-black px-2 py-1 rounded-md uppercase tracking-wide ${
+                                            inv.status === 'PAID' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600' : 
+                                            'bg-orange-100 dark:bg-orange-900/30 text-orange-600'
+                                        }`}>
+                                            {inv.status === 'PAID' ? 'Pago' : 'Pendente'}
+                                        </span>
                                      </td>
                                      <td className="px-8 py-5 text-right">
-                                        <button onClick={() => handleDownloadFile(`Fatura_${inv.id}.pdf`)} className="text-indigo-500 hover:text-indigo-700 p-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-all"><Download size={16}/></button>
+                                        {inv.status === 'PAID' ? (
+                                            <button onClick={() => handleDownloadFile(`Fatura_${inv.id}.pdf`)} className="text-indigo-500 hover:text-indigo-700 p-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-all" title="Baixar PDF">
+                                                <Download size={16}/>
+                                            </button>
+                                        ) : (
+                                            <button onClick={() => handlePayInvoice(inv.id)} className="flex items-center gap-1 text-[8px] font-black bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-all uppercase tracking-wide ml-auto">
+                                                <CreditCard size={10} /> Pagar
+                                            </button>
+                                        )}
                                      </td>
                                   </tr>
                                ))}
